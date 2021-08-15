@@ -6,3 +6,4 @@
 *.dmp
 .ipynb_checkpoints
 core.*.*
+__pycache__
