@@ -5,7 +5,7 @@
 3. python 3, jupyter notebook
 4. linux_server, 从ida/dbgsrv目录中获取并放在物理机中, 配合ida的动态调试使用
 
-heap viewer如下, 可使用快捷键`ctrl+h`调出, 调出时需要程序处于挂起状态, 比如命中断点时.
+heap viewer如下, 可使用快捷键`ctrl+h`调出, 调出时需要程序处于挂起状态, 比如命中断点时. 在调试过程中, 可以在需要查看堆的状况时, 点击ida调试面板中的暂停按钮, 然后在heap viewer面板中点击reload刷新堆信息.
 
 <img alt="heap viewer" src="./pic/heapviewer.jpg" width="50%" height="50%">
 
@@ -27,6 +27,7 @@ ida debugger配置:
 <img alt="ida debugger config" src="./pic/ida_debugger_config.jpg" width="50%" height="50%">
 
 2. 在ida中运行程序(快捷键f9). 可先按f5得到反编译的伪代码并设置断点. 全局变量的值需要在程序中断挂起时才能看到. 这时也可在hex_view窗口中按f2修改内存中的数据.
+
 <img alt="ida modify memory" src="./pic/modify_memory.jpg" width="50%" height="50%">
 
 3. 对linux_server的输入输出流读写数据, 从而与目标程序进行交互.
@@ -64,6 +65,16 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 https://kabeor.cn/堆溢出-Glibc堆结构
 https://azeria-labs.com/heap-exploitation-part-2-glibc-heap-free-bins/
 https://heap-exploitation.dhavalkapil.com/
+
+## 指定.so文件路径
+若题目给定了单独的.so文件(如libc), 则要让程序加载之(而不是使用系统库文件).
+参考: https://www.cnblogs.com/ar-cheng/p/13225342.html
+
+方法一: 设置环境变量LD_LIBRARY_PATH. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
+方法二: 用patchelf给程序添加rpath:
+```bash
+patchelf --set-rpath '$ORIGIN/' <程序>
+```
 
 ## fcntl
 https://blog.csdn.net/martin_liang/article/details/8363251

@@ -5,7 +5,12 @@ import os, time
 linux_server = None
 
 # ida_linux_dbg_server/linux_server64 -i192.168.0.104 < res/ubuntu_share/pwn_test/p1 |xxd
-w_pipe = os.open('../p1', os.O_SYNC | os.O_CREAT | os.O_RDWR)
+try:
+    os.mkfifo('p1')
+except Exception:
+    pass
+finally:
+    w_pipe = os.open('p1', os.O_SYNC | os.O_CREAT | os.O_RDWR)
 
 def init_linux_server(path, params):
     global linux_server
@@ -57,10 +62,12 @@ def print_stdout(p=True):
             print(l)
     print("")
 
-def write_pipe(*strings, waittime=0):
+def write_pipe(*strings, waittime=0, end=''):
     for s in strings:
         if type(s) is not bytes:
-            s = bytes(str(s), 'utf-8')
+            s = bytes(str(s) + end, 'utf-8')
+        else:
+            s += bytes(end, 'utf-8')
         os.write(w_pipe, s)
         time.sleep(waittime)
 
@@ -83,7 +90,7 @@ def _flush():
 flush = FuncNoBrac(_flush)
 
 def send_line(s):
-    stdin_write(s)
+    stdin_write(s + '\n')
     print_stdout()
 
 def print_hex(data, per_cnt=0x10, start_offset=0x0, format="hex"):
@@ -102,3 +109,13 @@ def print_hex(data, per_cnt=0x10, start_offset=0x0, format="hex"):
             one_line += (chr(b) + ' ')
             
     print(one_line)
+
+def reverse_str(s, per=2):
+    s = s.replace(' ', '')
+    i = 0
+    s1 = []
+    for i, _ in enumerate(s):
+        if i % 2 == 1:
+            s1.insert(0, s[i-1 : i+1])
+    s1 = ''.join(s1)
+    return s1
