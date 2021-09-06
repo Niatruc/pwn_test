@@ -44,3 +44,9 @@ unlink:
   }                                                                    \
 }
 ```
+
+malloc_usable_size: 返回某个块中的可用字节数(`因为最小块大小和对齐的效果`, 这个大小可能比传给malloc的参数大). 常用于调试, 断言.
+```c
+p = malloc(n);
+assert(malloc_usable_size(p) >= 256);
+```

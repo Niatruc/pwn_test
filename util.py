@@ -4,7 +4,7 @@ import os, time
 
 linux_server = None
 
-# ida_linux_dbg_server/linux_server64 -i192.168.0.104 < res/ubuntu_share/pwn_test/p1 |xxd
+# ida_linux_dbg_server/linux_server64 -i192.168.0.104 < p1 |xxd
 try:
     os.mkfifo('p1')
 except Exception:

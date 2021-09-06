@@ -54,6 +54,14 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 
 <img alt="xxd" src="./pic/xxd.jpg" width="50%" height="50%">
 
+# 用vscode调试C++源码
+## 配置
+需要配置launch.json和tasks.json. 在tasks.json中配置`label`项, 填写task名；在launch.json中配置`preLaunchTask`项, 填写task名, 这样才能**在调试时命中断点**.
+
+<img alt="xxd" src="./pic/launch_json.jpg" width="50%" height="50%">
+
+<img alt="xxd" src="./pic/tasks_json.jpg" width="50%" height="50%">
+
 # 其他
 使用subprocess模块与另一个控制台进程通信, 参考: https://pymotw.com/2/subprocess/#interacting-with-another-command 
 
@@ -61,19 +69,30 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 
 解决pwn题目加载指定libc版本的问题 https://www.cnblogs.com/bhxdn/p/14541441.html
 
-堆溢出基础: 
-https://kabeor.cn/堆溢出-Glibc堆结构
-https://azeria-labs.com/heap-exploitation-part-2-glibc-heap-free-bins/
-https://heap-exploitation.dhavalkapil.com/
+## 下载不同版本的libc等库文件
+```sh
+git clone https://github.com/matrix1001/glibc-all-in-one
+cd glibc-all-in-one/
+
+# 下载可下载的版本清单
+python ./update_list
+
+# 下载
+./download <版本>
+```
 
 ## 指定.so文件路径
 若题目给定了单独的.so文件(如libc), 则要让程序加载之(而不是使用系统库文件).
 参考: https://www.cnblogs.com/ar-cheng/p/13225342.html
 
-方法一: 设置环境变量LD_LIBRARY_PATH. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
-方法二: 用patchelf给程序添加rpath:
+* 方法一: 设置环境变量LD_LIBRARY_PATH. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
+* 方法二: 用patchelf给程序添加rpath:
 ```bash
 patchelf --set-rpath '$ORIGIN/' <程序>
+```
+* 方法三: 在编译时指定rpath:
+```bash
+gcc heap.c -o heap_libc_2_23 -Wl,--rpath=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64 -Wl,--dynamic-linker=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64/ld-linux-x86-64.so.2
 ```
 
 ## fcntl

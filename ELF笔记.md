@@ -1,0 +1,2 @@
+# DT_DEBUG
+https://blog.csdn.net/weixin_30416493/article/details/116879798 通过got表第一项_DYNAMIC指向的地方的DT_DEBUG的值指向的结构体(其中的第二项r_map指向的结构体的第一项的值是ELF文件载入内存的偏移值), 在linux下获取模块基址. 实验发现, 开启了RELRO时got表的第一项是无效的, 该方法也没用了.
