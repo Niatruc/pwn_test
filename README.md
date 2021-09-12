@@ -1,4 +1,4 @@
-# 各堆漏洞原理概述
+# 各种堆漏洞原理概述
 1. 利用堆合并时的赋值操作(BK->fd = FD)改变特定地址(如, 保存堆块地址的地址).
     * [unsafe unlink 图解](./unsafe_unlink/笔记.md)
     * [double free 图解](./double_free/笔记.md)
@@ -12,4 +12,6 @@
 3. 篡改top块, 使得malloc返回任意可写地址.
     * [house of force 图解](./house/笔记.md#house-of-einherjar): 篡改top块的大小
     * [house of einherjar 图解](./house/笔记.md#house-of-botcake): 通过free时的合并操作引起top块的起始位置的改变.
+4. 利用free时对arena的元数据malloc_state中的fastbinY数组等的修改操作, 将目标位置的值改为free的块的地址.
+    * [house of mind fastbin 图解](./house/笔记.md#house-of-mind-fastbin)
 

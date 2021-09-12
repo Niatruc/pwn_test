@@ -1,3 +1,5 @@
+[https://elixir.bootlin.com/glibc/](https://elixir.bootlin.com/glibc/)
+
 prev_inuse: 检查**size**字段的最后一位, 如果是1则表明该块的前一块正在被使用.
 ```c
 /* extract inuse bit of previous chunk */
@@ -49,4 +51,17 @@ malloc_usable_size: 返回某个块中的可用字节数(`因为最小块大小�
 ```c
 p = malloc(n);
 assert(malloc_usable_size(p) >= 256);
+```
+
+# arena
+得到堆块所在堆的arena
+```c
+#define arena_for_chunk(ptr) \
+  (chunk_non_main_arena (ptr) ? heap_for_ptr (ptr)->ar_ptr : &main_arena)
+```
+
+得到堆块所在堆的heap_info
+```c
+#define heap_for_ptr(ptr) \
+  ((heap_info *) ((unsigned long) (ptr) & ~(HEAP_MAX_SIZE - 1)))
 ```
