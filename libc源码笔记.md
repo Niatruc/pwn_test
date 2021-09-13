@@ -65,3 +65,12 @@ assert(malloc_usable_size(p) >= 256);
 #define heap_for_ptr(ptr) \
   ((heap_info *) ((unsigned long) (ptr) & ~(HEAP_MAX_SIZE - 1)))
 ```
+
+# 一些宏
+## checked_request2size(req, sz)
+检查传给malloc的参数sz的合法性, 若合法则将sz进行对齐
+
+## bin_at(m, i)
+m是malloc_state, i是大于0的整数. 取bins[(i-1) * 2], 再减去fd在chunk中的偏移(`说明bins数组中存的是malloc返回的地址.`). 返回的值为`malloc_chunk*`类型.
+
+bins的每两个元素构成分别作为某条bins链的fd链和bk链, 所以这里返回的是`某条bins链的fd链`. 
