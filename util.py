@@ -93,6 +93,9 @@ def send_line(s):
     stdin_write(s + '\n')
     print_stdout()
 
+def send_line2(s):
+    write_pipe(s + '\n')
+
 def print_hex(data, per_cnt=0x10, start_offset=0x0, format="hex"):
     one_line = ""
     j = 0

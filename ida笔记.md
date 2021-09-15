@@ -1,3 +1,6 @@
+# 快捷键
+f2: 可用于编辑内存数据
+
 # 用pycharm调试ida
 参考: https://www.cnblogs.com/zknublx/p/7654757.html
 
