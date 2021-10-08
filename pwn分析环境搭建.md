@@ -62,6 +62,10 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 
 <img alt="xxd" src="./pic/tasks_json.jpg" width="50%" height="50%">
 
+## 调试
+按f5开始调试, f10单步执行.
+在debug console窗口中
+
 # 其他
 使用subprocess模块与另一个控制台进程通信, 参考: https://pymotw.com/2/subprocess/#interacting-with-another-command 
 
