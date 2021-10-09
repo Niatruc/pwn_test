@@ -130,7 +130,7 @@ $12 = 0x7fffffffe230
 
 `0x7ffff7a0e000`是libc基址, `0x3c5f38`是`environ`在libc中的地址.
 
-# gdb中遇到fork
+# gdb调试fork产生的程序
 如果调试的程序中有fork, 如下决定gdb将跟随哪个进程. gdb中默认设定是parent, gdb-peda则是child.
 
 ```sh
@@ -143,8 +143,8 @@ set follow-fork-mode child
 `info inferiors`: 列出fork进程号
 `inferior <fork号>`: 切到对应的fork进程
 
-# 可预测的RNG(随机数生成器)
-有时程序会有RNG生成的数字来指定地址, 如果RNG可预测, 这时可用python的`ctypes`调用DLL来模拟RNG, 得到一样的随机数. 假设目标程序如下:
+# 预测随机数
+有时程序会有RNG(随机数生成器)生成的数字来指定地址, 如果RNG可预测, 这时可用python的`ctypes`调用DLL来模拟RNG, 得到一样的随机数. 假设目标程序如下:
 ```c
 srand(time(NULL));
 while(addr <= 0x10000){
@@ -224,8 +224,8 @@ $ objdump -D a.out | grep "__stack_prot"
 # shellcode: 比如execve("/bin/sh", ["/bin/sh"], NULL)的机器码
 ```
 
-# one-gadget-RCE(remote code execution)
-`one-gadget`一般是`execve("/bin/sh",argv,envp)`这样一行代码. 用于替换`system`获取shell的方法, 尤其是当不能构造它的参数时. 只要劫持`.got.plt`表让某个函数跳到`one-gadget`即可. **libc中就有许多`one-gadget`**. 不过使用时有限制条件, 通常是要限制某些寄存器或地址为某值.<br>
+# one-gadget-RCE
+RCE即remote code execution.`one-gadget`一般是`execve("/bin/sh",argv,envp)`这样一行代码. 用于替换`system`获取shell的方法, 尤其是当不能构造它的参数时. 只要劫持`.got.plt`表让某个函数跳到`one-gadget`即可. **libc中就有许多`one-gadget`**. 不过使用时有限制条件, 通常是要限制某些寄存器或地址为某值.<br>
 可以使用一个有用的工具: (one-gadget)[https://github.com/david942j/one_gadget]
 ```sh
 $ one_gadget /lib/x86_64-linux-gnu/libc.so.6
@@ -279,7 +279,7 @@ int execveat(int dirfd, const char *pathname,
 # Ropgadgets
 引自[https://www.exploit-db.com/docs/english/28479-return-oriented-programming-(rop-ftw).pdf](https://www.exploit-db.com/docs/english/28479-return-oriented-programming-(rop-ftw).pdf)
 
-Ropgadgets主要有如下这些不同用途的类别:
+Ropgadgets主要有如下用途:
 * 将栈上的数值载入寄存器
     * pop eax; ret;
 * 从内存中读取数据到寄存器
