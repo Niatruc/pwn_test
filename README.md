@@ -23,6 +23,7 @@
 - [栈溢出](./stack_overflow/栈溢出笔记.md#ROP)
 
 # 经验-技巧
+- [用ida调试pwn题](./pwn分析环境搭建.md#ctf-pwn题目程序调试)
 - [可导致栈溢出的代码](./tips.md#可导致栈溢出的代码)
 - [用gdb找字符串](./tips.md#用gdb找字符串)
 - [为一个二进制程序开启一个服务](./tips.md#为一个二进制程序开启一个服务)
@@ -40,9 +41,12 @@
 
 # ctf pwn题预备工作
 - [ctf pwn题目程序调试](./pwn分析环境搭建.md#ctf-pwn题目程序调试)
-    - [使用python的subprocess模块发送和接收数据](./pwn分析环境搭建.md##方法一:使用python的subprocess模块)
-    - [通过管道发送和接收数据](./pwn分析环境搭建.md##方法二:使用管道)
+    - [使用python的subprocess模块发送和接收数据](./pwn分析环境搭建.md###方法一:-使用python的subprocess模块)
+    - [通过管道发送和接收数据](./pwn分析环境搭建.md###方法二:-使用管道)
+
 - [ida](./ida笔记.md)
+    - [用pycharm调试ida插件](./ida笔记.md#用pycharm调试ida插件)
+
 - [用vscode调试C++源码](./pwn分析环境搭建.md#用vscode调试C++源码)
     - [配置](./pwn分析环境搭建.md##配置)
     - [调试](./pwn分析环境搭建.md##调试)
