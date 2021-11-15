@@ -66,6 +66,30 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 按f5开始调试, f10单步执行.
 在debug console窗口中
 
+## 远程调试虚拟机中的程序
+* vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用ssh-keygen生成密钥文件, 并把pub文件改名为authorized_keys, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
+  ```
+    PermitRootLogin yes
+    RSAAuthentication yes
+    PubkeyAuthentication yes
+  ```
+
+  <img alt="xxd" src="./pic/vscode-ssh.png" width="50%" height="50%">
+* VM中安装ssh服务, 之后执行`/etc/init.d/ssh start`
+* VM中编译gdb及gdbserver(都在gdb源码目录中)
+* 在VM中启动gdbserver: `gdbserver 172.17.0.2:12345 ./test`
+* 在vscode中通过ssh打开docker容器中的目标程序目录, 之后`run->start debugging`, 会先在目标目录下新建一个`.vscode`目录, 并新增一个`launch.json`文件. 手动设置`program`和`miDebuggerServerAddress`项. 最后打开VM中的程序源代码, 打上断点, 即可开始调试.
+* 出现找不到源文件的问题(如`../sysdeps/unix/sysv/linux/raise.c: No such file or directory.`):
+  * 先确保`/etc/apt/sources.list`文件中有`deb-src`行, 没有的话添加并执行`apt update`. 确保已经安装`dpkg-dev`. 之后cd到要保存源代码的目录并执行`apt source libc6`.
+  * 若是在gdb中调试, 先`info source`查看源码路径, 如下图中提示`Compilation directory is ./signal`, 则`set substitute-path . /src/glibc-2.31/`设置libc的源码路径 
+
+    <img alt="xxd" src="./pic/gdb_set_constitude_path.png" width="50%" height="50%">
+
+  * 若是在vscode中, 可改`launch.json`中的`cwd`项为libc源码路径.
+
+    <img alt="xxd" src="./pic/vscode_gdb_remote_cfg.png" width="70%" height="70%">
+
+
 # 其他
 使用subprocess模块与另一个控制台进程通信, 参考: https://pymotw.com/2/subprocess/#interacting-with-another-command 
 
@@ -126,3 +150,8 @@ https://blog.csdn.net/martin_liang/article/details/8363251
 
   fcntl(fd,F_SETFL,flags);
 
+## GDB
+源码: [http://ftp.gnu.org/gnu/gdb](http://ftp.gnu.org/gnu/gdb)
+
+* 安装过程中可能会更新系统自带的python, 导致与原有gdb使用的python不同, 会造成不少问题. 需要在更新python后, 使用gdb的源码重新编译和构建gdb.
+* 安装过程中会自动下载相关pip包, 可以先按[https://www.runoob.com/w3cnote/pip-cn-mirror.html](https://www.runoob.com/w3cnote/pip-cn-mirror.html)设置指定默认的pip源.

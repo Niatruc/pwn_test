@@ -13,7 +13,7 @@ E:\zbh\disasm\IDA7_5\Python38\python.exe E:\zbh\disasm\IDA7_5\Python38\Scripts\e
 
     <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg.jpg" width="70%" height="70%">
 
-3. 在要调试的文件中插入如下代码, 之后设置好断点:
+3. 在要调试的文件中插入如下代码, **在需要中断的地方的前面都需要插入`pydevd_pycharm.settrace`这行代码,** **可以把这行代码视为断点**.
 ```py
 import pydevd_pycharm
 pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToServer=True)
@@ -32,6 +32,25 @@ pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToSe
 这是在导入文件时报的错. 可执行文件中有.plt.sec节, 且
 
 # IDAPython
+注: 
+* 从7.4开始使用的是python3.
+* [接口变化](https://hex-rays.com/products/ida/support/ida74_idapython_no_bc695_porting_guide.shtml)
+
+官方文档: [https://hex-rays.com/products/ida/support/idapython_docs/](https://hex-rays.com/products/ida/support/idapython_docs/)
+
+
+
 ```py
 
 ```
+
+# 一些插件
+**[ipyida](https://github.com/eset/ipyida)**
+
+快捷键`shift+.`调出窗口, 或`ipython console --existing`在ida外打开.
+
+<img alt="ipyida.jpg" src="./pic/ipyida.jpg" width="50%" height="50%">
+
+# GDB
+## 进入gdb后使用的命令
+远程调试: `target remote 172.17.0.2:12345`
