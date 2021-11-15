@@ -7,3 +7,7 @@
 .ipynb_checkpoints
 core.*.*
 __pycache__
+input
+output
+sync
+cve
