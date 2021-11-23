@@ -64,7 +64,7 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 
 ## 调试
 按f5开始调试, f10单步执行.
-在debug console窗口中
+在debug console窗口中, 若要执行gdb的命令, 需要先加上`-exec`
 
 ## 远程调试虚拟机中的程序
 * vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用ssh-keygen生成密钥文件, 并把pub文件改名为authorized_keys, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
@@ -149,9 +149,3 @@ https://blog.csdn.net/martin_liang/article/details/8363251
   flags &= ~O_NONBLOCK;
 
   fcntl(fd,F_SETFL,flags);
-
-## GDB
-源码: [http://ftp.gnu.org/gnu/gdb](http://ftp.gnu.org/gnu/gdb)
-
-* 安装过程中可能会更新系统自带的python, 导致与原有gdb使用的python不同, 会造成不少问题. 需要在更新python后, 使用gdb的源码重新编译和构建gdb.
-* 安装过程中会自动下载相关pip包, 可以先按[https://www.runoob.com/w3cnote/pip-cn-mirror.html](https://www.runoob.com/w3cnote/pip-cn-mirror.html)设置指定默认的pip源.

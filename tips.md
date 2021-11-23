@@ -8,6 +8,16 @@
 内存hack(读写其他进程的内存):
 通过读写/proc/<pid>/mem: [https://medium.com/@holdengrissett/linux-101-how-to-hack-your-process-memory-2514a3d0778d](https://medium.com/@holdengrissett/linux-101-how-to-hack-your-process-memory-2514a3d0778d)
 
+# 格式化字符串漏洞
+* 给`buf`赋值一个带格式符的字符串, 则可以泄漏栈上数据.
+    ```c
+    printf(buf)
+    ```
+* `%n`会获得前面字符串的字符个数, 赋值给`len`变量. 如果后面有流程(如判断)用到`len`, 则可间接控制流程.
+    ```c
+    printf("%s%n", &len)
+    ```
+
 # 可导致栈溢出的代码
 假设有`char buf[40]`, `signed int num`, `char buf2[60]`
 1. `scanf("%s", buf)`, 无边界检查, 可溢出.
@@ -61,16 +71,16 @@ Found 2 results, display max 2 items:
 # 为一个二进制程序开启一个服务
 
 ```sh
-    ncat -vc ./binary -kl 127.0.0.1 $port
+ncat -vc ./binary -kl 127.0.0.1 $port
 ```
 两种方法指定库:
 ```sh
-    ncat -vc 'LD_PRELOAD=/path/to/libc.so ./binary' -kl 127.0.0.1 $port
-    ncat -vc 'LD_LIBRARY_PATH=/path/of/libc.so ./binary' -kl 127.0.0.1 $port
+ncat -vc 'LD_PRELOAD=/path/to/libc.so ./binary' -kl 127.0.0.1 $port
+ncat -vc 'LD_LIBRARY_PATH=/path/of/libc.so ./binary' -kl 127.0.0.1 $port
 ```
 之后连接到该服务:
 ```sh
-    nc localhost $port
+nc localhost $port
 ```
 
 # 在libc中找函数
