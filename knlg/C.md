@@ -76,3 +76,5 @@ struct a {
 * 栈大小: 
     *Windows: 应用栈默认1M(可用编译指令`/stack`指定). 内核栈: 12K(x86), 24K(x64)
     * Linux: 应用栈10M(`ulimit -s`查看或设置). 内核栈4K或8K
+
+# 
