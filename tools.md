@@ -65,6 +65,7 @@ pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToSe
     * b(1字节), h(2字节), w(4字节), g(8字节)
 * 打断点: 
     * `b main.c:377`, 377表示源文件中的行号.
+    * 内存断点: watch(写), rwatch(读写, awatch(读写): `watch `
 
 # Cling
 一个基于LLVM的C++解释器.
