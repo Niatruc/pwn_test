@@ -1,0 +1,26 @@
+# CMake generation dependency list for this directory.
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeCInformation.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeCXXInformation.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeCommonLanguageInclude.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeGenericSystem.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeInitializeConfigs.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeLanguageInformation.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeRCInformation.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeSystemSpecificInformation.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/CMakeSystemSpecificInitialize.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Compiler/MSVC-C.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Compiler/MSVC-CXX.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/FindPackageHandleStandardArgs.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/FindPackageMessage.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Platform/Windows-MSVC-C.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Platform/Windows-MSVC-CXX.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Platform/Windows-MSVC.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Platform/Windows.cmake
+D:/cmake-3.22.1-windows-x86_64/share/cmake-3.22/Modules/Platform/WindowsPaths.cmake
+D:/mystudy/security/pwn/pwn_test/win_krnl/cmake/FindWdk.cmake
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/CMakeLists.txt
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/3.22.1/CMakeCCompiler.cmake
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/3.22.1/CMakeCXXCompiler.cmake
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/3.22.1/CMakeRCCompiler.cmake
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/3.22.1/CMakeSystem.cmake
