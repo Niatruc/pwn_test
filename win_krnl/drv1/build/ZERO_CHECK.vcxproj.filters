@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\mystudy\security\pwn\pwn_test\win_krnl\drv1\build\CMakeFiles\4f527c121d9f5f526e3b0c21c768cac3\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{53BD858B-BD30-3B5B-A4B8-F3D281C902DB}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
