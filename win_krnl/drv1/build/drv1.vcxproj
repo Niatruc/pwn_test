@@ -146,6 +146,7 @@
       <AdditionalOptions>%(AdditionalOptions) /kernel</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <CallingConvention>StdCall</CallingConvention>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
       <ForcedIncludeFiles>warning.h;D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/wdkflags.h</ForcedIncludeFiles>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -161,8 +162,6 @@
       <WarningLevel>Level4</WarningLevel>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WINNT=1;_WIN64;_AMD64_;AMD64;_WIN32_WINNT=0x0601;UNICODE;_UNICODE;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
-      <DebugInformationFormat>
-      </DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;WINNT=1;_WIN64;_AMD64_;AMD64;_WIN32_WINNT=0x0601;UNICODE;_UNICODE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
