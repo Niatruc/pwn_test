@@ -1,0 +1,34 @@
+[main] Building folder: instDrv instDrv
+[main] The folder containing the CMake cache is missing. The cache will be regenerated.
+[main] Configuring folder: instDrv 
+[proc] Executing command: D:\cmake-3.22.1-windows-x86_64\bin\cmake.EXE --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -Hd:/mystudy/security/pwn/pwn_test/win_krnl/instDrv -Bd:/mystudy/security/pwn/pwn_test/win_krnl/instDrv/build -G "Visual Studio 17 2022" -T host=x86 -A x64
+[cmake] Not searching for unused variables given on the command line.
+[cmake] -- Selecting Windows SDK version 10.0.19041.0 to target Windows 10.0.19043.
+[cmake] -- The C compiler identification is MSVC 19.30.30706.0
+[cmake] -- The CXX compiler identification is MSVC 19.30.30706.0
+[cmake] -- Detecting C compiler ABI info
+[cmake] -- Detecting C compiler ABI info - done
+[cmake] -- Check for working C compiler: D:/vs_tools/VC/Tools/MSVC/14.30.30705/bin/Hostx86/x64/cl.exe - skipped
+[cmake] -- Detecting C compile features
+[cmake] -- Detecting C compile features - done
+[cmake] -- Detecting CXX compiler ABI info
+[cmake] -- Detecting CXX compiler ABI info - done
+[cmake] -- Check for working CXX compiler: D:/vs_tools/VC/Tools/MSVC/14.30.30705/bin/Hostx86/x64/cl.exe - skipped
+[cmake] -- Detecting CXX compile features
+[cmake] -- Detecting CXX compile features - done
+[cmake] -- Configuring done
+[cmake] -- Generating done
+[cmake] -- Build files have been written to: D:/mystudy/security/pwn/pwn_test/win_krnl/instDrv/build
+[kit] Patch Windows SDK bin path from C:\Program Files (x86)\Windows Kits\10\bin\x86 to C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x86 for D:\vs_tools\VC\Auxiliary\Build\vcvarsall.bat
+[build] Starting build
+[proc] Executing command: D:\cmake-3.22.1-windows-x86_64\bin\cmake.EXE --build d:/mystudy/security/pwn/pwn_test/win_krnl/instDrv/build --config Debug --target instDrv -j 6 --
+[build] 用于 .NET Framework 的 Microsoft (R) 生成引擎版本 17.0.0+c9eb9dd64
+[build] 版权所有(C) Microsoft Corporation。保留所有权利。
+[build] 
+[build]   Checking Build System
+[build]   Building Custom Rule D:/mystudy/security/pwn/pwn_test/win_krnl/instDrv/CMakeLists.txt
+[build]   main.cpp
+[build] D:\mystudy\security\pwn\pwn_test\win_krnl\instDrv\main.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失 [D:\mystudy\security\pwn\pwn_test\win_krnl\instDrv\build\instDrv.vcxproj]
+[build] D:\mystudy\security\pwn\pwn_test\win_krnl\instDrv\main.cpp(247,81): warning C4267: “参数”: 从“size_t”转换到“DWORD”，可能丢失数据 [D:\mystudy\security\pwn\pwn_test\win_krnl\instDrv\build\instDrv.vcxproj]
+[build]   instDrv.vcxproj -> D:\mystudy\security\pwn\pwn_test\win_krnl\instDrv\build\Debug\instDrv.exe
+[build] Build finished with exit code 0

@@ -2,7 +2,7 @@
 
 // 定义设备对象名称, 符号链接名称
 #define DEV_NAME L"\\device\\drv1"
-#define LINK_NAME L"\\dosdevice\\drv1"
+#define LINK_NAME L"\\dosdevices\\drv1"
 
 #define IOCTRL_BASE 0x8000
 #define MYIOCTRL_CODE(i) CTL_CODE(FILE_DEVICE_UNKNOWN, IOCTRL_BASE + i, METHOD_BUFFERED, FILE_ANY_ACCESS)

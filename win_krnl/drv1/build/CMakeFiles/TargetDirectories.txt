@@ -1,3 +1,4 @@
 D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/drv1.dir
+D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/mfc2.dir
 D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/ALL_BUILD.dir
 D:/mystudy/security/pwn/pwn_test/win_krnl/drv1/build/CMakeFiles/ZERO_CHECK.dir
