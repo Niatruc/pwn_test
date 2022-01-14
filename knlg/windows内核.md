@@ -23,21 +23,23 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * vs2019
     * 添加设备(即目标虚拟机).
     
-        <img alt="" src="./pic/vs_device_config.png" width="80%" height="80%">
+        <img alt="" src="./pic/vs_device_config.png" width="50%" height="50%">
 
     * 附加到进程, 然后按暂停键. 
 
-        <img alt="" src="./pic/vs_attach_proc.png" width="60%" height="60%">
-        <img alt="" src="./pic/vs_windbg.png" width="80%" height="80%">
+        <img alt="" src="./pic/vs_attach_proc.png" width="40%" height="40%">
+
+        <img alt="" src="./pic/vs_windbg.png" width="60%" height="60%">
     
     * 可在驱动的源码中打断点. 之后在虚拟机中用`instdrv`启动驱动程序, 则程序将中断.
 
-        <img alt="" src="./pic/vs_drv_debug.png" width="80%" height="80%">
+        <img alt="" src="./pic/vs_drv_debug.png" width="50%" height="50%">
 
 * windbg
     * `File->Kernel Debugging->COM`, 如下图配置.
 
-        <img alt="" src="./pic/windbg_krnldbg.png" width="80%" height="80%">
+        <img alt="" src="./pic/windbg_krnldbg.png" width="60%" height="60%">
+
     * 配置符号, `File -> Symbol File Path`, 填写: `<自己写的驱动编译后产生的pdb文件的路径>;srv*D:\win_symbols*http://msdl.microsoft.com/download/symbols`. 其他符号链接: http://sym.ax2401.com:9999/symbols
 
 * vscode(替代visual studio)
@@ -58,10 +60,10 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 # NT驱动框架
 * 驱动调用流程: 
 
-    <img alt="" src="./pic/winkrnl_call.jpg" width="80%" height="80%">
+    <img alt="" src="./pic/winkrnl_call.jpg" width="40%" height="40%">
 * 驱动框架: R3操作一个文件: create -> read/write/deviceiocontrol -> clean -> close
 
-    <img alt="" src="./pic/win_drv_frm.jpg" width="80%" height="80%">
+    <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
 * 驱动运行流程
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
@@ -378,7 +380,7 @@ uStr.MaximumLength = sizeof(sz);
     * EBR(Extended Boot Record): 扩展分区的每个逻辑驱动器的类似MBR的引导记录.
     * LBA(logical block address 32位): 一个扇区512字节(2^9), 最大支持分区: 2^32 * 2^9 = 2T
 
-        <img alt="" src="./pic/mbr.jpg" width="80%" height="80%">
+        <img alt="" src="./pic/mbr.jpg" width="40%" height="40%">
 
 * UEFI(Unified Extensible Firmware Interface, 统一的可扩展固件接口)和GPT
     * LBA(64位), 分区数量无限制, MS128个分区.
@@ -388,7 +390,7 @@ uStr.MaximumLength = sizeof(sz);
     * SecureBoot(防恶意软件): 主板出厂的时候, 可内置一些可靠的公钥. 任何要在这块主板上加载的操作系统或硬件驱动, 都要用对应的私钥签署过.
 
 
-        <img alt="" src="./pic/uefi.jpg" width="40%" height="40%">
+        <img alt="" src="./pic/uefi.jpg" width="20%" height="20%">
 
 # 注册表
 * 路径
@@ -927,7 +929,7 @@ uStr.MaximumLength = sizeof(sz);
 * shadow ssdt: 多为和图形相关的函数
     * 窗口保护
 
-        <img alt="" src="./pic/shadow_ssdt_protect_window.jpg" width="60%" height="60%">
+        <img alt="" src="./pic/shadow_ssdt_protect_window.jpg" width="40%" height="40%">
 
     * 安全输入(2:54)
         * `NtUserSendInput`: 模拟按键
@@ -940,7 +942,7 @@ uStr.MaximumLength = sizeof(sz);
         * 获取shadow表地址
             * 用硬编码: 它和ssdt表挨着, `KeServiceDescriptorTable - 0x40 + 0x10` (winxp), `KeServiceDescriptorTable + 0x40 + 0x10` (winxp)
 
-                <img alt="" src="./pic/shadow_ssdt.jpg" width="90%" height="90%">
+                <img alt="" src="./pic/shadow_ssdt.jpg" width="40%" height="40%">
 
             * 注: 可用`dd`或`dps`指令查看`KeServiceDescriptorTable`和`KeServiceDescriptorTableShadow`. 这两个表每一项的长度都是16个字节(前4个字节是对应的`服务表`的基址), 且它们的第一项相同, 都是`KiServiceTable`(即所谓ssdt表)的信息. 而`KeServiceDescriptorTableShadow`表的第二项则是`win32k`表的相关信息.
 
@@ -955,7 +957,7 @@ uStr.MaximumLength = sizeof(sz);
 
 * inline hook
 
-    <img alt="" src="./pic/inline_hook.jpg" width="60%" height="60%">
+    <img alt="" src="./pic/inline_hook.jpg" width="30%" height="30%">
 
     * 步骤
         * 获得要inline hook的函数在内存中的地址
