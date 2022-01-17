@@ -504,7 +504,7 @@ uStr.MaximumLength = sizeof(sz);
 
                 // 内核中创建自命名事件则如下
                 RtlInitUnicodeString(&EventName, L"\\BaseNamedObjects\\ProcEvent");
-                PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle);
+                PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle); // 生成的事件的句柄放到Handle中
                 KeClearEvent(Event);
 
                 // 触发事件
@@ -891,6 +891,7 @@ uStr.MaximumLength = sizeof(sz);
     ```
     * 应用
         * 监控进程创建: `NtCreateSection`.
+            * 其最后一个参数是进程的文件handle, 使用`ObReferenceObjectByHandle`得到fileObject, 再使用`IoQueryFileDosDeviceName`得到完整文件路径.
         * 进程保护: `NtTerminateProcess`, `NtOpeneProcess`.
         * 驱动加载监控: 
             * `NtLoadDriver`
@@ -972,6 +973,124 @@ uStr.MaximumLength = sizeof(sz);
 * idt
 * object
 * r3
+    * dll开发和劫持
+        * win32系统保证内存只有一份dll. 其先被调入win32系统的全局堆. 通过文件映射, 给多个进程使用.
+        * 工程生成的文件
+            * dll文件: 包含实际的函数和数据
+            * lib文件: 包含被dll导出的函数的名称和位置. exe程序可使用之链接到dll文件.
+        * 调用dll
+            * 隐式链接(可直接调用函数)
+                * 把dll文件拷贝到exe的目录下
+                * `#include "myDll.h"`
+                * `#pragma comment(lib, "myDll.lib")`
+            * 显式链接
+                * 定义函数指针类型: `typedef int (*MYFUNC)(void);`
+                * `HMODULE hMod = LoadLibrary(_T("myDll.dll"));`
+                * `if(hMod) {MYFUNC myFunc = (MYFUNC)GetProcess(hMod, "fnMyFunc"); myFunc();}`
+                * 注意  
+                    * 如果dll是cpp编译, 注意name mangling(c++为支持函数重载, 会该函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
+                    * `LoadLibrary`使用的是相对路径, windows会按一定顺序找目录, 有劫持漏洞. 
+                        * 搜索顺序: 
+                            * 程序所在目录
+                            * **加载dll时所在当前目录**
+                            * system32
+                            * windows
+                            * PATH环境变量中目录
+                        * 可构造一个同名dll, 执行恶意代码后再执行原始代码. 可用于提权(绕过UAC).
+                        * 防范
+                            * 启用安全DLL查找模式: 设置`HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\SafeDllSearchMode`, 会把"加载dll时所在当前目录"的搜索优先级降到第4.
+                            * 规定只能在system32中加载的dll: `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs`. 但`ExcludeFromKnownDlls`可排除部分DLL, 不从system32加载.
+                            * 使用绝对路径
+                            * 白名单, 签名
+                            * `SetDllDirectory()`把当前目录从搜索范围内去掉. 打KB2533623补丁的系统才可用.
+    * 全局钩子
+        * 用`SetWindowsHookEx`监控一些消息
+            * `HHOOK SetWindowsHookEx( int idHook, HOOKPROC lpfn,HINSTANCEhMod,DWORD dwThreadId );` 参数: 钩子类型, 回调函数, 包含lpfn的实例句柄, 线程ID(0则监控所有线程)
+                * 钩子类型
+                    * WH_CALLWNDPROC和WH_CALLWNDPROCRET: 
+                    * WH_DEBUG: 
+                    * WH_KEYBOARD_LL: 低级键盘钩子, 在系统处理前处理
+                    * WH_KEYBOARD: 在系统处理后处理
+                    * WH_MOUSE_LL: 
+                    * WH_KEYBOARD: 
+                    * 其他
+                * 回调函数原型: `LRESULT CALLBACK ShellProc( int nCode, WPARAM wParam,LPARAMlParam );`
+                * 回调函数处理完消息后, 用`CallNextHookEx(g_Hook, nCode, wParam, lParam);` `g_hook`是前面`SetWindowsHookEx`的返回值
+                * 代码
+                ```cpp
+                #include "stdafx.h"
+                #include<iostream>
+                #include<windows.h>
+                using namespace std;
+
+                HHOOK g_Hook;
+                LRESULT CALLBACK LowLevelKeyboardProc(INT nCode, WPARAM wParam, LPARAM lParam)
+                {
+                    KBDLLHOOKSTRUCT *pkbhs = (KBDLLHOOKSTRUCT *)lParam;
+                    BOOL bControlKeyDown = 0;
+                    
+                    switch (nCode)
+                    {
+                    case HC_ACTION:
+                        {
+                            // Check to see if the CTRL key is pressed
+                            bControlKeyDown = GetAsyncKeyState (VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
+
+                            //Disable CTRL+ESC
+                            if (pkbhs->vkCode == VK_ESCAPE && bControlKeyDown)
+                                return 1;
+                            if(wParam == WM_KEYUP)
+                                printf("%c", pkbhs->vkCode);
+
+                            break;
+                        }
+                    }
+                    return CallNextHookEx(g_Hook, nCode, wParam, lParam); 
+                }
+
+
+                int _tmain(int argc, _TCHAR* argv[])
+                {
+                    MSG msg;
+                    g_Hook=(HHOOK)SetWindowsHookEx(WH_KEYBOARD_LL,
+                        (HOOKPROC)LowLevelKeyboardProc, GetModuleHandleW(0),0); 
+                    while(GetMessageW(&msg,0,0,0))DispatchMessageW(&msg);
+                    return 0;
+                }
+                ```
+            * 防护
+                * shadow ssdt中的`NtUserSetWindowsHookEx`
+    * dll注入 
+        * 示例: Robert Kuster的libspy, hookspy, winspy
+        * PE共享节, 其中变量可供进程的多个实例访问. 可在不同数据间传数据.
+            ```cpp
+            #pragma data_seg(".shared")
+            ULONG g_ulNum;
+            #pragma data_seg()
+            #pragma comment(linker, "/SECTION:.shared,RWS")
+            ```
+        * 强制目标进程调用`LoadLibrary`, 载入目标dll
+        * 直接注入dll: 
+            * `OpenProcess`打开目标进程
+            * 获取待注入的dll路径, 在目标进程内分配一块内存(`VirtualAllocateEx`), 将路径拷贝到该内存中
+            * 获取kernel32中的`LoadLibraryA`地址
+            * 调用`CreateRemoteThread`, 在目标进程中执行`LoadLibrary`及dll动作
+            * DllMain执行(hook, 拷贝一些进程数据)
+            * 释放分配的目标进程内存
+            * 获取kernel32中`FreeLibrary`地址
+            * 调用`CreateRemoteThread`, 在目标进程中执行`FreeLibrary`及dll动作
+        * 通过memload注入dll
+            * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain
+        * 通过驱动注入
+    * r3跨进程hook
+        * 现有引擎: nthookengine, mhook, Detour(微软的)
+        * 总体流程
+            * 一个dll文件, 调用hook引擎hook目标api
+            * 一个hooker(监控软件)负责把dll文件注入到目标进程
+            * 一个hookee程序, 获得其pid并被hooker成功打开, 被hooker注入dll
+        * r3为什么需要dll注入才能hook其它进程
+            * r3进程是私有地址空间, 在自己进程hook了api, 无法影响其它进程中的api.
+
 
 # 错误记录
 * vs构建wdm项目时出现`Device driver does not install on any devices, use primitive driver if this is intended`
