@@ -100,11 +100,13 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * MY_CODE_1: 生成的IRP的MinorFunction
             * DeviceType: 设备对象的类型.
             * Function: 自定义的IO控制码, 取0x800到0xFFF. (0x0到0x7FF为微软保留)
-            * Method: 数据的操作模式. 
-                * `METHOD_BUFFERED`: 缓冲区模式(用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲)
-                * `METHOD_IN_DIRECT`: 直接写模式
-                * `METHOD_OUT_DIRECT`: 直接读模式
-                * `METHOD_NEITHER`: Neither模式
+            * Method: 数据的操作模式(`DeviceObject->Flags`域)
+                * `METHOD_BUFFERED`: 缓冲区模式. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
+                    * IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
+                * 通过内存描述元列表(MDL, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个 MDL 列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO 管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
+                    * `METHOD_IN_DIRECT`: 直接写模式. IO 管理器读取上述缓冲区给驱动去读. 
+                    * `METHOD_OUT_DIRECT`: 直接读模式. IO 管理器获取上述缓冲区给驱动去写.
+                * `METHOD_NEITHER`: Neither模式. 通过用户模式的指针访问用户数据. `irpStack->Parameters.DeviceIoControl.Type3InputBuffer` 为输入缓冲区的地址. `pIrp->UserBuffer` 为输出缓冲区地址. 因为这个缓冲区在用户地址空间上, 驱动程序必须在用之前使相应的地址合法化. 驱动程序在 try/except 块里调用 `ProbeForRead` 或者 `ProbeForWrite` 函数来合法化特定的指针. 驱动还必须完全在 try/except块里处理所有对这一缓冲区的访问. 另外, 驱动还必须在应用数据之前将它拷贝到池或堆栈里一个安全的内核模式地址. 将数据拷贝到内核模式缓冲区确保了用户模式的调用者不会在驱动已经合法化数据之后再修改它. 
                 * 更多关于通信: https://www.cnblogs.com/lsh123/p/7354573.html
             * Access: 访问权限, 可取值有: 
                 * `FILE_ANY_ACCESS`: 表明用户拥有所有的权限
@@ -113,16 +115,26 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             
 * DriverUnload: 要清除设备对象(`IoDeleteDevice`).
 * 驱动函数分类
-    * ExXxx: Excute
-    * IoXxx: IO
+    * ExXxx: Executive, 管理层
     * KeXxx: Kernel
+    * HALXxx: Hardware Abstraction Layer, 硬件抽象层
+    * IoXxx: IO
     * MmXxx: Memory
     * ObXxx: Object
     * PsXxx: Process
+    * FsXxx: File System
+    * SeXxx: Security
+    * CcXxx: Cache, 文件缓存管理
+    * CmXxx: Configuration Manager, 系统配置管理
+    * PpXxx: PnP, 即插即用管理
     * RtlXxx: Runtime Library
     * ZwXxx: 和NtXxx一样, 不过在内核编程中调用的都是ZwXxx. ZwXxx会先将Previous Mode设置为Kernel Mode, 再调用相应的NtXxx.
     * FltXxx: MiniFilter框架
     * NdisXxx: Ndis框架
+    * 部分常用函数(引用自《windows内核安全与驱动开发》)
+
+        <img alt="" src="./pic/nt_funcs.png" width="60%" height="60%">
+
 * 在R0中可用和不可用的函数
     * 不可用: `printf, scanf, fopen, fclose, fwrite, fread, malloc, free`
     * 可用: `sprintf, strlen, strcpy, wcslen(返回宽字符串中的字符数), wcscpy, memcpy, memset`
@@ -143,19 +155,36 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `pDeviceObject->DriverUnload = ...`
 
 * 内核漏洞产生原因
-    * 不要使用 `MmIsAddressValid` 函数, 这个函数对于校验内存结果是不可靠的.
-    * 在 `try_except` 内完成对于用户态内存的任何操作
+    * 不要使用 `MmIsAddressValid` 函数, 这个函数对于校验内存结果是不可靠的. 
+        * 攻击者只需要传递第一个字节在有效页, 而第二个字节在无效页的内存就会导致系统崩溃, 例如 0x7000 是有效页, 0x8000 是无效页, 攻击者传入 0x7fff. 
+        * 
+            * page in: 从磁盘读回物理内存
+            * page out: 从物理内存写到磁盘
+            * 几种分页异常:
+                * hard page fault: 
+                    * 访问的内存不在虚拟地址空间, 也不在物理内存中.
+                    * 需要从swap分区写回物理内存也是此异常.
+                * minor page fault(soft page fault): 访问的内存不再虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
+                * invalid fault(segment fault): 访问的内存地址不再虚拟空间内, 属于越界访问.
+    * 在 `try_except` 内完成对于用户态内存的任何操作(包括`ProbeForRead`, `ProbeForWrite`等)
     * 留心长度为 0 的缓存, 为 NULL 的缓存指针和缓存对齐
-        * `ProbeForRead`, `ProbeForWrite`等函数的`Length`参数为0时, 它们不工作
-        * 缓存指针为空. 不可放行此类空指针.
-        * 缓存对齐. `ProbeForRead`的三参`Alig`.
+        * `ProbeForRead`, `ProbeForWrite`等函数的二参`Length`参数为0时, 它们不工作, 可导致绕过. 
+        * 缓存指针为空. 不可放行此类空指针. 不要用`if (userBuffer == NULL) {goto pass_request;}`这样的代码来判断用户态参数, 因为windows运行用户态申请地址为0的内存. 
+        * 缓存对齐. `ProbeForRead`的三参`Alig`, 比如为2以上的值时, 就有像上面`MmIsAddressValid`的问题.
     * 不正确的内核函数调用引发的问题, 如何防范
-        * `ObReferenceObjectByHandle` 未指定类型
-        * 不正确的 `ZwXXX` 函数调用不能将任何用户态内存通过调用 ZwXXX 函数传递给内核, 用户态内存未经过校验, 传递给 ZwXXX 会让系统忽略内存检查(因为 ZwXXX 调用时认为上个模式已经是内核模式) 
+        * `ObReferenceObjectByHandle` 未指定类型(第三参数)
+        * 不正确的 `ZwXXX` 函数调用不能将任何用户态内存通过调用 ZwXXX 函数传递给内核, 用户态内存未经过校验, 传递给 ZwXXX 会让系统忽略内存检查(因为 ZwXXX 被调用时认为已经处在内核模式) 
         * 不要接受任何用户输入的内核对象给内核函数. 接受用户输入的内核对象意味着可以轻易构造内核任意地址写入漏洞, 不要在设备控制中接受任何用户输入的内核对象并将其传递给内核函数. 
-    * 驱动提供给应用层的功能性接口. 
+            * 如下面的代码, 实际上是将`Mutex`对象从一个双向链表中移除, 会有两次内存写入操作, 有可能出现类似unsafe unlink的堆溢出漏洞. 
+                ```cpp
+                if(IoControlCode==IOCTL_RELEASE_MUTEX)
+                {
+                KeReleaseMutex((MY_EVT_INFO)(Irp->AssociatedIrp->SystemBuffer)->Mutex);
+                }
+                ```
+    * 驱动提供给应用层的功能性接口(控制码), 要小心其被利用. 
     * 设备控制尽量使用BUFFERED IO, 而且一定要使用 SystemBuffer,如果不能用BUFFERED IO,对于 UserBuffer 必须非常小心地 Probe,同时注意 Buffer 中指针, 字符串引发的严重问题, 如果可能, 尽量禁止程序调用自己的驱动. 
-    * 使用 verifier(内核校验器)和 Fuzz 工具检查和测试驱动. 对于挂钩内核函数的驱动, 可以使用 BSOD HOOK 一类的 FUZZ 工具, 来检查内核函数的缺陷和漏洞.
+    * 使用 verifier(内核校验器, windows自带, 将驱动添加到其中, 设置检查选项, 一旦发生异常, 就蓝屏)和 Fuzz 工具检查和测试驱动. 对于挂钩内核函数的驱动, 可以使用 BSOD HOOK 一类的 FUZZ 工具, 来检查内核函数的缺陷和漏洞.
 
 
 # Windbg
@@ -269,6 +298,7 @@ ExFreePool(uStr.Buffer); // 导致蓝屏
     * `LPCTSTR`:32-bit指针 指向一个常字符串,每字符可能占1字节或2字节, 取决于Unicode是否定义 
     * `LPWSTR`: 32-bit指针, 指向一个unicode字符串的指针,每个字符占2字节. 
     * `LPCWSTR`:32-bit指针, 指向一个unicode字符串常量的指针,每个字符占2字节. 
+* 定义常量UNICODE_STRING: `UNICODE_STRING str = RTL_CONSTANT_STRING(L”my first string”);`
 
 ```c
 typedef struct _UNICODE_STRING {
@@ -291,14 +321,6 @@ DECLARE_CONST_UNICODE_STRING(uStr, L"Hello")
 
 // 初始化方式2: 栈上buffer
 UNICODE_STRING uStr = {0};
-WCHAR sz[512] = L"Hello";
-uStr.Buffer = sz;
-uStr.Length = wcslen(L"Hello");
-uStr.MaximumLength = sizeof(sz);
-
-// 初始化方式2: 栈上buffer
-UNICODE_STRING uStr = {0};
-ULONG ulLen = wcslen(L"Hello") * sizeof(WCHAR);
 WCHAR sz[512] = L"Hello";
 uStr.Buffer = sz;
 uStr.Length = wcslen(L"Hello");
@@ -403,7 +425,7 @@ uStr.MaximumLength = sizeof(sz);
     * `REG_EXPAND_SZ`: 扩展字符串, 其中带环境变量, 如"%systemtoor%\c.doc". 应用层函数`ExpandEnvironmentStrings`可展开之.
     * `REG_MULTI_SZ`: 多字符串(每个字符串间用NULL隔开)
         * 构造: `sprintf(buf, "%s%c%s%c%c%", "1.1.1.1", 0, "1.1.1.1", 0, 0)`
-        * 用于删除和重命名: `MoveFileEx(szTemp, NULL, MOVEFILE_DELAY_UNTIL_REBOOT)`, 重启替换`szTemp`文件. 如替换dll文件. 每次调用, 一参和二参会被写到`\\Registry\\Machine\\SYSTEM\CurrentContrilSet\Control\Session Manager\PendingFileRenameOperations`
+        * 用于删除和重命名: `MoveFileEx(szTemp, NULL, MOVEFILE_DELAY_UNTIL_REBOOT)`, 重启后`szTemp`文件会被替换为二参表示的文件. (二参为NULL则表示删除文件) 比如替换dll文件. 每次调用, 一参和二参会被写到`\\Registry\\Machine\\SYSTEM\CurrentContrilSet\Control\Session Manager\PendingFileRenameOperations`.
         * UNC(Universal Naming Convention, 通用命名规则)
             * 用于局域网共享文件夹
             * `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares` 记录本机共享的文件夹的信息. 
@@ -463,13 +485,17 @@ uStr.MaximumLength = sizeof(sz);
         * 32(0x20)~47(0x2f): IO引起的屏蔽中断
         * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
     * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程能中断
+        * 相关文章
+            * [Windows DPC、APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
+            * [Windows APC mechanism & alertable thread waiting state](https://blog.fireheart.in/a?ID=00550-4b95f022-ecfd-415b-8b3b-20b03a4d17fe)
+            * [IRQL interrupt request level and APC_LEVEL discussion](https://blog.actorsfit.com/a?ID=00300-d2276e30-b233-4de0-a814-ad5d63f6b827)
         * 无中断
-            * `PASSIVE_LEVEL`(0): 和文件, 注册表读写相关的操作. 可访问分页内存.
+            * `PASSIVE_LEVEL`(0): 用户模式的代码及大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
         * 软中断
-            * `APC_LEVEL`(1)
-            * `DISPATCH_LEVEL`(2): 不能访问分页内存
+            * `APC_LEVEL`(1)(asynchronous procedure call): 异步过程调用和缺页故障发生在该级别上. 屏蔽APC中断. 可访问分页内存. 分页调度管理就运行在这个级别上.
+            * `DISPATCH_LEVEL`(2): 线程调度和DPC例程运行在该级别上. 屏蔽DPC(Delayed Process)及以下级别中断. 不能访问分页内存. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
         * 硬中断
-            * `DIRQL`: 设备中断请求级处理程序执行
+            * `DIRQL`(Device IRQL): 设备中断请求级. 在该级别上, 所有中断均被忽略.
             * `PROFILE_LEVEL`: 配置文件定时器
             * `CLOCK2_LEVEL`: 时钟
             * `SYNCH_LEVEL`: 同步级
@@ -483,6 +509,7 @@ uStr.MaximumLength = sizeof(sz);
                 * 在这两个级别的代码中用`PAGED_CODE`宏(其调用`KeGetCurrentIrql`), 其会检测当前代码IRQL是否高于APC, 是则异常.
             * 补充
                 * 系统在APC_LEVEL处理缺页中断, 所以, 执行在>=APC_LEVEL上的代码必须存放在NON-PGAE内存中
+                * 许多具有复杂功能的内核api都运行在passive级, 只有比较简单的函数能在dispatch级运行.
         
         |调用源|一般的运行中断级|运行环境|
         |-|-|-|
@@ -537,12 +564,12 @@ uStr.MaximumLength = sizeof(sz);
             * 代码
                 ```cpp
                 KIRQL OldIrql;
-                KSPIN_LOCK mySpinLockProc;
+                KSPIN_LOCK mySpinLockProc; // 需要定义为静态变量或全局变量, 或在堆中分配, 这样才能确保所有访问临界区代码的线程共用一个自旋锁
 
-                // 获得
+                // 获得自旋锁. KeAquireSpinLock会提高当前中断级别, 旧的中断级别则暂存于OldIrql
                 KeAquireSpinLock(&mySpinLockProc, &OldIrql);
                 
-                // 访问数据
+                // 访问数据, 这里一次只有一个线程执行, 其它线程等待
                 g_i++;
 
                 // 释放
@@ -553,7 +580,8 @@ uStr.MaximumLength = sizeof(sz);
                 * 提升IRQL到DPC
                 * 禁止访问分页内存
                 * 获得时间越短越好
-            * 和Mutex的区别
+            * 队列自旋锁
+            * 和Mutex的区别: 
 
             |SpinLock|Mutex|
             |-|-|
@@ -563,6 +591,13 @@ uStr.MaximumLength = sizeof(sz);
             |主要用于多CPU, 但效率不高, 使用ERESOURCE较好|-|
 
         * ERESOURCE(读写共享锁)(2:14)
+            ```cpp
+            // 获取
+            ExAcquireResourceExclusiveLite(lpLock, TRUE);
+
+            // 释放
+            ExReleaseResourceLite(lpLock);
+            ```
 
         * FAST_MUTEX
             * 用于互斥
@@ -692,6 +727,7 @@ uStr.MaximumLength = sizeof(sz);
         * `RemoveHeadList`
         * `RemoveTailList`
         * `IsListEmpty`
+        * 可用确保线程安全的函数: 在remove, insert等函数前加前缀`ExInterlocked`, 并添加一个自定义的自旋锁`&sLock`作为三参. 
 
     <img alt="" src="./pic/list_entry.jpg" width="80%" height="80%">
 
@@ -952,7 +988,7 @@ uStr.MaximumLength = sizeof(sz);
         * 通过硬编码的index值找到目标函数的地址: `&KeServiceDescriptorTableShadow->ServiceTableBase[index]`
 
     * shadowssdt和ssdt的区别: 
-        * 参考 https://blog.csdn.net/liujiayu2/article/details/72874928. ssdt主要处理 `Kernel32.dll`中的系统调用，如`openProcess`,`ReadFile`等，shadowssdt主要处理 `user32.dll`, `GDI32.dll`中调用的函数，如`postMessage`, `SendMessage`, `FindWindow`, 主要在`win32k.sys`中实现. 微软未给出`win32k`代码.
+        * 参考 https://blog.csdn.net/liujiayu2/article/details/72874928. ssdt主要处理 `Kernel32.dll`中的系统调用, 如`openProcess`,`ReadFile`等, shadowssdt主要处理 `user32.dll`, `GDI32.dll`中调用的函数, 如`postMessage`, `SendMessage`, `FindWindow`, 主要在`win32k.sys`中实现. 微软未给出`win32k`代码.
         * ssdt只包含`ntoskrnl.exe`中的导出函数, shadowssdt包含`ntoskrnl.exe`和`win32k.sys`中的导出函数.
 
 
@@ -1008,7 +1044,7 @@ uStr.MaximumLength = sizeof(sz);
             * `HHOOK SetWindowsHookEx( int idHook, HOOKPROC lpfn,HINSTANCEhMod,DWORD dwThreadId );` 参数: 钩子类型, 回调函数, 包含lpfn的实例句柄, 线程ID(0则监控所有线程)
                 * 钩子类型
                     * WH_CALLWNDPROC和WH_CALLWNDPROCRET: 
-                    * WH_DEBUG: 
+                    * WH_DEBUG: 这个类型的钩子会在调用其它钩子前被调用
                     * WH_KEYBOARD_LL: 低级键盘钩子, 在系统处理前处理
                     * WH_KEYBOARD: 在系统处理后处理
                     * WH_MOUSE_LL: 
@@ -1060,8 +1096,8 @@ uStr.MaximumLength = sizeof(sz);
                 ```
             * 防护
                 * shadow ssdt中的`NtUserSetWindowsHookEx`
+    * 示例: Robert Kuster的libspy(dll注入), hookspy(通过`SetWindowsHook`注入), winspy(直接代码注入)
     * dll注入 
-        * 示例: Robert Kuster的libspy, hookspy, winspy
         * PE共享节, 其中变量可供进程的多个实例访问. 可在不同数据间传数据.
             ```cpp
             #pragma data_seg(".shared")
@@ -1070,8 +1106,10 @@ uStr.MaximumLength = sizeof(sz);
             #pragma comment(linker, "/SECTION:.shared,RWS")
             ```
         * 强制目标进程调用`LoadLibrary`, 载入目标dll
-        * 直接注入dll: 
-            * `OpenProcess`打开目标进程
+        * 直接注入dll: (LibSpy项目的`OnMouseMove`和`InjectDll`)
+            * `OpenProcess`打开目标进程(一参为`PROCESS_CREATE_THREAD|PROCESS_QUERY_INFORMATION|PROCESS_VM_OPERATION|PROCESS_VM_WRITE| PROCESS_VM_READ`, 后面`CreateRemoteThread`才能执行)
+                * 打开进程前, 需要给进程提权, 得到debug权限. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限, 然后用`OpenProcessToken(GetCurrentProcess(),		TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄, 最后用`AdjustTokenPrivileges`启用特权.
+                * 若要打开关键进程(csrss等), 需在驱动中打开, 去掉关键进程的`EPROCESS`中的`PsIsProtectProcess`标志位, 并关闭dll签名策略. (参考开源项目`blackbone`)
             * 获取待注入的dll路径, 在目标进程内分配一块内存(`VirtualAllocateEx`), 将路径拷贝到该内存中
             * 获取kernel32中的`LoadLibraryA`地址
             * 调用`CreateRemoteThread`, 在目标进程中执行`LoadLibrary`及dll动作
@@ -1090,8 +1128,157 @@ uStr.MaximumLength = sizeof(sz);
             * 一个hookee程序, 获得其pid并被hooker成功打开, 被hooker注入dll
         * r3为什么需要dll注入才能hook其它进程
             * r3进程是私有地址空间, 在自己进程hook了api, 无法影响其它进程中的api.
+* 文件过滤驱动
+    * 分层驱动框架和过滤
+        * IRP经过: 文件过滤驱动设备 -> 文件卷设备 -> 磁盘设备
+        * 过滤: 在上述分层驱动中再加一层, 对它们之间的数据或行为进行安全控制.
+        
+            <img alt="" src="./pic/api_flow.jpg" width="30%" height="30%">
 
-
+    * 设备栈绑定: `PDEVICE_OBJECT IoAttachDeviceToDeviceStack(IN PDEVICE_OBJECT SourceDevice, IN PDEVICE_OBJECT TargetDevice );` 将驱动生成的设备对象`SourceDevice`绑定到目标设备上, 返回在绑定之前目标设备所在设备栈的最顶层设备.
+    * 设备对象类型
+        * 控制设备
+            * DriverEntry中创建
+            * 接收自己客户端的IRP
+        * 过滤设备
+            * 绑定时创建
+            * 在设备栈上接收其它R3程序的IRP
+            * 区分自己的进程和其它进程
+                ```cpp
+                #define IS_MY_DEVICE_OBJECT(_devObj) \
+                    (((_devObj) != NULL) && \
+                    ((_devObj)->DriverObject == gSFilterDriverObject) && \
+                    ((_devObj)->DeviceExtension != NULL))
+                
+                // gSFilterControlDeviceObject是自己创建的控制设备
+                #define IS_MY_CONTROL_DEVICE_OBJECT(_devObj) \
+                    (((_devObj) == gSFilterControlDeviceObject) ? \
+                            (ASSERT(((_devObj)->DriverObject == gSFilterDriverObject) && \
+                                    ((_devObj)->DeviceExtension == NULL)), TRUE) : \
+                            FALSE)
+                ```
+            * 对应于分发函数DispatchXxx, 这里叫过滤分发函数FilterXxx
+            * 简单放行如下:
+                ```cpp
+                IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
+                IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject,
+                          Irp ); // 会将(Irp)->CurrentLocation减1
+                ```
+            * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext` + 完成例程
+            * 注意
+                * 过滤设备对象的通信方式要和目标设备一致
+                * 用`ClearFlag`清除初始化标志
+    * irp注意事项
+        * 直接下发irp后, 本层无权再访问irp了.
+        * 下发irp后(`IoCallDriver`后), 如果想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`.
+    * 文件系统过滤框架
+        * Filemon
+        * Sfilter
+            * 总体流程
+                * 创建控制设备
+                * 创建控制设备符号链接
+                * 过滤分发函数
+                    * FilterCreate: 创建
+                    * FilterRead: 一般不拦, 除非防别人读隐私文件, 另外隐私保护器的话则有加解密.
+                    * FilterWrite: 修改; 加解密
+                    * FilterSetInfo:
+                        * IRP_MJ_SET_INFORMATION: 删; 重命名
+                    * FilterClose: 一般不拦
+                    * FilterClean: 写完文件后关闭等操作 
+                * fastio
+                * 过滤与绑定
+                    * 生成一个过滤设备
+                    * `IoRegisterFsRegistrationChange( DriverObject, SfFsNotification );` 文件系统设备绑定
+                    * `DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = SfFsControl;` 卷设备绑定. `IRP_MJ_FILE_SYSTEM_CONTROL`对应mount irp请求
+        * Minifilter 
+            * 特性
+                * 可卸载(不用重启电脑)
+                * 不怕patch guard
+            * 安装和启动
+                * inf文件
+                * `net start <服务名>`
+            * altitude标识符(20000~429999)
+                * 定义一个minifilter驱动加载时在I/O栈中相对其它minifilter驱动的位置
+                * 值越小, 栈中位置越低
+                * 反病毒: 320000~329999, 在文件i/o期间探测并杀毒的过滤驱动
+                * 加解密: 140000~149999, 在文件i/o期间加解密数据的过滤驱动
+            * minifilter架构
+            ```cpp
+            const FLT_REGISTRATION MiniMonitorRegistration = {
+                sizeof( FLT_REGISTRATION ),         //  Size
+                FLT_REGISTRATION_VERSION,           //  Version
+                0,                                  //  Flags
+                MiniMonitorContext,					//  ContextRegistration, 上下文
+                MiniMonitorCallbacks,               //  Operation callbacks, 结构体数组, 存回调函数
+                MiniMonUnload,						//  FilterUnload, 卸载时调用
+                MiniMonInstanceSetup,				//  InstanceSetup, 实例绑定到卷设备对象上时使用, 可在其中将卷设备的一些属性存到一个缓存(上下文)中
+                NULL,								//  InstanceQueryTeardown
+                MiniMonInstanceTeardownStart,       //  InstanceTeardownStart
+                NULL,                               //  InstanceTeardownComplete
+                NULL,                               //  GenerateFileName
+                NULL,                               //  GenerateDestinationFileName
+                NULL                                //  NormalizeNameComponent
+            };
+            ```
+            * 返回状态
+                * 在PreXxx函数中的返回值:
+                    * FLT_PREOP_SUCCESS_WITH_CALLBACK: 后续要调用PostXxx函数 
+                    * FLT_PREOP_SUCCESS_NO_CALLBACK: 
+                    * FLT_PREOP_COMPLETE: 完成后不下发
+                    * FLT_PREOP_PENDING: 挂起
+                    * FLT_PREOP_DISALLOW_FASTIO: 禁用fastio
+                    * FLT_PREOP_SYNCHRONIZE: 同步
+                * 在PostXxx函数中的返回值:
+                    * FLT_POSTOP_FINISHED_PROCESSING
+                    * FLT_POSTOP_MORE_PROCESSING_REQUIRED: 一般发生在post操作的irql比较高时(如dispatch级别), 这时要开一个工作者线程
+            * 判断Data是什么操作的宏
+                * FLT_IS_IRP_OPERATION: 
+                * FLT_IS_FASTIO_OPERATION: 
+                * FLT_IS_FS_FILTER_OPERATION: 
+            * API
+                * FltXxx: 如FltCreateFile
+                * `FltGetFileNameInformation`: 获取文件或目录的名称信息
+                * `FltParseFileNameInformation`: 引用计数加一
+                * `FltReleaseFileNameInformation`: 引用计数减一
+                * ``: 
+            * 回调函数的IRQL
+                * pre操作的回调函数在passive或apc级. (通常为前者)
+                * 若pre操作的回调函数返回FLT_PREOP_SYNCHRNIZE, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
+                * 若post操作的回调函数处理fast io, 则其在passive级, 与pre操作处于同一线程上下文.
+                * post-create的回调函数是在passive级, 和初始化IRP_MJ_CREATE的线程处于同一上下文.
+            * Minifilter上下文
+                * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`
+                * 类型
+                    * Stream Context(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
+                    * Stream Handle Context(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
+                    * Instance Context(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
+                    * Volume Context(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用Instance Context 代替 Volume Context
+                    * (文件上下文): 
+            * 通信
+                * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
+                ```cpp
+                FltCreateCommunicationPort( 
+                    gp_Filter,
+                    &g_pServerPort,
+                    &oa,
+                    NULL,
+                    HandleConnectFromClient,
+                    HandleDisconnectFromClient,
+                    HandleMessageFromClient, // 处理从R3来的消息
+                    1
+                );
+                ```
+            * 沙盒
+                * Sandboxie
+                * 目录
+                    * 沙盒根目录: `\device\harddiskvolume1\sandbox`
+                    * 文件源路径: `\device\harddiskvolume2\doc\hi.txt`
+                    * 文件内部路径: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt`
+                    * 文件删除标记: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt.del`
+                * 判断自己是否被沙盒
+                    * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
+        * Filespy
+    
 # 错误记录
 * vs构建wdm项目时出现`Device driver does not install on any devices, use primitive driver if this is intended`
     
@@ -1158,3 +1345,65 @@ uStr.MaximumLength = sizeof(sz);
 * DbgPrint没有打印出来(DbgView)
 
         字符串末尾要有"\n"换行符.
+
+
+# DDK开发安全事项 
+
+1. 一定不要在没有标注 I/O 请求数据包 (IRP) 挂起 (IoMarkIrpPending) 的情况下通过调度例程返回 STATUS_PENDING.  
+2. 一定不要通过中断服务例程 (ISR) 调用 KeSynchronizeExecution.  它会使系统死锁.  
+3. 一定不要将 DeviceObject->Flags 设置为 DO_BUFFERED_IO 和 DO_DIRECT_IO.  它会扰乱系统并最终导致致命错误.  而且, 一定不要在 DeviceObject->Flags 中设置 METHOD_BUFFERED、METHOD_NEITHER、 METHOD_IN_DIRECT 或 METHOD_OUT_DIRECT, 因为这些值只在定义 IOCTL 时使用.  
+4. 一定不要通过页面缓冲池分配调度程序对象.  如果这样做, 将会偶尔导致系统故障检测 (Bugcheck).  
+5. 当运行于 IRQL >= DISPATCH_LEVEL 时, 一定不要通过页面缓冲池分配内存, 或访问页面缓冲池中的内存.  这是一个致命错误.  
+6. 一定不要在 IRQL >= DISPATCH_LEVEL 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
+7. 在 IRQL >= DISPATCH_LEVEL 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
+8. 一定不要把中断请求级别 (IRQL) 降低到低于您的顶级例程被调用的级别.  
+9. 如果没有调用过 KeRaiseIrql(), 则一定不要调用 KeLowerIrql().  
+10. 一定不要使处理器 (KeStallExecutionProcessor) 停止运转的时间超过 50 微秒.  
+11. 一定不要使旋转锁 (Spin Lock) 保持锁定状态的时间超过您的需要.  要使系统获得更好的总体性能, 请不要使任何系统范围内有效的旋转锁的锁定时间超过 25 微秒.  
+12. 当 IRQL 大于 DISPATCH_LEVEL 时, 一定不要调用 KeAcquireSpinLock 和 KeReleaseSpinLock, 或 KeAcquireSpinLockAtDpcLevel 和 KeReleaseSpinLockFromDpcLevel.  
+13. 一定不要通过调用 KeReleaseSpinLockFromDpcLevel 来释放 KeAcquireSpinLock 所获取的旋转锁, 因为这会使原始 IRQL 无法被还原.  
+14. 一定不要在 ISR 或 SynchCritSection 例程中调用 KeAcquireSpinLock 和 KeReleaseSpinLock 或者其它任何使用可执行旋转锁的例程.  
+15. 当您在例程中而不是在 DriverEntry 中创建设备对象时, 一定不要忘记清除 DO_DEVICE_INITIALIZING 标记.  
+16. 一定不要同时在不同处理器的多个线程中将延时过程调用 (DPC) 对象添加到队列中(使用 KeInsertQueueDpc).  这会导致致命错误.  
+17. 一定不要通过 CutomerTimerDPC 例程释放周期定时器.  您可以通过 DPC 例程释放非周期定时器.  
+18. 一定不要将相同的 DPC 指针传递给 KeSetTimer, 或者 KeSetTimerEx (CustomTimerDpc) 和 KeInsertQueueDpc (CustomDpc), 因为这将导致竞争.  
+19. 旋转锁锁定时, 一定不要调用 IoStartNextPacket.  这将使系统死锁.  
+20. 旋转锁锁定时, 一定不要调用 IoCompleteRequest.  这将使系统死锁.  
+21. 如果您的驱动程序设置了完成例程, 那么一定不要在没有把完成例程设置为 NULL 的情况下调用 IoCompleteRequest.  
+22. 调用 IoCompleteRequest 之前, 一定不要忘记设置 IRP 中的 I/O 状态区.  
+23. 在将 IRP 添加到队列中或将它发送到另一个驱动程序 (IoCallDriver) 之后, 一定不要调用 IoMarkPending.  在驱动程序调用 IoMarkPending 之前, IRP 可能已经完成, 由此可能发生故障检测.  对于包含完成例程的驱动程序, 如 果设置了 Irp->PendingReturned, 则完成例程必须调用 IoMarkPending.  
+24. 一定不要在已经对某个 IRP 调用 IoCompleteRequest 之后再去访问该 IRP.  
+25. 一定不要对不属于您的驱动程序的 IRP 调用 IoCancelIrp, 除非您知道该 IRP 还没有完成.  
+26. 在您的调度例程返回到调用者之前, 一定不要对您的调度例程正在处理的 IRP 调用 IoCancelIrp.  
+27. 一定不要从中间驱动程序调用 IoMakeAssociatedIrp 来为较低的驱动程序创建 IRP.  在中间驱动程序中所获得的 IRP 可能是已被关联的 IRP, 而您不能将其它 IRP 关联到已经被关联的 IRP.  
+28. 一定不要对使用缓冲 I/O 而设置的 IRP 调用 IoMakeAssociatedIrp.  
+29. 一定不要简单地将指向设备 I/O 寄存器的虚拟指针解除引用并访问这些指针.  始终使用正确的硬件抽象层 (HAL) 函数来访问设备.  
+30. 如果 IRP 或设备对象可能在 DISPATCH 级别被修改, 那么一定不要通过 ISR 来访问 它.  在对称多处理器系统中, 这会造成数据损坏.  
+31. 正在高级 IRQL 中运行时, 如果数据可能被低级 IROL 代码写入, 那么一定不要修改该数据.  应当使用 KeSynchronizeExecution 例程.  
+32. 在获取系统范围的取消旋转锁 (IoAcquireCancelSpinLock) 之前, 一定不要在您的 DispatchCleanup 例程中获取驱动程序自己的旋转锁(如果有的话).  要避免可能出现的死锁, 一定要在驱动程序中遵循一致的锁定获取层次结 
+构. 33. 一定不要在取消例程中调用 IoAcquireCancelSpinLock, 因为该例程被调用时已经获取了系统级的取消旋转锁.  
+34. 在从取消例程返回之前, 一定不要忘记调用 IoReleaseCancelSpinLock.  
+35. 一定不要使用基于 IRQL 的同步, 因为它只对单处理器系统有效.  提高单处理器上的 IRQL 将不会掩蔽在其它处理器上的中断.  
+36. 一定不要对重叠的内存地址范围使用 RtlCopyMemory.  应当使用 RtlMoveMemory.  
+37. 一定不要假定页面大小是常量, 即使是用于给定的 CPU.  为了保持可移植性, 应当使用 PAGE_SIZE 以及在头文件中所定义的其它页面相关常量.  
+38. 一定不要从引导\系统初始化阶段加载的驱动程序的 DriverEntry 例程中访问除 Registry\Machine\Hardware 和 Registry\Machine\System 以外的任何注册表项.  
+39. 一定不要为了加载驱动程序而在驱动程序的注册表项 (Registry\Machine\System\CurrentControlSet\Services) 下创建 Enum 项.  系统将动态地创建该项.  
+40. 如果没有先在注册表中申请必需的与总线相关的 I/O 端口、内存范围、中断或直接内存访问 (DMA) 通道/端口等硬件资源, 一定不要初始化物理设备.  
+41. 一定不要在您的 DriverEntry 例程调用 IoRegisterDriverReinitialization, 除非重初始化例程返回了 STATUS_SUCCESS.  
+42. IRQL 为 PASSIVE_LEVEL 时, 一定不要从被页面调度的线程或驱动程序例程中在 Wait 参数被设置为 TRUE 的情况下调用 KeSetEvent.  如果碰巧在调用 KeSetEvent 和 KeWait..Object(s) 之间您的例程被页面调度出去, 这类调用 就会导致致命的页面错误.  
+43. 与上例相同的条件下, 同样不能调用 KeReleaseSemaphore .  
+44. 与上例相同的条件下, 同样不能调用 KeReleaseMutex .  
+45. 一定不要通过零售的 Windows NT 驱动程序调用 KeBugCheckEx 或 KeBugCheck 来停止系统的运行, 除非您遇到的是破坏系统内存并最终导致系统进入故障检测的重要错误.  应当始终巧妙地处理错误条件.  
+46. 一定不要假定 IoTimer 例程将会准确地在一秒边界处被调用, 因为任何特定 IoTimer 例程的调用间隔最终取决于系统时钟.  
+47. 一定不要从核心模式的设备驱动程序调用 Win32 应用程序编程接口 (API).  
+48. 一定不要使用会导致堆栈溢出的递归函数, 因为调用线程的核心模式堆栈不能动态增长.  
+49. 在处理多个中断的 ISR 例程中, 一定不要使用中断对象指针 (PKINTERRUPT) 来标识中断, 因为您在 ISR 中所获得的中断对象地址不会始终与您通过 IoConnectInterrupt 所获得的地址相同.  要想识别当前发生中断的设备, 应当 仅使用您在 IoConnectInterrupt 中所指定的 ServiceContext 值.  
+50. 如果没有清零 CustomTimerDpc (KeCancelTimer), 一定不要卸载驱动程序.  如果在卸载驱动程序后启动 DPC, 它可能调用不存在的代码, 并导致系统进入故障检测查.  
+51. 如果 IRP 中设置了某个驱动程序的 I/O CompletionRoutine, 那么一定要等到所有这些 IRP 完成之后, 才能卸载该驱动程序.  如果卸载驱动程序后, IRP 被更低级的驱动程序完成, 那么系统会试图执行不存在的代码, 并导致系 统崩溃.  
+52. 一定要等到驱动程序准备好要处理某个设备中断时, 才能启用该设备中断.  应当只在完成驱动程序初始化之后才启用它, 执行 ISR 和 DPC 时, 系统才能安全的访问设备对象的若干私有成员.  
+53. 在旋转锁锁定时, 一定不要调用驱动程序以外的代码, 因为这会引起死锁.  
+54. 如果您的驱动程序通过 IoBuildAsynchronousFsdRequest/IoAllocateIrp 创建了一个 IRP, 那么, 一定不要从您的 I/O CompletionRoutine 为这个 IRP 返回 STATUS_MORE_PROCESSING_REQUIRED 以外的任何状态, 因为该 IRP 没 有为与完成有关的 I/O 管理器的处理后工作做好准备.  这样的 IRP 应当被驱动程序显式地释放 (IoFreeIrp).  如果本来没有打算重用 IRP, 可以在返回状态 STATUS_MORE_PROCESSING_REQUIRED 之前, 在 CompletionRoutine 中 将它释放.  
+55. 一定不要在任意的线程上下文中使用 IoBuildSynchronousFsdRequest/IoBuildDeviceIoControlRequest 来分配 IRP, 因为该 IRP 依然与该线程保持关联 (Irp->ThreadListEntry), 直到它被释放.  
+56. 如果已经使用 IoAllocateIrp 在 ChargeQuota 参数被设置为 TRUE 的情况下分配了某个 IRP, 那么一定不要对该 IRP 调用 IoInitializeIrp.  如果在 ChargeQuota 设置为 TRUE 的情况下分配 IRP, 则 I/O 管理器将把它为该 IRP 分配 内存时所用的缓冲池的相关信息保存在该 IRP 的内部标记中.  如果对这样的 IRP 调用 IoInitializeIrp, 那么, 当该函数盲目地清零整个 IRP 时, 分配池信息将会丢失.  当您释放 IRP 时, 这将导致内存被破坏.  同时, 一定不要重用来自 IO 管理器的 IRP.  如果要重用 IRP, 应当使用 IoAllocateIrp 分配您自己的 IRP.  
+57. 如果在调用线程的堆栈中分配了对象, 就一定不要在 KeWaitForSingleObject/KeWaitForMultipleObjects 中将 WaitMode 指定为 UserMode.  这样做的结果是, 如果被等候的对象是在函数堆栈中创建的, 那么您必须将 WaitMode 指定为 KernelMode 才能防止线程被页面调度出去.  
+58. 在没有对关键节中的代码加以保护的情况下, 一定不要在用户模式线程的上下文中获取诸如 ERESOURCES 和 FastMutex(Unsafe) 这类资源. 
