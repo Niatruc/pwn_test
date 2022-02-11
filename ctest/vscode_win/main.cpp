@@ -1,137 +1,181 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-typedef struct _node
-{
-    int data;
-    struct _node *next;
+typedef struct _node {
+    char data;
+    _node *next;
 } node, *pnode;
 
-void init_node_list(node nds[], int cnt, int pt = -1) {
-    for (size_t i = 0; i < cnt; i++) {
-        nds[i].data = i;
-        nds[i].next = &nds[i + 1];
+pnode build_link_list(char *data) {
+    int linkListLen = strlen(data);
+    if (linkListLen <= 0) return NULL;
+    pnode headNd = (pnode) malloc(sizeof(node));
+    headNd->data = data[0];
+    pnode nextNd = headNd;
+    for (size_t i = 1; i < linkListLen; i++) {
+        pnode nd = (pnode) malloc(sizeof(node));
+        nd->data = data[i];
+        nextNd->next = nd;
+        nextNd = nd;
     }
-    nds[cnt - 1].data = cnt - 1;
-    if (pt < 0) {
-        nds[cnt - 1].next = NULL;
-    } else {
-        nds[cnt - 1].next = &nds[pt];
-    }
+    nextNd->next = NULL;
+    return headNd;
 }
 
-int has_loop(node nds[]) {
-    pnode n1 = nds, n2 = nds;
-    while (n1 && n2) {
-        n1 = n1->next;
-        n2 = n2->next;
-        if (n2) {
-            n2 = n2->next;
-        } else {
-            return 0;
+void print_link_list(pnode linkList) {
+    pnode p = linkList;
+    printf("打印链表: ");
+    while (p) {
+        printf("%c ", p->data);
+        p = p->next;
+    }
+    printf("\n");
+}
+
+pnode reverse_link_list(pnode linkList) {
+    pnode p1 = NULL, p2 = linkList, p, tailNode = linkList;
+
+    while (p2) {
+        p = p2->next;
+        if (!p) tailNode = p2;
+        p2->next = p1;
+        p1 = p2;
+        p2 = p;
+    }
+    return tailNode;
+}
+
+pnode insert_sort_link_list(pnode linkList) {
+    pnode p = NULL, q, r, insertedNd = NULL, sortedList = linkList;
+    if (sortedList) {
+        p = sortedList->next;
+        sortedList->next = NULL;
+    } 
+    while (p) {
+        insertedNd = p;
+        p = p->next;
+        insertedNd->next = NULL; // 将待插入节点从原链表中取出
+        q = sortedList;
+        r = NULL;
+        while (q) { // q在已排序链表中移动; 将insertedNd插入到已排序链表中
+            if (insertedNd->data < q->data) {
+                if (r) {
+                    r->next = insertedNd;
+                }
+                insertedNd->next = q;
+                break;
+            } else {
+                r = q;
+                q = q->next;
+            } 
         }
-        if (n1 == n2) {
-            return 1;
+        if (!r) sortedList = insertedNd; // 表明插在了队头
+
+        // 若q到了已排序链表队尾, 则在队尾插入insertedNd
+        if (!q) r->next = insertedNd;
+    }
+    return sortedList;
+}
+
+// 递归法, 将当前节点连到右边的已逆置链表的末尾
+pnode reverse_link_list_recur(pnode linkList, pnode &origTail) {
+    if (linkList) {
+        if (linkList->next == NULL) origTail = linkList; // 找到尾部节点, 记录下来
+
+        pnode subRevLinkListTail = reverse_link_list_recur(linkList->next, origTail); // 返回逆置后的链表的尾部节点
+        linkList->next = NULL;
+        if (subRevLinkListTail) {
+            subRevLinkListTail->next = linkList;
         }
     }
-    
+    return linkList;
+}
+
+int del_node_from_link_list(pnode linkList, pnode delNd) {
+    if (!linkList || !delNd) return -1;
+
+    pnode nextNd = delNd->next;
+    if (nextNd) {
+        delNd->data = nextNd->data;
+        delNd->next = nextNd->next;
+    } else {
+        pnode p = linkList;
+        while (p && p->next != delNd) {
+            p = p->next;
+        }
+        if (p && p->next == delNd) {
+            p->next = delNd->next;
+        }
+    }
     return 0;
 }
 
-pnode find_loop_entry(node nds[]) { // 找到被两个节点指向的那个节点
-    pnode n1 = nds, n2;
-    if (!nds || nds->next == nds) {
-        return nds;
+void test_reverse_link_list(char *data) {
+    pnode linkList;
+    linkList = build_link_list(data);
+
+    print_link_list(linkList);
+
+    pnode tailNd = NULL;
+    printf("递归法逆置链表...\n");
+    reverse_link_list_recur(linkList, tailNd);
+    print_link_list(tailNd);
+
+    linkList = build_link_list("helloworld!");
+    printf("非递归法逆置链表...\n");
+    tailNd = reverse_link_list(linkList);
+    print_link_list(tailNd);
+
+    printf("\n");
+}
+
+void test_sort_link_list(char *data) {
+    pnode linkList;
+    linkList = build_link_list(data);
+
+    print_link_list(linkList);
+
+    printf("插入法链表排序...\n");
+    pnode sortedLinkList = insert_sort_link_list(linkList);
+    print_link_list(sortedLinkList);
+
+    printf("\n");
+}
+
+void test_del_nd_from_link_list(char *data) {
+    pnode linkList;
+    linkList = build_link_list(data);
+
+    print_link_list(linkList);
+
+    printf("删除最后一个节点: \n");
+    pnode p = linkList;
+    while (p && p->next) {
+        p = p->next;
     }
-    while (n1) {
-        n1 = n1->next;
-        n2 = nds;
-        while (n2 != n1) {
-            if (n1->next == n2) {
-                return n2;
-            }
-            n2 = n2->next;
-        }
-    }
+    del_node_from_link_list(linkList, p);
+    print_link_list(linkList);
     
-    return NULL;
-}
+    printf("删除第二个节点: \n");
+    p = linkList->next;
+    del_node_from_link_list(linkList, p);
+    print_link_list(linkList);
 
-// 寻找单向非循环链表倒数第m个节点
-pnode find_countback_node(node nds[], int m) {
-    pnode n1 = nds, n2 = nds;
-    if (m < 0) return NULL;
-    while (m && n1) {
-        n1 = n1->next;
-        m--;
-    } 
-    if (m > 0) return NULL;
-    
-    while (n1) {
-        n1 = n1->next;
-        n2 = n2->next;
-    }
-
-    return n2;
-}
-
-void print_list(node nds[], int cnt, int pt) {
-    printf("列表: ");
-    for (size_t i = 0; i < cnt; i++) {
-        printf("%d -> ", nds[i].data);
-    }
-    if (pt < 0) {
-        printf("NULL\n");
-    } else {
-        printf("%d\n", nds[pt].data);
-    }
-}
-
-void test_loop_node_list(node nds[], int cnt, int pt) {
-    int looped = 0;
-    init_node_list(nds, cnt, pt);
-    print_list(nds, cnt, pt);
-    looped = has_loop(nds);
-    if (looped) {
-        printf("找到循环, ");
-        pnode entry = find_loop_entry(nds);
-        printf("入口: %d\n", entry->data);
-    } else {
-        printf("没有循环\n");
-    }
-}
-
-void test_find_countback_node(node nds[], int cnt, int m) {
-    init_node_list(nds, cnt, -1);
-    print_list(nds, cnt, -1);
-    pnode node_m = find_countback_node(nds, m);
-    if (node_m) {
-        printf("倒数第%d个节点为: %d\n", m, node_m->data);
-    } else {
-        printf("链表节点数小于%d\n", m);
-    }
+    printf("\n");
 }
 
 int main(int argc, char const *argv[])
 {
-    /* code */
-    int cnt = 5;
-    int looped = 0;
-    node nds[5] = {0};
-    test_loop_node_list(nds, 5, -1); // 非循环链表
-    test_loop_node_list(nds, 5, 0);
-    test_loop_node_list(nds, 5, 2);
-
-    node nds2[1] = {0};
-    test_loop_node_list(nds2, 1, -1); // 非循环链表
-    test_loop_node_list(nds2, 1, 0);
-
+    test_reverse_link_list("helloworld!");
+    test_reverse_link_list("");
+    test_reverse_link_list("h");
+    printf("\n");
+    test_sort_link_list("helloworld!");
+    test_sort_link_list("");
+    test_sort_link_list("h");
     printf("\n");
 
-    node nds3[6] = {0};
-    test_find_countback_node(nds3, 6, 0);
-    test_find_countback_node(nds3, 6, 1);
-    test_find_countback_node(nds3, 6, 6);
-    test_find_countback_node(nds3, 6, 7);
-    
+    test_del_nd_from_link_list("helloworld!");
     return 0;
 }
