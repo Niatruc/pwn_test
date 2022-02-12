@@ -66,7 +66,7 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 按f5开始调试, f10单步执行.
 在debug console窗口中, 若要执行gdb的命令, 需要先加上`-exec`
 
-## 远程调试虚拟机中的程序
+## 远程调试docker容器中的程序
 * vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用ssh-keygen生成密钥文件, 并把pub文件改名为authorized_keys, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
   ```
     PermitRootLogin yes
