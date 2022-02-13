@@ -1279,6 +1279,189 @@ uStr.MaximumLength = sizeof(sz);
                     * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
         * Filespy
     
+# VT技术
+* 概念
+    * 硬件虚拟化技术, 在硬件级别上完成计算机的虚拟化(增加了一些寄存器)
+    * 一句话总结: vt是一个驱动(.sys文件), 由os加载运行后, 运行在每个cpu内核上, 推翻原来的os(加载它的os, 然后os和app-r0和r3退化为guset), 建立特权层(host, vmm, hypervisor, root, -1), 监控(欺骗)guest(os, 应用程序, non-root, 0, 3)的执行. 
+* 意义
+    * 简化虚拟机开发
+    * 中断hook, 软件调试, ssdt hook
+* 基本原理
+    * -1层, 特权层: VMM, 
+        * vt使得cpu进入一个全新的特殊模式(VMX模式), 在这个模式下, cpu处于VMM-root层(-1)或VMM-nonroot层(0, 3)
+        * 处于VMM-nonroot下的r0, r3都被监控
+
+            <img alt="" src="./pic/vt_progress.png" width="50%" height="50%">
+
+    * guset/host
+        * vt出现之前, vmware用的是进程虚拟机, 以软件模拟硬件
+    * Msr寄存器
+    * vt处理器额外指令集(VMX)
+        * VMCS区域管理指令: 
+            * VMPTRLD: 激活当前VMCS(关键结构体, VT host/guest对应的上下文), 并加载内存数据到VMCS指针
+            * VMPTRST: 存储当前VMCS指针数据到内存
+            * VMCLEAR: 将launch状态的VMCS设置为clear状态(非激活状态), 与VMPTRLD相反
+            * VMREAD: 读取VMCS中的数据
+            * VMWRITE: 写入VMCS的域
+        * VMX管理指令: 
+            * VMLAUNCH: 启动VMCS虚拟机(guest机)
+            * VMRESUME: 从host中恢复VMCS的虚拟机
+            * VMXON: 进入VMX ROOT模式
+            * VMOFF: 退出VMX ROOT模式
+            * VMCALL: 关闭VT时让虚拟机主动发生退出事件(NBP_HYPERCALL_UNLOAD)
+    * 无条件, 有条件陷入指令
+
+        <img alt="" src="./pic/vt_trap1.png" width="50%" height="50%">
+
+        <img alt="" src="./pic/vt_trap2.png" width="50%" height="50%">
+
+    * x64四级页表寻址和vt双层地址翻译
+        * x86:
+
+            <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
+
+            x86 PAE(物理地址扩展)时如下. 
+
+            <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
+
+        * x64
+            
+            虚拟地址结构如下. 
+
+            <img alt="" src="./pic/vt_vaddr_64.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/vt_vaddr2addr_64.png" width="50%" height="50%">
+
+        * 虚拟机双层地址翻译
+            * 虚拟机地址 -> (通过gpt页表)虚拟机物理地址 -> (通过ept页表)真机物理地址
+            * cr3寄存器指向gpt(guest page table)
+            * eptr寄存器指向ept(extended page table)
+
+                <img alt="" src="./pic/vt_vaddr2addr_double_layers.png" width="50%" height="50%">
+            
+        * windbg命令
+            * `!pte <vaddr> `: 查看地址翻译过程
+            * `!vtop `: 直接将虚拟地址转换为物理地址
+    
+    * x64汇编, 调用约定
+        * x64寄存器
+            * 新增r8\~r15寄存器
+            * rax, rcx, rdx, r8, r9, r10, r11是"易挥发"的, 不用push备份. 其余寄存器(如rbx)则需要. 
+            * r8(64), r8d(32), r8w(16), r8b(8)
+        
+        * 代码示例
+
+            ```x86asm
+            EXTERN	HvmSubvertCpu:PROC ;引用外部函数
+            .data
+            GuestESP dword ?
+
+            .CODE
+
+            HVM_SAVE_ALL_NOSEGREGS MACRO ; 定义宏
+                push r15
+                push r14
+                push r13
+                push r12
+                push r11
+                push r10
+                push r9
+                push r8        
+                push rdi
+                push rsi
+                push rbp
+                push rbp	; rsp
+                push rbx
+                push rdx
+                push rcx
+                push rax
+            ENDM
+
+            VmxVmCall PROC ; 定义函数
+                vmcall;See vmx.c handler for vmcall
+                ret
+            VmxVmCall ENDP
+            
+
+            END
+
+            ```
+        * vs配置
+
+            <img alt="" src="./pic/x64_asm_conf1.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/x64_asm_conf2.png" width="50%" height="50%">
+        * x64 fastcall
+            * 用xmm0, 1, 2, 3进行浮点数传参
+            * 参数入栈, 会对齐到8个字节
+            * 函数前4个参数存放到rcx, rdx, r8, r9
+            * 由调用者负责栈平衡
+            * 栈整体要被16整除
+            * 形参部分空间的分配和初始化由调用者完成
+            * 局部变量空间由调用者分配
+
+                <img alt="" src="./pic/x64_stack.png" width="50%" height="50%">
+* VT框架
+    * 初始化和启动
+        * 检查是否支持vt, 是否已开启vt
+            * cpuid返回的ecx中的第5位vmx是否为1
+                ```cpp
+                GetCpuIdInfo (0, &eax, &ebx, &ecx, &edx);
+                return (ecx & (1 << 5));
+                ```
+            * cr4第13位vmxe是否为1, 是则表示vt已开启, 此次不能开启
+            * MSR_IA32_FEATURE_CONTROL寄存器第0位Lock位是否为1, 是则表示支持vt操作; 第二位是否为1, 不为1则vmxon不能执行
+        * 分配VMX内存区域: 
+            * vmxon内存: 申请连续4k对齐内存空间
+                ```cpp
+                pCpu->OriginaVmxonR = MmAllocateContiguousMemory(2*PAGE_SIZE, PhyAddr);
+                *(ULONG64 *) pCpu->OriginaVmxonR = (__readmsr(MSR_IA32_VMX_BASIC) & 0xffffffff); // 写入vmcs的版本号
+
+                PhyAddr = MmGetPhysicalAddress(pCpu->OriginaVmxonR);
+                __vmx_on (&PhyAddr); 开启虚拟机模式, 此后不要再访问这个区域
+                ```
+            * host-vmm栈区域
+                * 空递减栈: 栈顶指针所指为空, push时先存值指针再上移
+                * 多核支持: `g_VMXCPU[128]`
+
+                ```cpp
+                // 为Host分配内核栈(按页分配), 大小与GUEST相同
+                pCpu->VMM_Stack = ExAllocatePoolWithTag (NonPagedPool, 8 * PAGE_SIZE, MEM_TAG);
+
+                VMM_Stack = (ULONG_PTR)pCpu->VMM_Stack + 8 * PAGE_SIZE - 8; // 栈由高地址向低地址增长, 指向空位
+
+            	__vmx_vmwrite(HOST_RSP, (SIZE_T)Cpu); // 设置vmcs区域的host rsp域
+
+                ```
+            * vmcs区域: (类似进程的EPROCESS) 
+                * VMCS 是一个4K的内存区域在逻辑上, 虚拟机控制结构被划分为 6 部分:
+                    * GUEST-STATE 域: 虚拟机从根操作模式进入非根操作模式时, 处理器所处的状态.
+                    * HOST-STATE 域: 虚拟机从非根操作模式退出到根操作模式时, 处理器所处的状态.
+                    * VM 执行控制域: 虚拟机在非根操作模式运行的时候, 控制处理器非根操作模式退出到根操作模式.
+                    * VM 退出控制域: 虚拟机从非根操作模式下退出时, 需要保存的信息.
+                    * VM 进入控制域: 虚拟机从根操作模式进入非根操作模式时, 需要读取的信息.
+                    * VM 退出信息域: 虚拟机从非根操作模式退出到根操作模式时, 将退出的原因保存到该域中. 
+                * 保存到vmcs的值:
+                    * guest寄存器(cr0, cr3, cr4, dr7, idtr, es, cs, ss, ds, fs, gs, ldtr, tr)
+                    * host寄存器(基本同上)
+                    * guest的rsp, rip, rflag
+                    * host的rsp, rip(rsp为分配的VMM_STACK, rip为VmxVmexiHandler)
+
+                <img alt="" src="./pic/vt_vmcs.png" width="50%" height="50%">
+            * 分配vmxcpu结构(一个cpu一个, 保存前述3个结构)
+        * 设置cr4.vmxe为1, 表示vt已被占用
+        * 初始化vmxon结构; 使用vmxon命令开启vt
+        * 初始化vmcs区域
+        * vmlaunch
+            * `__vmx_vmlaunch(); // 不返回`
+            * 使cpu进入虚拟机状态(guest)
+        * 关闭vt
+            * `VmxVmCall(NBP_HYPERCALL_UNLOAD);` 主动引发一个vmcall 的exit事件. 
+
+            <img alt="" src="./pic/vt_progress2.png" width="50%" height="50%">
+    * vt多核支持
+    * vt退出
+
 # 错误记录
 * vs构建wdm项目时出现`Device driver does not install on any devices, use primitive driver if this is intended`
     
