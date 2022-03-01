@@ -102,3 +102,9 @@
     * ctrl+d 显示tab顺序
 * 线程
     `AfxBeginThread(MyThreadFunction, pParam)`: 线程的入口函数声明: `UINT MyThreadFunction( LPVOID pParam )`, `pParam`是传给线程的参数.
+
+# powershell
+
+## 一些方法
+* 重命名文件卡死的解决方法
+    * `sfc /scannow`: 系统会开始扫描受损的文件然后修复. 参考: https://www.bilibili.com/read/cv8178838

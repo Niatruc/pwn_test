@@ -1,181 +1,99 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-typedef struct _node {
-    char data;
-    _node *next;
-} node, *pnode;
-
-pnode build_link_list(char *data) {
-    int linkListLen = strlen(data);
-    if (linkListLen <= 0) return NULL;
-    pnode headNd = (pnode) malloc(sizeof(node));
-    headNd->data = data[0];
-    pnode nextNd = headNd;
-    for (size_t i = 1; i < linkListLen; i++) {
-        pnode nd = (pnode) malloc(sizeof(node));
-        nd->data = data[i];
-        nextNd->next = nd;
-        nextNd = nd;
+void del_char(char *str, char del) {
+    int delLen = 0;
+    char *p1, *p2;
+    p1 = p2 = str;
+    while (*p1 && *p1 != del) {
+        p1++;
     }
-    nextNd->next = NULL;
-    return headNd;
-}
-
-void print_link_list(pnode linkList) {
-    pnode p = linkList;
-    printf("打印链表: ");
-    while (p) {
-        printf("%c ", p->data);
-        p = p->next;
-    }
-    printf("\n");
-}
-
-pnode reverse_link_list(pnode linkList) {
-    pnode p1 = NULL, p2 = linkList, p, tailNode = linkList;
-
-    while (p2) {
-        p = p2->next;
-        if (!p) tailNode = p2;
-        p2->next = p1;
+    while (*p1) {
+        while (*p1 == del) {
+            delLen++;
+            p1++;
+        }
+        p2 = p1;
+        while (delLen > 0 && *p2 && *p2 != del) {
+            *(p2 - delLen) = *(p2++);
+        }
         p1 = p2;
-        p2 = p;
-    }
-    return tailNode;
-}
 
-pnode insert_sort_link_list(pnode linkList) {
-    pnode p = NULL, q, r, insertedNd = NULL, sortedList = linkList;
-    if (sortedList) {
-        p = sortedList->next;
-        sortedList->next = NULL;
-    } 
-    while (p) {
-        insertedNd = p;
-        p = p->next;
-        insertedNd->next = NULL; // 将待插入节点从原链表中取出
-        q = sortedList;
-        r = NULL;
-        while (q) { // q在已排序链表中移动; 将insertedNd插入到已排序链表中
-            if (insertedNd->data < q->data) {
-                if (r) {
-                    r->next = insertedNd;
-                }
-                insertedNd->next = q;
-                break;
-            } else {
-                r = q;
-                q = q->next;
-            } 
-        }
-        if (!r) sortedList = insertedNd; // 表明插在了队头
-
-        // 若q到了已排序链表队尾, 则在队尾插入insertedNd
-        if (!q) r->next = insertedNd;
-    }
-    return sortedList;
-}
-
-// 递归法, 将当前节点连到右边的已逆置链表的末尾
-pnode reverse_link_list_recur(pnode linkList, pnode &origTail) {
-    if (linkList) {
-        if (linkList->next == NULL) origTail = linkList; // 找到尾部节点, 记录下来
-
-        pnode subRevLinkListTail = reverse_link_list_recur(linkList->next, origTail); // 返回逆置后的链表的尾部节点
-        linkList->next = NULL;
-        if (subRevLinkListTail) {
-            subRevLinkListTail->next = linkList;
+        // 设置结尾的NULL
+        if (*p1 == NULL) {
+            *(p1 - delLen) = NULL;
         }
     }
-    return linkList;
 }
 
-int del_node_from_link_list(pnode linkList, pnode delNd) {
-    if (!linkList || !delNd) return -1;
+void test_del_char(char *str, char del) {
+    printf("原字符串: %s\n", str);
+    del_char(str, del);
+    printf("删除字符'%c'后: %s\n\n", del, str);
+}
 
-    pnode nextNd = delNd->next;
-    if (nextNd) {
-        delNd->data = nextNd->data;
-        delNd->next = nextNd->next;
-    } else {
-        pnode p = linkList;
-        while (p && p->next != delNd) {
-            p = p->next;
-        }
-        if (p && p->next == delNd) {
-            p->next = delNd->next;
-        }
+void del_chars(char *str, char del[], size_t n) {
+    bool del_h[256] = {false};
+    for (size_t i = 0; i < n; i++) {
+        del_h[(int) del[i]] = true;
     }
-    return 0;
-}
-
-void test_reverse_link_list(char *data) {
-    pnode linkList;
-    linkList = build_link_list(data);
-
-    print_link_list(linkList);
-
-    pnode tailNd = NULL;
-    printf("递归法逆置链表...\n");
-    reverse_link_list_recur(linkList, tailNd);
-    print_link_list(tailNd);
-
-    linkList = build_link_list("helloworld!");
-    printf("非递归法逆置链表...\n");
-    tailNd = reverse_link_list(linkList);
-    print_link_list(tailNd);
-
-    printf("\n");
-}
-
-void test_sort_link_list(char *data) {
-    pnode linkList;
-    linkList = build_link_list(data);
-
-    print_link_list(linkList);
-
-    printf("插入法链表排序...\n");
-    pnode sortedLinkList = insert_sort_link_list(linkList);
-    print_link_list(sortedLinkList);
-
-    printf("\n");
-}
-
-void test_del_nd_from_link_list(char *data) {
-    pnode linkList;
-    linkList = build_link_list(data);
-
-    print_link_list(linkList);
-
-    printf("删除最后一个节点: \n");
-    pnode p = linkList;
-    while (p && p->next) {
-        p = p->next;
-    }
-    del_node_from_link_list(linkList, p);
-    print_link_list(linkList);
     
-    printf("删除第二个节点: \n");
-    p = linkList->next;
-    del_node_from_link_list(linkList, p);
-    print_link_list(linkList);
+    int delLen = 0;
+    char *p1, *p2;
+    p1 = p2 = str;
+    while (*p1 && !del_h[(int) *p1]) {
+        p1++;
+    }
+    while (*p1) {
+        while (del_h[(int) *p1]) {
+            delLen++;
+            p1++;
+        }
+        p2 = p1;
+        while (delLen > 0 && *p2 && !del_h[(int) *p2]) {
+            *(p2 - delLen) = *(p2++);
+        }
+        p1 = p2;
 
-    printf("\n");
+        // 设置结尾的NULL
+        if (*p1 == NULL) {
+            *(p1 - delLen) = NULL;
+        }
+    }
+}
+
+void test_del_chars(char *str, char del[], size_t n) {
+    printf("原字符串: %s\n", str);
+    del_chars(str, del, n);
+    printf("删除字符'%s'后: %s\n\n", del, str);
 }
 
 int main(int argc, char const *argv[])
 {
-    test_reverse_link_list("helloworld!");
-    test_reverse_link_list("");
-    test_reverse_link_list("h");
-    printf("\n");
-    test_sort_link_list("helloworld!");
-    test_sort_link_list("");
-    test_sort_link_list("h");
-    printf("\n");
+    char str1[] = "hello world!";
+    char str2[] = "h";
+    char str3[] = "";
 
-    test_del_nd_from_link_list("helloworld!");
+    test_del_char(str1, 'l');
+    test_del_char(str1, 'h');
+    test_del_char(str1, '!');
+    test_del_char(str1, 0);
+
+    test_del_char(str2, 'h');
+
+    test_del_char(str3, 'l');
+
+    char str4[] = "hello world!";
+    char str5[] = "h";
+    char str6[] = "";
+
+    test_del_chars(str4, "l", 1);
+    test_del_chars(str4, "ho", 2);
+    test_del_chars(str4, "!", 1);
+    test_del_chars(str4, "\0", 1);
+
+    test_del_chars(str5, "h", 1);
+
+    test_del_chars(str6, "l", 1);
+
     return 0;
 }

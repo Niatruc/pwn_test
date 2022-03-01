@@ -1,5 +1,3 @@
-# 驱动开发
-
 # Windows内核调试
 ## 虚拟机中新增用于调试的引导项
 以管理员运行cmd, 执行:
@@ -67,7 +65,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 驱动运行流程
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
-        * 启动的GROUP与`StartType`决定了驱动. `StartType`值越小越早启动. `StartType`值相同则按GroupOrder顺序启动(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GroupOrderList`). `StartType`值如下:
+        * 启动的GROUP与`StartType`决定了驱动启动方式. `StartType`值越小越早启动. `StartType`值相同则按GroupOrder顺序启动(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GroupOrderList`). `StartType`值如下:
             * 0(`SERVICE_BOOT_START`): 由核心装载器装载. 在内核刚初始化之后, 加载的都是系统核心有关的重要驱动程序(如磁盘驱动)
             * 1(`SERVICE_SYSTEM_START`): 由I/O子系统装载. 
             * 2(`SERVICE_AUTO_START`): 自动启动. 在登录界面出现的时候. 
@@ -1158,19 +1156,19 @@ uStr.MaximumLength = sizeof(sz);
                             FALSE)
                 ```
             * 对应于分发函数DispatchXxx, 这里叫过滤分发函数FilterXxx
-            * 简单放行如下:
+            * 简单放行(对irp没任何改动)如下:
                 ```cpp
                 IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
                 IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject,
                           Irp ); // 会将(Irp)->CurrentLocation减1
                 ```
-            * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext` + 完成例程
+            * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 完成例程
             * 注意
                 * 过滤设备对象的通信方式要和目标设备一致
                 * 用`ClearFlag`清除初始化标志
     * irp注意事项
         * 直接下发irp后, 本层无权再访问irp了.
-        * 下发irp后(`IoCallDriver`后), 如果想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`.
+        * 下发irp后(`IoCallDriver`后), 如果后续想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`, 以将irp的所有权返回给分发例程. 
     * 文件系统过滤框架
         * Filemon
         * Sfilter
@@ -1455,12 +1453,69 @@ uStr.MaximumLength = sizeof(sz);
         * vmlaunch
             * `__vmx_vmlaunch(); // 不返回`
             * 使cpu进入虚拟机状态(guest)
+            * root和non-root寄存器上下文状态切换
+                * 再进入root模式下时, 会通过push(HVM_SAVE_ALL_NOSEGREGS宏)把guest非seg的寄存器传给root的exithandler使用
+                * 在root模式下处理完后, 进入non-root模式时, 需要设置non-root的rip并恢复guest寄存器的值
+                * root模式的rip和rsp固定, 不用修改
         * 关闭vt
-            * `VmxVmCall(NBP_HYPERCALL_UNLOAD);` 主动引发一个vmcall 的exit事件. 
+            1. `VmxVmCall(NBP_HYPERCALL_UNLOAD);` 主动引发一个vmcall 的exit事件`EIXIT_REASON_VMCALL`. 
+            2. __vmx_off
+            3. trampoline弹簧床, 其中的汇编指令将host寄存器状态恢复成和guest完全一样
+            4. guest_rip + len 进入普通模式
 
             <img alt="" src="./pic/vt_progress2.png" width="50%" height="50%">
-    * vt多核支持
-    * vt退出
+    * MSR hook
+        * msr寄存器
+            * 一组64位寄存器
+
+                <img alt="" src="./pic/vt_msr.png"    width="50%" height="50%">
+
+            * 用于设置cpu的工作环境和提示cpu的工作状态(温度控制, 性能监控等)
+            * LSTAR存放着`syscall`指令调用的`KiSystemCall64`的地址(`syscall`是应用层进入内核层时调用的指令)
+            * 存放ssdt的入口, patchguard通过`rdmsr`指令定期检查该寄存器, 发现改动则蓝屏
+        * x64 ssdt hook
+            * 拿到ssdt表`KeServiceDescriptorTable`(未导出)
+                * 通过`readmsr`得到`KiSystemCall64`地址, 从此地址向下搜索0x100左右, 得到`KeServiceDescriptorTable`地址
+                * 找到目标nt函数的索引号: 在对应的zw函数处找`mov eax, <nt函数地址>`指令
+                * `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)`
+                * 备份: `NtSyscallHandler = (ULONG64)__readmsr(MSR_LSTAR);`
+                * 构造自己的ssdt表数组
+                    * `SyscallPointerTable[4096]`: 存放函数地址
+                    * `SyscallHookEnabled[4096]`: 记录函数是否被hook
+                    * `SyscallParamTable[4096]`: 存放函数参数个数
+                * 汇编实现一个`SyscallEntryPoint`替换`KiSystemCall64`
+                * `__writemsr(MSR_LSATR, GuestSyscallHandler);`完成msr寄存器中handler的替换
+                * 在patchguard使用`readmsr`引发的vt exit事件中, 欺骗系统的`readmsr`, 并禁止别人再`writemsr`
+            * 注意
+                * `syscall`是直接获取lstar中的ssdt表地址值. 而patchguard通过`readmsr`获取. 
+                * 先hook, 再启动vt (不然启动vt后msr被禁用, 不能hook)
+                * 卸载驱动时, 先停止vt, 再卸载hook
+    * EPT hook
+        * 原理: 客户机转宿主机期间发生权限异常(rwx), 客户机发生vmexit事件, 控制权回到宿主机, 设置guestrip, 跳到hook函数
+        * 优点: 能真正实现无痕
+        * 缺点: 控制粒度太大(一页4kB), 严重影响性能
+        * 例子: https://gitee.com/MR_JACKill/Syscall-Monitor
+        * 方式一: 单页权限互斥
+            * 将原函数所在物理页的执行权限去除, 执行时即抛出异常, 陷入vt特权层
+            * 判断发生异常的线性地址是否为hook位置, 是则恢复物理页的可执行权限, 并将客户机的rip寄存器设置为hook函数地址, 设置MTF标志(监视器陷阱标志, 会引起vmexit事件, 用于单步调试), 以便返回到客户机执行完这句指令后再次返回宿主机中将该物理页的可执行权限去除. 
+
+                <img alt="" src="./pic/vt_ept_hook1.png" width="50%" height="50%">
+
+        * 方式二: 双页权限互斥
+            * vt引擎设置原函数所在物理页为可读可写, 拷贝页为可执行. 
+            * 发生异常, vt引擎将宿主机物理页映射成拷贝页, 去执行拷贝页, 拷贝页中jmp到hook函数, hook函数执行完jmp回拷贝页
+            * 读写函数内容时, 如果函数的hostPA(即宿主机物理地址)映射成拷贝页(无读写权限), 也会发生异常, vt引擎将函数的hostPA映射成原函数所在的物理地址页(完成隐藏). 
+
+                <img alt="" src="./pic/vt_ept_hook2.png" width="50%" height="50%">
+    * 嵌套vt 
+        1. guest机抛出异常, root vmm捕获
+        2. root vmm模拟一个vmexit, 继续抛出异常
+        3. 嵌套vmm捕获到异常
+        4. 嵌套vmm执行vmresume, 回到root vmm
+        5. root vmm执行vmresume, 回到guest机
+
+        <img alt="" src="./pic/NestedVmInsturction_01.png" width="100%" height="100%">
+        
 
 # 错误记录
 * vs构建wdm项目时出现`Device driver does not install on any devices, use primitive driver if this is intended`
