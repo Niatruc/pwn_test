@@ -12,8 +12,8 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-target_compile_options(VCRUNTIME140D PUBLIC /MT)
-target_link_options(VCRUNTIME140D PUBLIC /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
+# target_compile_options(VCRUNTIME140D PUBLIC /MT)
+# target_link_options(VCRUNTIME140D PUBLIC /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
 
 add_executable(instDrv main.cpp)
 # if(CMAKE_CL_64)    #CMAKE的内建变量，如果是true，就说明编译器的64位的，自然可以编译64bit的程序
