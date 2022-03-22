@@ -40,10 +40,64 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
     * 配置符号, `File -> Symbol File Path`, 填写: `<自己写的驱动编译后产生的pdb文件的路径>;srv*D:\win_symbols*http://msdl.microsoft.com/download/symbols`. 其他符号链接: http://sym.ax2401.com:9999/symbols
 
-* vscode(替代visual studio)
+* 用vscode开发驱动程序(替代visual studio)
     * 参考: [VSCode搭建轻量驱动开发环境](https://bbs.pediy.com/thread-260380.htm)
     * 需要安装: wdk, sdk, [FindWdk](https://github.com/SergiusTheBest/FindWDK.git), 还有Visual Studio 生成工具(即从vs_buildtools安装的东西, 在 https://visualstudio.microsoft.com/zh-hans/downloads/ 找)
     * 需要安装vscode插件: cmake, cmake tools
+    * `cmakelist.txt`文件
+        ```sh
+        list(APPEND CMAKE_MODULE_PATH "../FindWdk/cmake") # 指向FindWdk.cmake文件所在目录
+        project(test2022) # 项目名
+        find_package(WDK REQUIRED)
+        wdk_add_driver(ExploitMe # 子项目名
+            ./vulerabilities/demo/9kernel/ExploitMe/exploitme.c # 要编译的文件的路径
+        )
+        # 编译exe文件
+        add_executable(test 
+            ./test.cpp
+        )
+        ```
+        <img alt="" src="./pic/cmake_gui.jpg" width="60%" height="60%">
+
+* 配置vscode以开发windows程序
+    * 参考: https://code.visualstudio.com/docs/cpp/config-msvc
+        * `Terminal` -> `Configure Default Build Task` -> `cl.exe build active file`, 生成`task.json`文件, 各个配置项的含义: 
+            * `type`:
+                * `cppbuild`
+                * `shell`: 使用cmd
+                    * 若`cl.exe`等工具没有预先添加到系统路径, 可添加如下选项预先运行`VsDevCmd`: 
+                    ```json
+                    "options": {
+                        "cwd": "${fileDirname}",
+                        "shell": {
+                            "executable": "cmd.exe",
+                            "args": [
+                                "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
+                                "echo %cd% && ",
+                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录，则生成目录
+                                "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
+                            ]
+                        }
+                    },
+                    ```
+            * `command`: 要运行的程序(如`cl.exe`)
+            * `args`: 传给`cl.exe`的参数
+                * `${file}`: 活动文件
+                * `${fileDirname}`: 当前目录的**完整路径**
+                * `${fileBasenameNoExtension}`: 生成的exe文件的名字
+            * `group`: 
+                * `"isDefault": true`: 表示该任务会在按`ctrl+shift+b`时运行
+            * `options`: 
+                * `cwd`: 指定工作目录
+                * `env`: 配置环境变量
+                * `shell`: 
+                    * `executable`: 指定要用的shell程序(如`cmd.exe`)
+                    * `args`: 参数列表
+            * ``: 
+        * 按f5时, 若没有`launch.json`, 则会生成
+            * `program`: 指定要调试的程序
+        * `c_cpp_properties.json`: 配置c/c++扩展
+            * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
 
 ## 其他
 * 需要禁用驱动程序强制签名
@@ -59,7 +113,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 驱动调用流程: 
 
     <img alt="" src="./pic/winkrnl_call.jpg" width="40%" height="40%">
-* 驱动框架: R3操作一个文件: create -> read/write/deviceiocontrol -> clean -> close
+* 驱动框架: R3操作一个文件: `Create` -> `Read/Write/DeviceIoControl `-> `Clean` -> `Close`
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
 * 驱动运行流程
@@ -100,7 +154,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * Function: 自定义的IO控制码, 取0x800到0xFFF. (0x0到0x7FF为微软保留)
             * Method: 数据的操作模式(`DeviceObject->Flags`域)
                 * `METHOD_BUFFERED`: 缓冲区模式. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
-                    * IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
+                    * 仍可能存在安全问题: IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
                 * 通过内存描述元列表(MDL, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个 MDL 列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO 管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
                     * `METHOD_IN_DIRECT`: 直接写模式. IO 管理器读取上述缓冲区给驱动去读. 
                     * `METHOD_OUT_DIRECT`: 直接读模式. IO 管理器获取上述缓冲区给驱动去写.
@@ -162,7 +216,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 * hard page fault: 
                     * 访问的内存不在虚拟地址空间, 也不在物理内存中.
                     * 需要从swap分区写回物理内存也是此异常.
-                * minor page fault(soft page fault): 访问的内存不再虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
+                * minor page fault(soft page fault): 访问的内存不在虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
                 * invalid fault(segment fault): 访问的内存地址不再虚拟空间内, 属于越界访问.
     * 在 `try_except` 内完成对于用户态内存的任何操作(包括`ProbeForRead`, `ProbeForWrite`等)
     * 留心长度为 0 的缓存, 为 NULL 的缓存指针和缓存对齐
@@ -188,12 +242,13 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 # Windbg
 * 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
 * 线程
-    * `.attach <pid>`: 
-    * `.detach:` 断开调试
+    * `.attach <pid>`: 附加到进程
+    * `.detach`: 断开调试
     * `~*`: 显示所有线程
     * `~<数字>`: 显示第<数字>个线程
     * `~.`: 显示活动线程
     * `~#`: 显示引起异常的线程
+    * 注: `~`相关指令仅限用户模式
     * `!runaway`: 扩展显示有关每个线程使用的时间的信息
 * 进程
     * `!process`
@@ -221,18 +276,21 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `<da|du|ds|dS> <addr>`: 打印字符
     * `<dpa|dpu|dps|dpp> <addr>`: 打印指针指向的数据. 第二个字符: d(32位指针), q(64位指针), **p(标准指针大小, 取决于处理器架构)**. 第三个字符: p(DWORD或QWORD), a(ascii), u(unicode), s(symbol).
     * 修改内存: 把d改成e, 如`eb <addr> <val>`.
-    * `kb`: 查看栈.
-    * `kv`: 查看栈.
-    * `kp`: 查看栈(显示函数参数).
+    * `k`指令: 打印线程的栈帧. 后面加数字可以指定显示多少行. 
+        * `kv`或`kb`: 查看调用栈, 显示栈帧的ebp, 返回地址, 函数在源代码的位置(可以点击跳转).
+        * `kd`: 查看栈, 从ebp处开始打印.
+        * 若要从栈顶开始查看栈数据, 可用`dds esp L<行数>`
 * 调试
     * `g`: 继续运行
     * `p`: 执行一条指令(如果打开了source mode, 则执行一行源码)
     * `pa <addr>`: 执行到addr处
     * `t <次数>`: 多次单步执行, 遇到函数会进入
 * 其他命令
+    * `r`: 打印寄存器值. 
     * `lm`: 列出加载的模块
     * `lm m sth*`: 按名称列出加载的模块
     * `.reload`: 加载符号表. `/user`则只加载用户层的符号. `f`可以强制加载(而非延迟加载).
+    * `.reload <可执行文件名>`: 直接加载可执行文件对应的符号文件. 注意要加'.exe'等文件后缀. 
     * `.reload /i:` 忽略pdb文件和sys文件时间戳的不同, 强制加载符号文件
     * `x nt!kes*des*table`: ssdt表
     * 查看shadowSsdt表: 先切换到进程上下文, 然后`x nt!kes*des*table`, 拿第一行的地址, 对其用`dd`, 打印出来的第二行的前4个字节即是该表地址.
@@ -1094,28 +1152,31 @@ uStr.MaximumLength = sizeof(sz);
                 ```
             * 防护
                 * shadow ssdt中的`NtUserSetWindowsHookEx`
+                
     * 示例: Robert Kuster的libspy(dll注入), hookspy(通过`SetWindowsHook`注入), winspy(直接代码注入)
-    * dll注入 
-        * PE共享节, 其中变量可供进程的多个实例访问. 可在不同数据间传数据.
+    * dll注入: 强制目标进程调用`LoadLibrary`, 载入目标dll
+        * PE共享节: 其中变量可供同一PE文件的多个实例访问. 可在**不同进程间传数据**. 在dll注入中, 可利用共享节的技术, 把窃取的数据存到其中
+
             ```cpp
             #pragma data_seg(".shared")
             ULONG g_ulNum;
             #pragma data_seg()
             #pragma comment(linker, "/SECTION:.shared,RWS")
             ```
-        * 强制目标进程调用`LoadLibrary`, 载入目标dll
+
         * 直接注入dll: (LibSpy项目的`OnMouseMove`和`InjectDll`)
             * `OpenProcess`打开目标进程(一参为`PROCESS_CREATE_THREAD|PROCESS_QUERY_INFORMATION|PROCESS_VM_OPERATION|PROCESS_VM_WRITE| PROCESS_VM_READ`, 后面`CreateRemoteThread`才能执行)
-                * 打开进程前, 需要给进程提权, 得到debug权限. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限, 然后用`OpenProcessToken(GetCurrentProcess(),		TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄, 最后用`AdjustTokenPrivileges`启用特权.
+                * 打开进程前, 需要**给进程提权, 得到debug权限**. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限, 然后用`OpenProcessToken(GetCurrentProcess(),		TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄, 最后用`AdjustTokenPrivileges`启用特权.
                 * 若要打开关键进程(csrss等), 需在驱动中打开, 去掉关键进程的`EPROCESS`中的`PsIsProtectProcess`标志位, 并关闭dll签名策略. (参考开源项目`blackbone`)
             * 获取待注入的dll路径, 在目标进程内分配一块内存(`VirtualAllocateEx`), 将路径拷贝到该内存中
             * 获取kernel32中的`LoadLibraryA`地址
             * 调用`CreateRemoteThread`, 在目标进程中执行`LoadLibrary`及dll动作
+                * 注意, 因为`VirtualAllocEx`返回的是虚拟地址, 默认情况下`CreateRemoteThread`函数的`lpStartAddress`参数使用该地址是没问题的. 但是若注入器是32位而被注入程序是64位, 则可能导致`CreateRemoteThread`失败而返回NULL. 参考: https://stackoverflow.com/questions/60687458/createremotethread-returns-null-while-trying-to-use-it-to-inject-dll
             * DllMain执行(hook, 拷贝一些进程数据)
             * 释放分配的目标进程内存
             * 获取kernel32中`FreeLibrary`地址
             * 调用`CreateRemoteThread`, 在目标进程中执行`FreeLibrary`及dll动作
-        * 通过memload注入dll
+        * 通过memload注入dll(内存注入)
             * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain
         * 通过驱动注入
     * r3跨进程hook
@@ -1499,14 +1560,14 @@ uStr.MaximumLength = sizeof(sz);
             * 将原函数所在物理页的执行权限去除, 执行时即抛出异常, 陷入vt特权层
             * 判断发生异常的线性地址是否为hook位置, 是则恢复物理页的可执行权限, 并将客户机的rip寄存器设置为hook函数地址, 设置MTF标志(监视器陷阱标志, 会引起vmexit事件, 用于单步调试), 以便返回到客户机执行完这句指令后再次返回宿主机中将该物理页的可执行权限去除. 
 
-                <img alt="" src="./pic/vt_ept_hook1.png" width="50%" height="50%">
+                <img alt="" src="./pic/vt_ept_hook1.jpg" width="50%" height="50%">
 
         * 方式二: 双页权限互斥
             * vt引擎设置原函数所在物理页为可读可写, 拷贝页为可执行. 
             * 发生异常, vt引擎将宿主机物理页映射成拷贝页, 去执行拷贝页, 拷贝页中jmp到hook函数, hook函数执行完jmp回拷贝页
             * 读写函数内容时, 如果函数的hostPA(即宿主机物理地址)映射成拷贝页(无读写权限), 也会发生异常, vt引擎将函数的hostPA映射成原函数所在的物理地址页(完成隐藏). 
 
-                <img alt="" src="./pic/vt_ept_hook2.png" width="50%" height="50%">
+                <img alt="" src="./pic/vt_ept_hook2.jpg" width="50%" height="50%">
     * 嵌套vt 
         1. guest机抛出异常, root vmm捕获
         2. root vmm模拟一个vmexit, 继续抛出异常
@@ -1514,7 +1575,7 @@ uStr.MaximumLength = sizeof(sz);
         4. 嵌套vmm执行vmresume, 回到root vmm
         5. root vmm执行vmresume, 回到guest机
 
-        <img alt="" src="./pic/NestedVmInsturction_01.png" width="100%" height="100%">
+            <img alt="" src="./pic/NestedVmInsturction_01.jpg" width="100%" height="100%">
         
 
 # 错误记录
@@ -1545,6 +1606,14 @@ uStr.MaximumLength = sizeof(sz);
 * vs中代码出错`无法从“char*转换为“LPCWSTR”`
 
         工程属性->高级->字符集, 改为未设置
+
+* vscode 中 warning C4819: 该文件包含不能在当前代码页(936)中表示的字符
+
+        在task.json中给cl.exe添加参数: "/source-charset:utf-8" (该方法不行)
+
+* error LNK2001: 无法解析的外部符号 __imp__RegEnumKeyExA@32
+
+        代码中添加依赖库: #pragma comment (lib,"Advapi32.lib")
 
 * windbg不能在源文件设置断点
 
@@ -1583,6 +1652,17 @@ uStr.MaximumLength = sizeof(sz);
 * DbgPrint没有打印出来(DbgView)
 
         字符串末尾要有"\n"换行符.
+
+* vs工具编译的exe无法在winxp中运行(提示"不是有效的win32程序")
+    vs是2022. 用exescope可看到编译得到的exe文件的主版本号是6:
+        
+    <img alt="" src="./pic/exescope.jpg" width="100%" height="100%">
+    
+    需要安装对xp的开发支持: 
+
+    <img alt="" src="./pic/vs_installer_xp_toolsets.jpg" width="100%" height="100%">
+
+    但是官网说vs2019及以后的版本已经不支持构建winxp程序. 所以以上方法无用. 
 
 
 # DDK开发安全事项 

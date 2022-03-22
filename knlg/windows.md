@@ -105,6 +105,18 @@
 
 # powershell
 
+# PE文件
+* VA和RVA
+    * 参考: https://www.loidair.com/2018/02/13/binary-basic-one/
+    * VA = Image Base + RVA
+
 ## 一些方法
 * 重命名文件卡死的解决方法
     * `sfc /scannow`: 系统会开始扫描受损的文件然后修复. 参考: https://www.bilibili.com/read/cv8178838
+
+* win10和winxp共享文件夹
+    * win10中, `控制面板` -> `程序` -> `启用或关闭windows功能` -> `SMB 1.0/CIFS 文件共享支持,` 勾选. 
+
+* 查看和设置cmd的编码设置: `chcp`, `chcp <编码代号>`
+    * 936: gbk2312
+    * 65001: utf-8

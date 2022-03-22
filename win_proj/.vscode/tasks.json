@@ -1,0 +1,77 @@
+{
+	"version": "2.0.0",
+	"windows": {
+		"options": {
+			"cwd": "${fileDirname}",
+			"shell": {
+				"executable": "cmd.exe",
+				"args": [
+					"/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
+					"echo %cd% && ",
+					"(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录，则生成目录
+					"cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
+				]
+			}
+		},
+	},
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "zbh: cl.exe build active file",
+			"command": "cl.exe",
+			// "command": "D:/vs_tools/VC/Tools/MSVC/14.30.30705/bin/Hostx64/x64/cl.exe",
+			"args": [
+				"/Zi",
+				"/EHsc",
+				"/nologo",
+				"/Fe:",
+				"${fileDirname}\\${fileBasenameNoExtension}_debug\\${fileBasenameNoExtension}.exe",
+				"${file}"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: cl.exe"
+		},
+		{
+			"type": "shell",
+			"label": "C/C++: cl.exe build active file to dll",
+			"command": "cl.exe",
+			// "command": "D:/vs_tools/VC/Tools/MSVC/14.30.30705/bin/Hostx64/x64/cl.exe",
+			"args": [
+				"/Zi",
+				"/EHsc",
+				"/nologo",
+				"/LD",
+				"/Fe:",
+				"${fileDirname}\\${fileBasenameNoExtension}_debug\\${fileBasenameNoExtension}.dll",
+				"${file}"
+			],
+			"options": {
+				"cwd": "${fileDirname}",
+				"shell": {
+					"executable": "cmd.exe",
+					"args": [
+						"/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
+						"echo %cd% && ",
+						"(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录，则生成目录
+						"cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
+					]
+				}
+			},
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build",
+			// "group": {
+			// 	"kind": "build",
+			// 	"isDefault": true
+			// },
+			"detail": "compiler: cl.exe"
+		}
+	]
+}
