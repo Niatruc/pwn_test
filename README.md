@@ -1,4 +1,4 @@
-# 堆漏洞利用
+# Linux程序的堆漏洞利用方法
 1. 利用堆管理系统中的一些赋值操作, 实现对任意地址的改写.
     * 利用堆合并时的赋值操作(BK->fd = FD)改变任意地址值(如, 保存堆块地址的地址).
         * [unsafe unlink 图解](./unsafe_unlink/笔记.md)
@@ -19,7 +19,7 @@
 4. 利用free时对arena的元数据malloc_state中的fastbinY数组等的修改操作, 将目标位置的值改为free的块的地址.
     * [house of mind fastbin 图解](./house/笔记.md#house-of-mind-fastbin)
 
-# 其他漏洞
+# 其他二进制漏洞
 - [栈溢出](./stack_overflow/栈溢出笔记.md#ROP)
 - [格式化字符串漏洞](./tips.md#格式化字符串漏洞)
 
