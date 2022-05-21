@@ -33,6 +33,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
         <img alt="" src="./pic/vs_drv_debug.png" width="50%" height="50%">
 
+    * 添加驱动程序项目开发支持(wdm)
+        * 在安装wdk后, 到`C:\Program files (x86)\Windows Kits\10\Vsix\VS2019\`下, 运行`WDK.vsix`文件
+
 * windbg
     * `File->Kernel Debugging->COM`, 如下图配置.
 
@@ -74,7 +77,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                             "args": [
                                 "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
                                 "echo %cd% && ",
-                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录，则生成目录
+                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录, 则生成目录
                                 "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
                             ]
                         }
@@ -101,10 +104,13 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
 ## 其他
 * 需要禁用驱动程序强制签名
+    * Win7: 
+        * 开机时按f8, 然后选"禁用驱动程序强制签名"
+        * 运行`gpedit.msc`, 用户配置 -> 管理模板 -> 系统 -> 驱动程序安装 -> 设备驱动程序代码签名, 选'未配置'或'已禁用', 或'已启用', 并在下面的下拉框选'忽略'
 
-        开始菜单, 按`shift`并点击重启按钮(或者开机选择引导项时进入'其他选项'). 找到问题修复->高级选项->启动设置, 并选择"禁用驱动程序强制签名".
+    * Win10: 开始菜单, 按`shift`并点击重启按钮(或者开机选择引导项时进入'其他选项'). 找到问题修复->高级选项->启动设置, 并选择"禁用驱动程序强制签名".
 
-        网上关于永久禁用驱动强制签名, 一般都是说执行`bcdedit /set testsigning on`和`bcdedit /set nointegritychecks on`, 但是在最新的win10中测试无效.
+    * 网上关于永久禁用驱动强制签名, 一般都是说执行`bcdedit /set testsigning on`和`bcdedit /set nointegritychecks on`, 但是在最新的win10中测试无效.
 
 * Windows平台普通程序开发
     * [配置vscode](https://code.visualstudio.com/docs/cpp/config-msvc)
@@ -113,6 +119,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 驱动调用流程: 
 
     <img alt="" src="./pic/winkrnl_call.jpg" width="40%" height="40%">
+    
 * 驱动框架: R3操作一个文件: `Create` -> `Read/Write/DeviceIoControl `-> `Clean` -> `Close`
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
@@ -155,10 +162,10 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * Method: 数据的操作模式(`DeviceObject->Flags`域)
                 * `METHOD_BUFFERED`: 缓冲区模式. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
                     * 仍可能存在安全问题: IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
-                * 通过内存描述元列表(MDL, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个 MDL 列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO 管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
+                * 直接模式: **系统依然对Ring3的输入缓冲区进行缓冲, 但没对Ring3的输出缓冲区进行缓冲, 而是在内核中进行锁定, 这样Ring3输出缓冲区在驱动程序完成IO请求前, 都是无法访问的.** 通过内存描述元列表(MDL, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个 MDL 列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO 管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
                     * `METHOD_IN_DIRECT`: 直接写模式. IO 管理器读取上述缓冲区给驱动去读. 
                     * `METHOD_OUT_DIRECT`: 直接读模式. IO 管理器获取上述缓冲区给驱动去写.
-                * `METHOD_NEITHER`: Neither模式. 通过用户模式的指针访问用户数据. `irpStack->Parameters.DeviceIoControl.Type3InputBuffer` 为输入缓冲区的地址. `pIrp->UserBuffer` 为输出缓冲区地址. 因为这个缓冲区在用户地址空间上, 驱动程序必须在用之前使相应的地址合法化. 驱动程序在 try/except 块里调用 `ProbeForRead` 或者 `ProbeForWrite` 函数来合法化特定的指针. 驱动还必须完全在 try/except块里处理所有对这一缓冲区的访问. 另外, 驱动还必须在应用数据之前将它拷贝到池或堆栈里一个安全的内核模式地址. 将数据拷贝到内核模式缓冲区确保了用户模式的调用者不会在驱动已经合法化数据之后再修改它. 
+                * `METHOD_NEITHER`: Neither模式. 通过用户模式的指针访问用户数据. `irpStack->Parameters.DeviceIoControl.Type3InputBuffer` 为输入缓冲区的地址. `pIrp->UserBuffer` 为输出缓冲区地址. 因为这个缓冲区在用户地址空间上, 驱动程序必须在用之前使相应的地址合法化. 驱动程序在 try/except 块里调用 `ProbeForRead`(检查一个用户模式缓冲区地址是否真的是Ring3中的地址, 并且是否正确对齐) 或者 `ProbeForWrite`(在ProbeForRead的基础上, 再检查是否可写) 函数来合法化特定的指针. 驱动还必须完全在 try/except块里处理所有对这一缓冲区的访问. 另外, 驱动还必须在应用数据之前将它拷贝到池或堆栈里一个安全的内核模式地址. 将数据拷贝到内核模式缓冲区确保了用户模式的调用者不会在驱动已经合法化数据之后再修改它. 
                 * 更多关于通信: https://www.cnblogs.com/lsh123/p/7354573.html
             * Access: 访问权限, 可取值有: 
                 * `FILE_ANY_ACCESS`: 表明用户拥有所有的权限
@@ -190,11 +197,6 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 在R0中可用和不可用的函数
     * 不可用: `printf, scanf, fopen, fclose, fwrite, fread, malloc, free`
     * 可用: `sprintf, strlen, strcpy, wcslen(返回宽字符串中的字符数), wcscpy, memcpy, memset`
-* 内存分配: 
-    * PagedPool: 分页内存, 物理内存不够时, 这片内存会被移到磁盘上. 总量多. 通常可申请一大片来存数据.
-    * NonPagedPool: 总量有限(物理内存).
-    * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
-
 
 * 驱动编写过程
     * `IoCreateDevice`
@@ -209,16 +211,20 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 内核漏洞产生原因
     * 不要使用 `MmIsAddressValid` 函数, 这个函数对于校验内存结果是不可靠的. 
         * 攻击者只需要传递第一个字节在有效页, 而第二个字节在无效页的内存就会导致系统崩溃, 例如 0x7000 是有效页, 0x8000 是无效页, 攻击者传入 0x7fff. 
-        * 
+        * 分页中的异常
             * page in: 从磁盘读回物理内存
             * page out: 从物理内存写到磁盘
+            * 导致分页异常的几种情况: 
+                * 访问没有锁定在内存中的分页池
+                * 调用可分页(pageable)的例程
+                * 在用户线程的上下文中访问没有被锁定的(unlocked)用户缓存
             * 几种分页异常:
                 * hard page fault: 
                     * 访问的内存不在虚拟地址空间, 也不在物理内存中.
                     * 需要从swap分区写回物理内存也是此异常.
                 * minor page fault(soft page fault): 访问的内存不在虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
                 * invalid fault(segment fault): 访问的内存地址不再虚拟空间内, 属于越界访问.
-    * 在 `try_except` 内完成对于用户态内存的任何操作(包括`ProbeForRead`, `ProbeForWrite`等)
+    * 在 `try_except` 内完成对于用户态内存的任何操作(包括`ProbeForRead`, `ProbeForWrite`等函数, 检查用户模式缓冲区是否实际驻留在地址空间的用户部分,并正确对齐)
     * 留心长度为 0 的缓存, 为 NULL 的缓存指针和缓存对齐
         * `ProbeForRead`, `ProbeForWrite`等函数的二参`Length`参数为0时, 它们不工作, 可导致绕过. 
         * 缓存指针为空. 不可放行此类空指针. 不要用`if (userBuffer == NULL) {goto pass_request;}`这样的代码来判断用户态参数, 因为windows运行用户态申请地址为0的内存. 
@@ -258,8 +264,10 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `!process 0 7`: 系统所有进程(详).
         * `!process <EPROCESS> 7`: 进程详细信息.
     * `.process /p <EPROCESS>`: 进入进程上下文. (`<EPROCESS>`表示进程的EPROCESS块的地址)
+    * `!peb`: 查看当前进程的peb. 
     * `!thread <ETHREAD>`: 查看线程.
     * `.thread <ETHREAD>`: 进入线程上下文.
+    * `!irql`: 显示当前进程的irql. 
 * 断点
     * `bl <*|n|n1-n2>`: 列出断点
     * `bc <*|n|n1-n2>`: 清理断点
@@ -272,7 +280,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `<bp|ba> </p|/t> <proc> <addr|func>`: 进程/线程断点, 只有该进程或线程执行到这个地方时才中断.
 * 内存
     * `dt [nt!]_EPROCESS [<字段>] [<addr>]`: 查看`nt`模块的`_EPROCESS`结构. 加`-r`参数可以递归打印. 带`<addr>`则用该结构打印某地址块. 带`<字段>`则只打印该字段.
-    * `<db(1字节)|dw(2)|dd(4)|dq(8)|dp|dD|df> <addr> <L20>`: 打印数字, 打印0x20个单位
+    * `<db(1字节)|dw(2)|dd(4)|dq(8)|dp|dD|df> <addr> <L20>`: 打印数字, 打印0x20个单位. 在`db`等前面加感叹号, 即`!db`, 则后面可接物理地址. 
     * `<da|du|ds|dS> <addr>`: 打印字符
     * `<dpa|dpu|dps|dpp> <addr>`: 打印指针指向的数据. 第二个字符: d(32位指针), q(64位指针), **p(标准指针大小, 取决于处理器架构)**. 第三个字符: p(DWORD或QWORD), a(ascii), u(unicode), s(symbol).
     * 修改内存: 把d改成e, 如`eb <addr> <val>`.
@@ -280,11 +288,18 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `kv`或`kb`: 查看调用栈, 显示栈帧的ebp, 返回地址, 函数在源代码的位置(可以点击跳转).
         * `kd`: 查看栈, 从ebp处开始打印.
         * 若要从栈顶开始查看栈数据, 可用`dds esp L<行数>`
+    * `!pool <addr>`: 显示地址的信息. 若指定-1, 则显示进程中所有堆的信息.
+    * `!vad <addr>`: 列出VAD树. `addr`是由`!process <进程id> 1`列出的`VadRoot`地址. 
 * 调试
     * `g`: 继续运行
     * `p`: 执行一条指令(如果打开了source mode, 则执行一行源码)
     * `pa <addr>`: 执行到addr处
-    * `t <次数>`: 多次单步执行, 遇到函数会进入
+    * `pc`: 执行到下一个函数调用处停下
+    * `t <次数>`: 多次单步执行, **遇到函数会进入**
+* 驱动和设备相关命令
+    * `!drvobj <驱动名称, 如\Driver\AFD>`: 打印驱动对象的详情
+    * `!devobj`: 
+    * ``: 
 * 其他命令
     * `r`: 打印寄存器值. 
     * `lm`: 列出加载的模块
@@ -299,6 +314,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `.open -a <函数名>+<偏移>`: 调出源文件
     * `!pte <虚拟地址>`: 将虚拟地址转为物理地址
     * `!vtop <进程基地址> <虚拟地址>`: 将虚拟地址转为物理地址
+    * `!idt`: 查看cpu的中断向量描述符表
 * 快捷键
     * f9: 断点
     * f10: 单步执行
@@ -310,7 +326,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `NtOpenThread`:
         * `NtOpenProcess`:
         * `KiAttachProcess`:
-        * `NtReadVirtualMemory`:
+        * `NtReadVirtualMemory`: 该函数未导出, 应用层有一个`ReadProcessMemory`函数. 
         * `NtWriteVirtualMemory`:
 * 反反调试
 * 花指令
@@ -536,20 +552,42 @@ uStr.MaximumLength = sizeof(sz);
     * 中断: IF标志清零, 关中断
         * 非屏蔽中断: 计算机内部硬件出错引起的异常
         * 屏蔽中断: 外围设备产生
-    * 中断向量
-        * 0~31: 异常和非屏蔽中断
-        * 32(0x20)~47(0x2f): IO引起的屏蔽中断
-        * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
-    * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程能中断
+    * 中断描述符表IDT
+
+        <img alt="" src="./pic/idtr_idt.jpg" width="20%" height="20%">
+
+        * idtr寄存器: 记录idt的位置和大小. 通过`lidt`和`sidt`加载和存储. 在x86中是48位, x64中是80位.  
+            ```cpp
+            IA32_IDT_INFO idt_info;
+            __asm sidt idt_info
+            ```
+        * 中断门描述符(interrupt_entry)(256项): 即idt中每个表项(8字节), 含中断向量或异常的服务例程地址. 
+
+            <img alt="" src="./pic/interrupt_entry.jpg" width="20%" height="20%">
+
+            * 0~31: 异常和非屏蔽中断
+            * 32(0x20)~47(0x2f): IO引起的屏蔽中断
+            * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
+    * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程中断
         * 相关文章
             * [Windows DPC、APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
             * [Windows APC mechanism & alertable thread waiting state](https://blog.fireheart.in/a?ID=00550-4b95f022-ecfd-415b-8b3b-20b03a4d17fe)
             * [IRQL interrupt request level and APC_LEVEL discussion](https://blog.actorsfit.com/a?ID=00300-d2276e30-b233-4de0-a814-ad5d63f6b827)
         * 无中断
-            * `PASSIVE_LEVEL`(0): 用户模式的代码及大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
+            * `PASSIVE_LEVEL`(0): **用户模式的代码**及**大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)**运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
         * 软中断
-            * `APC_LEVEL`(1)(asynchronous procedure call): 异步过程调用和缺页故障发生在该级别上. 屏蔽APC中断. 可访问分页内存. 分页调度管理就运行在这个级别上.
-            * `DISPATCH_LEVEL`(2): 线程调度和DPC例程运行在该级别上. 屏蔽DPC(Delayed Process)及以下级别中断. 不能访问分页内存. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
+            * `APC_LEVEL`(1)(Asynchronous Procedure Call): 
+                * **异步过程调用**和**缺页故障**发生在该级别上. 
+                * 屏蔽APC中断. **可访问分页内存**. 分页调度管理就运行在这个级别上.
+                * APC是附属于线程的, 一个线程有一个APC队列. 
+                * 优先级: 特殊APC > 普通APC > 用户APC. 
+                    * 前两者是内核APC
+                    * 特殊APC运行在APC级别, 后两者运行在Passive级. 
+            * `DISPATCH_LEVEL`(2): 
+                * **线程调度**和**DPC例程**运行在该级别上. 
+                * 屏蔽DPC(Deferred Procedure Call)及以下级别中断. **不能访问分页内存**. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
+                * 内核为每一个处理器保持一个**DPC队列**, 并且在相应的处理器的IRQL降低到`DISPATCH_LEVEL`之下时运行DPC. 
+                * 在任务管理器有一个伪线程`系统中断`(`interrupts`), 可显示花费在 IRQL >= 2 时的CPU时间. 
         * 硬中断
             * `DIRQL`(Device IRQL): 设备中断请求级. 在该级别上, 所有中断均被忽略.
             * `PROFILE_LEVEL`: 配置文件定时器
@@ -574,7 +612,19 @@ uStr.MaximumLength = sizeof(sz);
         |完成函数|Dispatch级|多线程|
         |各种NDIS回调函数|Dispatch级|多线程|
 * 多线程
-    * 内核创建多线程: `PsCreateSystemThread`
+    * 内核创建多线程: `PsCreateSystemThread`, 创建一个内核模式的线程, 没有TEB
+        ```cpp
+        NTSTATUS
+        PsCreateSystemThread(
+            OUT PHANDLE  ThreadHandle, //新创建的线程句柄
+            IN ULONG  DesiredAccess, //创建的权限
+            IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性，一般设为NULL
+            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程。如果为NULL，则为系统进程，如果该值是一个进程句柄，则新创建的线程属于这个指定的进程。DDK提供的NTCurrentProcess可以得到当前进程的句柄。
+            OUT PCLIENT_ID  ClientId  OPTIONAL,
+            IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
+            IN PVOID  StartContext //新线程接收的参数
+        );
+        ```
     * 同步(A告诉B发生了什么事)
         * KEVENT: 用于线程同步
             * Event两个状态: Signaled, Non-signaled
@@ -588,7 +638,7 @@ uStr.MaximumLength = sizeof(sz);
                 // 内核中创建自命名事件则如下
                 RtlInitUnicodeString(&EventName, L"\\BaseNamedObjects\\ProcEvent");
                 PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle); // 生成的事件的句柄放到Handle中
-                KeClearEvent(Event);
+                KeClearEvent(Event); // 将事件设为non-signaled状态
 
                 // 触发事件
                 KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
@@ -600,13 +650,15 @@ uStr.MaximumLength = sizeof(sz);
                 KeResetEvent(&waitEvent);
 
                 // 应用层等待事件则如下
-                HANDLE hProcessEvent = ::OpenEventW(SYNCHRONIZE, FALSE, L"Global\\ProcEvent");  // 注意得到的句柄为0时会让下面的代码死循环, 所以要判断0
+                HANDLE hProcessEvent = ::OpenEventW(SYNCHRONIZE, FALSE, L"Global\\ProcEvent");  // 注意得到的句柄为0时会让下面的代码死循环, 所以要判断0, 为0就不要进入下面的语句了, 直接退出程序
                 while (true) {
                     ::WaitForSingleObject(hProcessEvent, INFINITE)
                     ...
                 }
                 ```
         * `KeWaitForSingleObject`, `KeWaitForMultiObjects`
+            * `KeWaitForSingleObject`:
+                * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中 **. 
             * 可等待的对象: `KEVENT`, `KMUTEX/KMUTANT`, `KPROCESS`, `KQUEUE`, `KSEMAPHORE`, `KTHREAD`, `KTIMER`(它们都带dispatcher header). 
             * 不可等待: `fileobject`/`driverobject`
         * R0到R3同步通信
@@ -622,8 +674,13 @@ uStr.MaximumLength = sizeof(sz);
                 KIRQL OldIrql;
                 KSPIN_LOCK mySpinLockProc; // 需要定义为静态变量或全局变量, 或在堆中分配, 这样才能确保所有访问临界区代码的线程共用一个自旋锁
 
+                KeInitializeSpinLock(&mySpinLockProc);
+
                 // 获得自旋锁. KeAquireSpinLock会提高当前中断级别, 旧的中断级别则暂存于OldIrql
                 KeAquireSpinLock(&mySpinLockProc, &OldIrql);
+                // 如果线程已经在dpc级别, 则调用如下函数, 以避免性能损失
+                KeAquireSpinLock(&mySpinLockProc);
+                
                 
                 // 访问数据, 这里一次只有一个线程执行, 其它线程等待
                 g_i++;
@@ -633,7 +690,8 @@ uStr.MaximumLength = sizeof(sz);
                 ```
             * 注意事项
                 * 多CPU共享安全
-                * 提升IRQL到DPC
+                * 自旋锁常用于**IRQL大于Dispatch级时**的数据和资源共享中. 
+                * **提升IRQL到DPC**
                 * 禁止访问分页内存
                 * 获得时间越短越好
             * 队列自旋锁
@@ -648,12 +706,21 @@ uStr.MaximumLength = sizeof(sz);
 
         * ERESOURCE(读写共享锁)(2:14)
             ```cpp
-            // 获取
+            // 获取独占锁. 
+            // lpLock是 ERESOURCE* 变量. 二参为True, 则调用者会一直等待, 直到资源可被获取, 为False则直接返回(无论有没有获取资源). 
+            // 如果获得资源, 则函数返回True
             ExAcquireResourceExclusiveLite(lpLock, TRUE);
 
             // 释放
             ExReleaseResourceLite(lpLock);
+
+            // 获取共享锁
+            ExAcquireResourceSharedLite(lpLock, TRUE); 
+
+            ExReleaseResourceLite(lpLock);
             ```
+            * 独占锁是指同一时刻只能被一个线程持有, 也叫写锁. 共享锁则可被多个线程同时持有, 也叫读锁. 
+            * 根据官方文档, 这些获取和释放锁的操作只能在APC及以下级别中访问. 
 
         * FAST_MUTEX
             * 用于互斥
@@ -777,12 +844,13 @@ uStr.MaximumLength = sizeof(sz);
     * 使用方法
         * `LIST_ENTRY`结构体: 其中有`Flink`(指向下一个节点)`Blink`(指向上一个节点)
         * `PLIST_ENTRY`: 头结点
-        * `InitializeHeadList`
-        * `InsertHeadList`: 结点头插入
+        * `InitializeHeadList`: 初始化链表
+        * `InsertHeadList(listHead, entry)`: 结点头插入(操作的是`PLIST_ENTRY`型变量), 将`entry`插入到`listHead`前面. 
         * `InsertTailList`: 结点尾插入
-        * `RemoveHeadList`
-        * `RemoveTailList`
-        * `IsListEmpty`
+        * `RemoveHeadList(PLIST_ENTRY listHead)`: 移除`listHead->Flink`, 并将其返回. 
+        * `RemoveEntryList(PLIST_ENTRY listEntry)`: 移除`listEntry`, 返回成功与否的布尔值. 
+        * `RemoveTailList(PLIST_ENTRY listTail)`: 移除`listTail->Blink`, 并将其返回. 
+        * `IsListEmpty`: 判空
         * 可用确保线程安全的函数: 在remove, insert等函数前加前缀`ExInterlocked`, 并添加一个自定义的自旋锁`&sLock`作为三参. 
 
     <img alt="" src="./pic/list_entry.jpg" width="80%" height="80%">
@@ -815,11 +883,48 @@ uStr.MaximumLength = sizeof(sz);
 * `PsGetCurrentProcessId`: 获取当前线程所属进程的pid. 在DispatchIoControl函数中实际是获得向驱动发出请求的进程的id.
 * `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的EPROCESS结构的指针.
 * `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取进程EPROCESS结构
-* `KeStackAttachProcess(pEProcess, &ApcState)`: 将当前线程附加到目标进程控件. 对应函数`KeUnstackDetachProcess(&ApcState)`. `ApcState`直接初始化为`{0}`, 或者`PKAPC_STATE pApcState = (PKAPC_STATE)ExAllocatePool(NonPagedPool, sizeof(PKAPC_STATE)); ApcState = *pApcState;`. `KeAttachProcess(pEProcess)`是旧方法.
-* `ZwQueryInformationFile(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径.
+* `KeStackAttachProcess(pEProcess, &ApcState)`: 将当前线程附加到目标进程的地址空间. 对应函数`KeUnstackDetachProcess(&ApcState)`. `ApcState`直接初始化为`{0}`, 或者`PKAPC_STATE pApcState = (PKAPC_STATE)ExAllocatePool(NonPagedPool, sizeof(PKAPC_STATE)); ApcState = *pApcState;`. `KeAttachProcess(pEProcess)`是旧方法.
+* `ZwQueryInformationProcess(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径. 注意, 这个函数现在可以通过包含头文件`winternl.h`来调用. 
 * `NtCurrentProcess()`宏: 返回表示当前进程的特殊句柄值
 * ``: 
 * ``: 
+
+# 内存
+* [官方文档](https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/managing-memory-for-drivers)
+* 内存分配: 
+    * PagedPool
+        * 分页内存, 物理内存不够时, 这片内存会被移到磁盘上. 总量多. 通常可申请一大片来存数据.
+    * NonPagedPool
+        * 总量有限(物理内存). 
+        * 如果代码和数据总量大于等于4K(即一页的大小), 则要将节设置为paged. 
+        * 如果可以的话, 应该将可分页代码或数据和`有时可能分页但有时又要锁定的代码或数据`分开放到不同节, 因为如果放到一块的话, 在锁定的时候就会有更多内存空间被锁定. 不过如果代码和数据总量小于4K, 那就放到同一个节, 没问题. 
+    * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
+* 虚拟地址空间的分区
+    * 空指针赋值分区: `0x00000000 - 0x0000ffff`. 若线程读写该区域, 会引发访问违规. 
+    * 用户模式分区: 
+        |cpu|地址区间|分区大小|
+        |-|-|-|
+        |x86|0x00010000 - 0x7ffeffff|~2GB|
+        |x86w/3GB|0x00010000 - 0xbffeffff|~3GB|
+        |x64|0x00000000\`00010000 - 0x000007ff\`fffeffff|~8192GB|
+        |IA-64|0x00000000\`00010000 - 0x000006fb\`fffeffff|~7152GB|
+
+    * 空指针赋值分区: 
+
+* VAD(virtual address descriptor, 虚拟地址描述符)
+    * 参考: https://www.cnblogs.com/revercc/p/16055714.html
+    * 应用层调用`VirtualAlloc`, 传入的参数`flAllocationType`的值为reserved保留, 这时windows操作系统也会构造并增加一个VAD结点来描述这块内存块. 这样预留了一块虚拟地址, 后面需要使用时再分配PTE页表等结构为其映射实际的物理内存. 
+    * 遍历VAD树: 通过驱动程序获取进程EPROCESS并遍历ActiveProcessLinks链表找到需要处理的进程(通过断此链可以实现进程隐藏), 获取到对应进程的EPROCESS后获得其VADRoot根结点并进行遍历VAD树. 
+    * VAD隐藏: _MMVAD.StartingVpn = _MMVAD.EndingVpn
+
+* 分页和非分页内存
+    * 记法: 分页对应物理内存, 非分页对应虚拟内存. 
+    * 驱动程序的全局变量放在.data节, 在测试中发现这些全局变量可能处于分页内存中(因为多次在dpc级别中出现访问这些全局变量而引起的蓝屏, bsod错误码为`IRQL_NOT_LESS_OR_EQUAL`)
+
+* api
+    * `RtlCopyMemory`: 
+    * ``: 
+    * ``: 
 
 # 主防
 * 弹窗
@@ -887,12 +992,17 @@ uStr.MaximumLength = sizeof(sz);
     * 找到该函数
     * 实现一个新的函数替换之
     * 恢复该函数
-* ssdt hook
+* ssdt(system service dispatch table) hook
+    * 在windbg中打印
+        * `dps KeServiceDescriptorTable`: 可以得到ssdt表的元数据, 包括其基址和表项数目
+        * `dps KiServiceTable`: 打印ssdt表项(在x64下不显示, 因为在x64下KeServiceDescriptorTable表不导出, 而且**表项不是直接存地址, 而是存相对ssdt的偏移**)
+        * `.foreach /ps 1 /pS 1 ( offset {dd /c 1 nt!KiServiceTable L poi(nt!KeServiceDescriptorTable+10)}){ r $t0 = ( offset >>> 4) + nt!KiServiceTable; .printf "%p - %y\n", $t0, $t0 }`: 打印所有ssdt表项(x64下用)
     * 导入服务描述表: `__declspec(dllimport)  ServiceDescriptorTableEntry_t KeServiceDescriptorTable;` `KeServiceDescriptorTable`是由`ntoskrnl.exe`导出的.
     * 获取`Zw*`索引号: `NtReadFile index = *(DWORD *) ((unsigned char *) ZwReadFile + 1)`, 因为`Zw*`函数的第一条指令是`mov eax, <索引号>`, 这条指令5个字节, 操作码1个字节, 后4个字节是操作数.
     * 得到ssdt表中函数的地址
         * x86: `KeServiceDescriptortable + 4 * index`
         * x64: `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)`
+            * 一个x64的ssdt表项长为4字节, 其中前28位才是例程相对ssdt基址的偏移地址, 后4位为对应例程的参数个数. 
     * 或者用这个宏根据Zw函数获取Nt函数的地址: `#define SYSTEMSERVICE(_function) KeServiceDescriptorTable.ServiceTableBase[ *(PULONG)((PUCHAR)_function+1)]`. `_function`是NtXxx对应的ZwXxx. `(PUCHAR)_function+1`的目的是取ZwXxx函数开始处的第二个字节(注意ZwXxx函数的第一条指令是`mov eax, <索引号>`), 这个数字即是其在ssdt中的序号.
     * 用`typedef`定义一个目标Nt函数的原型, 然后声明一个函数指针变量, 存放原Nt函数.
     ```cpp
@@ -1033,7 +1143,7 @@ uStr.MaximumLength = sizeof(sz);
     * 防截屏: `NtGdiStretchBlt`, `NtGdiBitBlt`
     * hook shadow表
         * 获取shadow表地址
-            * 用硬编码: 它和ssdt表挨着, `KeServiceDescriptorTable - 0x40 + 0x10` (winxp), `KeServiceDescriptorTable + 0x40 + 0x10` (winxp)
+            * 用硬编码: 它和ssdt表挨着, `KeServiceDescriptorTable - 0x40 + 0x10` (winxp), `KeServiceDescriptorTable + 0x40 + 0x10` (win7)
 
                 <img alt="" src="./pic/shadow_ssdt.jpg" width="40%" height="40%">
 
@@ -1337,37 +1447,135 @@ uStr.MaximumLength = sizeof(sz);
                 * 判断自己是否被沙盒
                     * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
         * Filespy
-    
+
+# 防火墙
+* 概要
+    * hook, 过滤, 回调监控
+    * 在各个接口处获得数据包
+    * 获得地址和端口: IP/Port (协议解析)
+    * 下发自定义规则: ip/port:allow/deny
+    * 将地址和端口与规则相匹配
+    * 阻止, 允许
+    * 深入数据部分: 加解密, 病毒扫描
+* windows服务器端网络五种IO模型
+    1. 选择
+    2. 异步选择
+    3. 事件选择
+    4. 重叠I/O
+    5. 完成端口
+    * 性能: 1 < 用事件通知实现的4 < 3 < 用完成例程实现的4 < 完成端口
+
+* windows网络防火墙技术
+
+    <img alt="" src="./pic/tdi_ndis_wfp.jpg" width="50%" height="50%">
+
+* tdi
+    <img alt="" src="./pic/tdi.jpg" width="50%" height="50%">
+
+    * 连接socket和协议驱动
+    * 功能
+        * 进程连接控制
+        * 进程流量监控
+    * `IRP_MJ_CREATE`, `IRP_MJ_DEVICE_CONTROL`, `IRP_MJ_INTERNAL_DEVICE_CONTROL`, 用来响应socket, bind, connect, listen, accept, send, recv等. 
+    * 协议驱动设备: `\device\tcp`, `\device\udp`, `\device\RawIp`
+
+    * tdifw (用于tdi二次开发, 修改`events.c` `dispatch.c`)
+        * `tdi_fw.c`: `DriverEntry`在这里. 生成3个过滤设备对象, 分别与上述3个协议驱动设备绑定. 
+            * `c_n_a_device(theDriverObject, &g_tcpfltobj, &g_tcpoldobj, L"\\Device\\Tcp");` 表示生成新的过滤设备对象(赋值予`g_tcpfltobj`), 并将其与目标设备`L"\\Device\\Tcp"`绑定(目标设备对象的指针赋予`g_tcpoldobj`). 
+        * `dispatch.c`: 定义了一个全局数组`g_tdi_ioctls`, 其中保存次功能号. 在对主功能号`IRP_MJ_INTERNAL_DEVICE_CONTROL`的处理过程中会遍历这个数组
+        * `events.c`: 异步处理. 
+        * `filter.c`: `quick_filter`. 规则匹配. 
+        * `tdifw.conf`: 规则配置文件.
+            ```
+            [<name>]
+            ALLOW|DEBY TCP|UDP|RawIp|* IN|OUT|* FROM <addr> TO <addr> [NOLOG|COUNT]
+            ```
+        * 添加规则流程
+            * R3: `tdifw_svc.c`中的`load_config`
+            * R0: `DeviceDispatch`中由控制设备处理添加规则
+        * 测试
+            * 运行`install.bat`
+            * `net start tdifw`
+* ndis(network driver interface specification)
+    * 层次
+        * 协议驱动: 绑定在所有网卡上, 所以能解惑接收到的包, 但无法截获发送的包. 
+        * 中间层驱动: (P部分)绑定在了所有的小端口驱动上;  (M部分)也被所有协议驱动绑定. 收发都能拦截
+        * 小端口驱动: 网卡驱动
+
+            <img alt="" src="./pic/ndis.jpg" width="50%" height="50%">
+
+    * passthru
+
+* wfp
+
+    <img alt="" src="./pic/wfp_architecture.jpg" width="50%" height="50%">
+
+    <img alt="" src="./pic/wfp_architecture.png" width="50%" height="50%">
+
+    * 概念
+        * Layers
+            * 把规则分成若干组
+            * 用户态用128位的GUID表示，内核态用64位的LUID表示
+            * 分层是一个容器，其中可包含多个过滤器
+            * 子层
+                * 开发者可给子层指定权重(Weight), 权重大的子层先获得数据
+            * 
+        * Filters
+            * 用于处理包的一些规则和动作的集合. 
+            * 要为过滤器指定分层(给`layerKey`分层的GUID, 给`subLayerKey`赋值子层的GUID)
+            * 同一分层内, 不同过滤器的权重不能相同. 
+            * 过滤器一般会关联一个callout接口. (也就是把callout的guid赋予过滤器`action.calloutKey`)
+        * Shims
+            * 垫片. 解析网络堆栈中的流, 包, 事件. 调用过滤引擎并根据规则评估数据, 或进一步调用callout, 最后决定对包的最终处理. 
+        * Callouts函数
+            * 由驱动暴露的一组接口函数, 负责进一步分析或修改包. **当数据包命中某过滤器的规则并且过滤器指定一个callout时, 该callout内的回调函数即被调用.** 如classify数据处理函数. 可返回一组permit, block, continue, defer, needmoredata等. 
+            * Classify
+                * 利用规则过滤包的过程. 将包的各种属性与规则中的conditions进行比较. 
+    * 整体工作流程
+        1. 数据包到达网络栈
+        2. 网络栈寻找并调用垫片
+        3. 垫片在特殊层中调用分类程序
+        4. 在分类的时候, 匹配过滤器, 并执行操作, 产生结果(如同tdi的`quick_filter`)
+        5. 若在分类的时候, 有匹配的callout过滤器, 则调用相应的callout
+        6. 垫片(如, 丢包)(垫片是关键角色)
+    * WFP程序整体思路
+        * 根据需要确定要过滤的层
+        * 实现并注册callout(s)
+        * 添加callout(R0/R3皆可, 设置layer)
+        * 添加filter规则(R0/R3皆可, 设置layer, callout, conditions)
+        * 实现classifyFn函数, 处理网络数据包
+
 # VT技术
 * 概念
     * 硬件虚拟化技术, 在硬件级别上完成计算机的虚拟化(增加了一些寄存器)
-    * 一句话总结: vt是一个驱动(.sys文件), 由os加载运行后, 运行在每个cpu内核上, 推翻原来的os(加载它的os, 然后os和app-r0和r3退化为guset), 建立特权层(host, vmm, hypervisor, root, -1), 监控(欺骗)guest(os, 应用程序, non-root, 0, 3)的执行. 
+    * Intel vt-x, Amd-v(SVM)
+    * 一句话总结: vt是一个驱动(.sys文件), 由os加载运行后, 运行在每个cpu内核上, 推翻(subvert)原来的os(加载它的os, 然后os和app-r0和r3退化为guset), 建立特权层(host, vmm, hypervisor, root, -1), 监控(欺骗)guest(os, 应用程序, non-root, 0, 3)的执行. 
 * 意义
     * 简化虚拟机开发
     * 中断hook, 软件调试, ssdt hook
 * 基本原理
     * -1层, 特权层: VMM, 
-        * vt使得cpu进入一个全新的特殊模式(VMX模式), 在这个模式下, cpu处于VMM-root层(-1)或VMM-nonroot层(0, 3)
-        * 处于VMM-nonroot下的r0, r3都被监控
+        * vt使得cpu进入一个全新的特殊模式(**VMX模式**), 在这个模式下, cpu处于VMM-root层(-1)或VMM-nonroot层(0, 3)
+        * 处于VMM-nonroot下的r0, r3都被监控. 因此, 将VMM运行于VMX root操作状态, 可轻松监控管理客户操作系统(即虚拟机中的OS)和客户应用程序. 
 
             <img alt="" src="./pic/vt_progress.png" width="50%" height="50%">
 
     * guset/host
         * vt出现之前, vmware用的是进程虚拟机, 以软件模拟硬件
-    * Msr寄存器
+        
     * vt处理器额外指令集(VMX)
         * VMCS区域管理指令: 
-            * VMPTRLD: 激活当前VMCS(关键结构体, VT host/guest对应的上下文), 并加载内存数据到VMCS指针
-            * VMPTRST: 存储当前VMCS指针数据到内存
-            * VMCLEAR: 将launch状态的VMCS设置为clear状态(非激活状态), 与VMPTRLD相反
-            * VMREAD: 读取VMCS中的数据
-            * VMWRITE: 写入VMCS的域
+            * `VMPTRLD`(`__vmx_vmptrld`): 激活当前VMCS(关键结构体, VT host/guest对应的上下文), 并加载内存数据到VMCS指针. 参数是保存VMCS指针的物理地址. 
+            * `VMCLEAR`(`__vmx_vmclear`): 将launch状态的VMCS设置为clear状态(非激活状态), 与VMPTRLD相反
+            * `VMPTRST`(`__vmx_vmwrite`): 存储当前VMCS指针数据到内存. 参数是保存当前VMCS指针的物理地址, 
+            * `VMREAD`(`__vmx_vmread(Field, *FieldValue)`): 读取VMCS中的数据, 保存到`FieldValue`指向的地址. 返回0表示操作成功, 1表示失败且在`VM-instruction error`域有返回的状态码, 2表示失败且没有返回的状态码
+            * `VMWRITE`(`__vmx_vmwrite`): 在当前VMCS中向某个域写入值(一参指定域, 二参指定值), 返回值同上
         * VMX管理指令: 
-            * VMLAUNCH: 启动VMCS虚拟机(guest机)
-            * VMRESUME: 从host中恢复VMCS的虚拟机
-            * VMXON: 进入VMX ROOT模式
-            * VMOFF: 退出VMX ROOT模式
-            * VMCALL: 关闭VT时让虚拟机主动发生退出事件(NBP_HYPERCALL_UNLOAD)
+            * `VMLAUNCH`: 启动VMCS虚拟机(guest机), 之后CPU处于non-root模式
+            * `VMRESUME`: 从host中恢复VMCS的虚拟机, 同`VMLAUNCH`, 也是进入non-root下的guest机
+            * `VMXON`: 进入VMX ROOT模式
+            * `VMOFF`: 退出VMX ROOT模式
+            * `VMCALL`: 关闭VT时让虚拟机主动发生退出事件( )
     * 无条件, 有条件陷入指令
 
         <img alt="" src="./pic/vt_trap1.png" width="50%" height="50%">
@@ -1375,15 +1583,16 @@ uStr.MaximumLength = sizeof(sz);
         <img alt="" src="./pic/vt_trap2.png" width="50%" height="50%">
 
     * x64四级页表寻址和vt双层地址翻译
+        * 确定下一条指令的地址: CS(代码段寄存器) + eip
         * x86:
 
             <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
 
-            x86 PAE(物理地址扩展)时如下. 
+            x86 PAE(物理地址扩展)时如下. cr3寄存器指向**pdptr表**的基址, 该表只有4项(由第30, 31位指定项索引), 每项指向一个**页目录表**, 页目录表每一项指向一个页表, **页表**每一项记录一个物理内存页的起始地址. 再通过地址的0至11位则指定的索引, 在**物理内存页**找到目的地址. 
 
             <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
 
-        * x64
+        * x64: 用了低48位, 每级页表占9位, 共4级, 缩写分别为PML4, PDP, PD, PT. cr3指向顶级页表的基址. 
             
             虚拟地址结构如下. 
 
@@ -1391,10 +1600,15 @@ uStr.MaximumLength = sizeof(sz);
 
             <img alt="" src="./pic/vt_vaddr2addr_64.png" width="50%" height="50%">
 
-        * 虚拟机双层地址翻译
+        * 虚拟机双层地址翻译(intel ept)
             * 虚拟机地址 -> (通过gpt页表)虚拟机物理地址 -> (通过ept页表)真机物理地址
             * cr3寄存器指向gpt(guest page table)
-            * eptr寄存器指向ept(extended page table)
+            * eptp寄存器指向ept(extended page table)
+            * 过程
+                1. 根据ept页表, 将cr3所指gpt顶级地址翻译为真实物理地址, 从而可以找到gpt的真实内容
+                2. 根据gpt页表, 将虚拟机线性地址翻译为虚拟机物理地址
+                3. 检查该虚拟机物理地址的访问权限
+                4. 根据ept将虚拟机物理地址翻译到真实物理地址
 
                 <img alt="" src="./pic/vt_vaddr2addr_double_layers.png" width="50%" height="50%">
             
@@ -1453,7 +1667,7 @@ uStr.MaximumLength = sizeof(sz);
         * x64 fastcall
             * 用xmm0, 1, 2, 3进行浮点数传参
             * 参数入栈, 会对齐到8个字节
-            * 函数前4个参数存放到rcx, rdx, r8, r9
+            * 函数前4个参数存放到rcx, rdx, r8, r9(栈上会为它们留出4个位置, 叫shadow space)
             * 由调用者负责栈平衡
             * 栈整体要被16整除
             * 形参部分空间的分配和初始化由调用者完成
@@ -1463,21 +1677,25 @@ uStr.MaximumLength = sizeof(sz);
 * VT框架
     * 初始化和启动
         * 检查是否支持vt, 是否已开启vt
-            * cpuid返回的ecx中的第5位vmx是否为1
+            * cpuid返回的ecx中的第5位(从0位开始数)vmx是否为1
                 ```cpp
-                GetCpuIdInfo (0, &eax, &ebx, &ecx, &edx);
+                ULONG32 eax, ebx, ecx, edx; 
+                GetCpuIdInfo (0, &eax, &ebx, &ecx, &edx); // 这个自定义函数使用cpuid指令, 传入参数0
                 return (ecx & (1 << 5));
                 ```
             * cr4第13位vmxe是否为1, 是则表示vt已开启, 此次不能开启
-            * MSR_IA32_FEATURE_CONTROL寄存器第0位Lock位是否为1, 是则表示支持vt操作; 第二位是否为1, 不为1则vmxon不能执行
+            * `MSR_IA32_FEATURE_CONTROL`寄存器第0位Lock位是否为1, 是则表示支持vt操作(且已经开启); 第二位是否为1, 不为1则vmxon不能执行
         * 分配VMX内存区域: 
             * vmxon内存: 申请连续4k对齐内存空间
                 ```cpp
                 pCpu->OriginaVmxonR = MmAllocateContiguousMemory(2*PAGE_SIZE, PhyAddr);
-                *(ULONG64 *) pCpu->OriginaVmxonR = (__readmsr(MSR_IA32_VMX_BASIC) & 0xffffffff); // 写入vmcs的版本号
+                RtlZeroMemory (pCpu->OriginaVmxonR, 2*PAGE_SIZE);
+
+                // 写入vmcs的版本号
+                *(ULONG64 *) pCpu->OriginaVmxonR = (__readmsr(MSR_IA32_VMX_BASIC) & 0xffffffff); 
 
                 PhyAddr = MmGetPhysicalAddress(pCpu->OriginaVmxonR);
-                __vmx_on (&PhyAddr); 开启虚拟机模式, 此后不要再访问这个区域
+                __vmx_on (&PhyAddr); // 开启虚拟机模式, 此后不要再访问这个区域
                 ```
             * host-vmm栈区域
                 * 空递减栈: 栈顶指针所指为空, push时先存值指针再上移
@@ -1494,19 +1712,46 @@ uStr.MaximumLength = sizeof(sz);
                 ```
             * vmcs区域: (类似进程的EPROCESS) 
                 * VMCS 是一个4K的内存区域在逻辑上, 虚拟机控制结构被划分为 6 部分:
-                    * GUEST-STATE 域: 虚拟机从根操作模式进入非根操作模式时, 处理器所处的状态.
-                    * HOST-STATE 域: 虚拟机从非根操作模式退出到根操作模式时, 处理器所处的状态.
-                    * VM 执行控制域: 虚拟机在非根操作模式运行的时候, 控制处理器非根操作模式退出到根操作模式.
-                    * VM 退出控制域: 虚拟机从非根操作模式下退出时, 需要保存的信息.
-                    * VM 进入控制域: 虚拟机从根操作模式进入非根操作模式时, 需要读取的信息.
-                    * VM 退出信息域: 虚拟机从非根操作模式退出到根操作模式时, 将退出的原因保存到该域中. 
+                    * GUEST-STATE 域: 虚拟机从root进入non-root时, 处理器所处的状态. 
+                    * HOST-STATE 域: 虚拟机从non-root退出到root时, 处理器所处的状态. 即该域用于恢复主机cpu的状态. 
+                    * VM 执行控制域: 虚拟机在non-root运行的时候, 控制处理器non-root退出到root. 以下为其部分功能, 参考自 https://zhuanlan.zhihu.com/p/49257842 : 
+                        * 控制vCPU在接收到某些中断事件的时候, 是否直接在vCPU中处理掉, 即虚拟机直接处理掉该中断事件还是需要退出到VMM中, 让VMM去处理该中断事件. 
+                        * 是否使用EPT功能. 
+                        * 是否允许vCPU直接访问某些I/O口, MSR寄存器等资源. 
+                        * vCPU执行某些指令的时候, 是否会出发VM Exit.
+                    * VM 退出控制域: 虚拟机从non-root下退出时, 需要保存的信息.
+                    * VM 进入控制域: 虚拟机从root进入non-root时, 需要读取的信息(需要保存和恢复哪些MSR寄存器).
+                    * VM 退出信息域: 虚拟机从non-root退出到root时, 将退出(VM Exit)的原因保存到该域中. 
                 * 保存到vmcs的值:
                     * guest寄存器(cr0, cr3, cr4, dr7, idtr, es, cs, ss, ds, fs, gs, ldtr, tr)
                     * host寄存器(基本同上)
                     * guest的rsp, rip, rflag
                     * host的rsp, rip(rsp为分配的VMM_STACK, rip为VmxVmexiHandler)
+                ```cpp
+                pCpu->OriginalVmcs = MmAllocateContiguousMemory(PAGE_SIZE, PhyAddr); // 为VMCS结构分配空间
+                RtlZeroMemory (pCpu->OriginalVmcs, PAGE_SIZE);
 
+                *(ULONG64 *) pCpu->OriginalVmcs  = (__readmsr(MSR_IA32_VMX_BASIC) & 0xffffffff);
+
+                // 配置VMCS 
+                PhyAddr = MmGetPhysicalAddress(pCpu->OriginalVmcs);
+                __vmx_vmclear (&PhyAddr);  // 取消当前的VMCS的激活状态
+                __vmx_vmptrld (&PhyAddr);  // 加载新的VMCS并设为激活状态
+                #pragma warning(disable:4152)
+                VMM_Stack = (ULONG_PTR)pCpu->VMM_Stack + 8 * PAGE_SIZE - 8;
+
+                // 在VmxSetupVMCS这个自定义函数中设置GuestRip,GuestRsp
+                if ( VmxSetupVMCS (VMM_Stack, CmGuestEip, GuestRsp) )
+                {
+                    KdPrint (("VmxSetupVMCS() failed!"));
+                    __vmx_off ();
+                    clear_in_cr4 (X86_CR4_VMXE);
+                    return STATUS_UNSUCCESSFUL;
+                }
+                ```
+                
                 <img alt="" src="./pic/vt_vmcs.png" width="50%" height="50%">
+
             * 分配vmxcpu结构(一个cpu一个, 保存前述3个结构)
         * 设置cr4.vmxe为1, 表示vt已被占用
         * 初始化vmxon结构; 使用vmxon命令开启vt
@@ -1526,19 +1771,27 @@ uStr.MaximumLength = sizeof(sz);
 
             <img alt="" src="./pic/vt_progress2.png" width="50%" height="50%">
     * MSR hook
-        * msr寄存器
-            * 一组64位寄存器
+        * msr寄存器 
+            * 一组64位寄存器, 可通过`rdmsr` `wrmsr`指令进行读写(需先在ecx写入msr的地址). 
+            * `rdmsr`: 读取msr寄存器的64位内容, 高32位放到edx寄存器, 低32位放到额啊想寄存器(若是64位系统, 则rax和rdx的高32位都清零). 
+            * 用于设置cpu的工作环境和提示cpu的工作状态(温度控制, 性能监控等)
+            * `LSTAR`存放着`syscall`指令调用的`KiSystemCall64`的地址(`syscall`是应用层进入内核层时调用的指令)
+            * 存放ssdt的入口, patchguard通过`rdmsr`指令定期检查该寄存器, 发现改动则蓝屏
+            * **通过vt欺骗patchguard**: patchguard每次调用`rdmsr`, 引起vmexit事件, 可被vt监控到, 从而可进行欺骗. 
 
                 <img alt="" src="./pic/vt_msr.png"    width="50%" height="50%">
 
-            * 用于设置cpu的工作环境和提示cpu的工作状态(温度控制, 性能监控等)
-            * LSTAR存放着`syscall`指令调用的`KiSystemCall64`的地址(`syscall`是应用层进入内核层时调用的指令)
-            * 存放ssdt的入口, patchguard通过`rdmsr`指令定期检查该寄存器, 发现改动则蓝屏
         * x64 ssdt hook
+            * x64下nt函数调用流程: 
+
+                <img alt="" src="./pic/x64_nt_proc.jpg"    width="50%" height="50%">
+
+            * 为了绕过patchguard, 需要: 
+                * 修改msr寄存器中的lstar
             * 拿到ssdt表`KeServiceDescriptorTable`(未导出)
                 * 通过`readmsr`得到`KiSystemCall64`地址, 从此地址向下搜索0x100左右, 得到`KeServiceDescriptorTable`地址
-                * 找到目标nt函数的索引号: 在对应的zw函数处找`mov eax, <nt函数地址>`指令
-                * `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)`
+                * 找到目标nt函数的索引号: 在对应的zw函数处找`mov eax, <nt函数索引>`指令
+                * `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)` ( x64中ssdt表每一项存放的是: (函数绝对地址 - ssdt表首地址) << 4 )
                 * 备份: `NtSyscallHandler = (ULONG64)__readmsr(MSR_LSTAR);`
                 * 构造自己的ssdt表数组
                     * `SyscallPointerTable[4096]`: 存放函数地址
@@ -1546,11 +1799,11 @@ uStr.MaximumLength = sizeof(sz);
                     * `SyscallParamTable[4096]`: 存放函数参数个数
                 * 汇编实现一个`SyscallEntryPoint`替换`KiSystemCall64`
                 * `__writemsr(MSR_LSATR, GuestSyscallHandler);`完成msr寄存器中handler的替换
-                * 在patchguard使用`readmsr`引发的vt exit事件中, 欺骗系统的`readmsr`, 并禁止别人再`writemsr`
+                * 在patchguard使用`readmsr`引发的vt exit事件中, 返回备份的`NtSyscallHandler`, 欺骗系统的`readmsr`, 并禁止别人再`writemsr`
             * 注意
                 * `syscall`是直接获取lstar中的ssdt表地址值. 而patchguard通过`readmsr`获取. 
                 * 先hook, 再启动vt (不然启动vt后msr被禁用, 不能hook)
-                * 卸载驱动时, 先停止vt, 再卸载hook
+                * 卸载驱动时, 先停止vt(因为此时msr被禁用, 还不能改回来), 再卸载hook
     * EPT hook
         * 原理: 客户机转宿主机期间发生权限异常(rwx), 客户机发生vmexit事件, 控制权回到宿主机, 设置guestrip, 跳到hook函数
         * 优点: 能真正实现无痕
@@ -1585,15 +1838,15 @@ uStr.MaximumLength = sizeof(sz);
 
 * 编译报错: `LNK2019 无法解析的外部符号 DriverEntry, 该符号在函数 FxDriverEntryWorker 中被引用`
 
-        原因: 驱动函数一般采用__stdcall约定
-        解决: 函数定义前加extern "C"
+        1. 驱动函数一般采用__stdcall约定: 函数定义前加extern "C"
+        2. 把cpp文件改为c文件(即改文件后缀名)
 
 * WinDbg中, `!process`时出现`NT symbols are incorrect, please fix symbols`
 
         .symfix D:\win_symbols
         .reload /o
 
-* `DriverEntry`中执行`IoCreateSymbolicLink`时出现错误码`C000003A`:
+* `DriverEntry`中执行`IoCreateSymbolicLink`时出现错误码`C000003A`: 
 
         注意字符串格式:
         DosDevicename 格式为 L"\\DosDevices\\暴露的符号名"
@@ -1617,7 +1870,7 @@ uStr.MaximumLength = sizeof(sz);
 
 * windbg不能在源文件设置断点
 
-        先lm看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用.reload载入符号文件. (在驱动已载入(即已存在于image list)后, 可 .reload Xxx.sys 来载入驱动的符号(前提是符号路径已经正确设置))
+        先lm看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用.reload载入符号文件. (在驱动已载入(即已存在于image list)后, 可 .reload Xxx.sys 来载入驱动的符号(前提是符号路径已经正确设置)). 可以运行 !sym noisy 打印详细信息, 看看reload时寻找的路径是否正确. 
 
         对于用户层文件, 要先把程序跑起来, 然后中断, 在windbg通过 .process /p 进入进程上下文, 再执行 .reload /f /user 来把用户层程序的pdb加载进来.
 
@@ -1654,6 +1907,7 @@ uStr.MaximumLength = sizeof(sz);
         字符串末尾要有"\n"换行符.
 
 * vs工具编译的exe无法在winxp中运行(提示"不是有效的win32程序")
+
     vs是2022. 用exescope可看到编译得到的exe文件的主版本号是6:
         
     <img alt="" src="./pic/exescope.jpg" width="100%" height="100%">
@@ -1663,6 +1917,14 @@ uStr.MaximumLength = sizeof(sz);
     <img alt="" src="./pic/vs_installer_xp_toolsets.jpg" width="100%" height="100%">
 
     但是官网说vs2019及以后的版本已经不支持构建winxp程序. 所以以上方法无用. 
+
+* 用vmware时windbg连不上虚拟机
+
+    按网上的说法, 将虚拟机中启动项的高级选项中的调试端口改为 COM2: .
+
+* 安装驱动后启动时蓝屏(发生位置是`_IMPORT_DESCRIPTOR_ntoskrnl`, 报Access violation异常)
+
+    在编译驱动前, 检查一下工程属性中, Driver Settings -> Target OS Version, 确保目标操作系统选对了. 
 
 
 # DDK开发安全事项 
