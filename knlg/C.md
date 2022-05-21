@@ -247,6 +247,16 @@ int main(int argc,char *argv[])
     * 处理
         * if/goto
         * __try/__except
+* 宏
+```cpp
+// 把宏参数拼接到字符串中: 
+#define WARN(msg) printf("warning: " #msg "\n")
+
+// 把宏参数拼接到另一个c语言token
+#define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
+
+4```
+
 # 算法
 * 程序 = 算法(包括数据结构) + api调用 + "hello world" + 字符串处理 + 内存管理
 * 时间复杂度

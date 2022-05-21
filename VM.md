@@ -1,5 +1,13 @@
 # virtualbox
 * 为防止安装系统时的意外错误, 需在配置中`system`处开启`UEFI`
+* 挂载共享文件夹: `sudo mount -t vboxsf public_dir /mnt/shared `
+* 启用嵌套VT-x/AMD-V
+    * 如果这一项是灰色不可选的，则需执行: `VBoxManage.exe modifyvm win7_x64 --nested-hw-virt on`
+# vmware
+* 合并vmdk
+    * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
+        * 第一个引号内为多个原vmdk文件所在路径+磁盘名称（去掉-s001之类）.vmdk；
+        * 第二个引号内为生产单个文件的路径和名字。
 
 # docker
 ## 知识点

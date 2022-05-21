@@ -103,6 +103,91 @@
 * 线程
     `AfxBeginThread(MyThreadFunction, pParam)`: 线程的入口函数声明: `UINT MyThreadFunction( LPVOID pParam )`, `pParam`是传给线程的参数.
 
+# winsock
+## 一个简易tcp服务
+```cpp
+#include<iostream.h>
+#include<winsock2.h>
+#pragma comment(lib, "ws2_32.lib")
+void msg_display(char * buf)
+{
+	char msg[200];
+	strcpy(msg,buf);// overflow here, copy 0x200 to 200
+	cout<<"********************"<<endl;
+	cout<<"received:"<<endl;
+	cout<<msg<<endl;
+}
+void main()
+{
+	int sock,msgsock,lenth,receive_len;
+	struct sockaddr_in sock_server,sock_client;
+	char buf[0x200]; //noticed it is 0x200
+	
+	WSADATA wsa;
+	WSAStartup(MAKEWORD(1,1),&wsa);
+	if((sock=socket(AF_INET,SOCK_STREAM,0))<0)
+	{
+		cout<<sock<<"socket creating error!"<<endl;
+		exit(1);
+	}
+	sock_server.sin_family=AF_INET;
+	sock_server.sin_port=htons(7777);
+	sock_server.sin_addr.s_addr=htonl(INADDR_ANY);
+
+	char host_name[MAXBYTE];
+	gethostname(host_name, MAXBYTE); // 获取主机名称
+	cout<<host_name<<endl;
+	hostent *lv_pHostent;
+	lv_pHostent = (hostent *)malloc(sizeof(hostent));
+	if( NULL == (lv_pHostent = gethostbyname(host_name)))
+	{
+		printf("get Hosrname Fail \n");
+		return ;
+	}
+	// cout<<lv_pHostent<<endl;
+	
+	memcpy(&sock_server.sin_addr.S_un.S_addr, 
+		lv_pHostent->h_addr_list[0], lv_pHostent->h_length);
+	cout<<inet_ntoa(sock_server.sin_addr)<<endl;
+
+	if(bind(sock,(struct sockaddr*)&sock_server,sizeof(sock_server)))
+	{
+		cout<<"binging stream socket error!"<<endl;
+	}
+	cout<<"**************************************"<<endl;
+	cout<<"     exploit target server 1.0	   "<<endl;
+	cout<<"**************************************"<<endl;
+	listen(sock,4);
+	lenth=sizeof(struct sockaddr);
+	do{
+		msgsock=accept(sock,(struct sockaddr*)&sock_client,(int*)&lenth);
+		if(msgsock==-1)
+		{
+			cout<<"accept error!"<<endl;
+			break;
+		}
+		else 
+			do
+			{
+				memset(buf,0,sizeof(buf));
+				if((receive_len=recv(msgsock,buf,sizeof(buf),0))<0)
+				{
+					cout<<"reading stream message erro!"<<endl;
+					receive_len=0; 
+				}
+				msg_display(buf);//trigged the overflow
+			}while(receive_len);
+			closesocket(msgsock);
+	}while(1);
+	WSACleanup();
+}
+```
+
+* 问题
+    * `‘inet_addr’: Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings libharmorobotservice`
+        * 方法一: 换用新函数`inet_pton`. 需要导入头文件`WS2tcpip.h`
+        * 方法二: 工程属性 -> c/c++ -> sdl检查, 改为否
+
 # powershell
 
 # PE文件
@@ -110,8 +195,13 @@
     * 参考: https://www.loidair.com/2018/02/13/binary-basic-one/
     * VA = Image Base + RVA
 
+# svchost
+* svchost.exe根据注册表项`HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsNT\CurrentVersion\Svchost`下面的键值分组管理DLL申请的服务, 每一键值对应一个独立的Svchost.exe进程. 
+* `tasklist /svc`: 可以显示每个进程主持的服务
+* `tasklist /M`: 可以显示每个进程用的模块(dll)
+
 ## 一些方法
-* 重命名文件卡死的解决方法
+* 重命名文件卡死的解决方法(以及删文件时卡在99%很长时间)
     * `sfc /scannow`: 系统会开始扫描受损的文件然后修复. 参考: https://www.bilibili.com/read/cv8178838
 
 * win10和winxp共享文件夹
@@ -120,3 +210,8 @@
 * 查看和设置cmd的编码设置: `chcp`, `chcp <编码代号>`
     * 936: gbk2312
     * 65001: utf-8
+
+* 没有`gpedit.msc`
+    * 运行`mmc`, 然后如下添加`IP安全策略管理`
+
+    <img alt="" src="./pic/windows_mmc.jpg" width="40%" height="40%">
