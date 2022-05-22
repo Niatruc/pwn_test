@@ -10,6 +10,6 @@ __pycache__
 input
 output
 sync
-cve
+# cve
 # win_krnl
 build
