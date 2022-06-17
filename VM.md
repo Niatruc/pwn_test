@@ -6,8 +6,13 @@
 # vmware
 * 合并vmdk
     * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
-        * 第一个引号内为多个原vmdk文件所在路径+磁盘名称（去掉-s001之类）.vmdk；
+        * 第一个引号内为多个原vmdk文件所在路径+磁盘名称(去掉-s001之类).vmdk；
         * 第二个引号内为生产单个文件的路径和名字。
+
+# cuckoo
+* Locker文件: 
+1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受)，如文件操作，操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
+2. 有的会开启大量进程，导致出现大量procmemory-regions节(能占到100万行)；behavior的generic和processes节中项也很多(都能占到10万行)
 
 # docker
 ## 知识点

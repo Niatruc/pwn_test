@@ -189,7 +189,13 @@ void main()
         * 方法二: 工程属性 -> c/c++ -> sdl检查, 改为否
 
 # powershell
+* 管道: 命名管道的所有实例拥有相同的名称, 但是每个实例都有其自己的缓冲区和句柄, 用来为不同客户端通许提供独立的管道. 
+    * 列出当前计算机所有命名管道: 
+        * V3以下版本: `[System.IO.Directory]::GetFiles("\\.\\pipe\\")`
+        * V3以上: `Get-ChildItem \\.\pipe\`
 
+# 注册表
+* `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug`中的Debugger键: 可以设置系统默认调试器, 如: `"C:\debuggers\windbg.exe" -p %ld -e %ld -g`
 # PE文件
 * VA和RVA
     * 参考: https://www.loidair.com/2018/02/13/binary-basic-one/
