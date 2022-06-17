@@ -123,6 +123,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * 驱动框架: R3操作一个文件: `Create` -> `Read/Write/DeviceIoControl `-> `Clean` -> `Close`
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
+
 * 驱动运行流程
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
@@ -244,6 +245,14 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 设备控制尽量使用BUFFERED IO, 而且一定要使用 SystemBuffer,如果不能用BUFFERED IO,对于 UserBuffer 必须非常小心地 Probe,同时注意 Buffer 中指针, 字符串引发的严重问题, 如果可能, 尽量禁止程序调用自己的驱动. 
     * 使用 verifier(内核校验器, windows自带, 将驱动添加到其中, 设置检查选项, 一旦发生异常, 就蓝屏)和 Fuzz 工具检查和测试驱动. 对于挂钩内核函数的驱动, 可以使用 BSOD HOOK 一类的 FUZZ 工具, 来检查内核函数的缺陷和漏洞.
 
+# WDF(windows driver foundation)
+* 在WDM(windows driver model, 也就是上面笔记的部分)的基础上发展而来, 支持面向对象, 事件驱动的驱动程序开发. WDF框架管理了大多数与操作系统相关的交互, 实现了公共的驱动程序功能(如电源管理, PnP支持). 分KMDF(内核模式驱动程序框架)和UMDF(用户模式驱动程序框架). 
+* 框架定义的主要对象: 
+    * `WDFDRIVER`: 对应DRIVER_OBJECT. 其为根对象, 其他对象都是其子对象. 
+    * `WDFDEVICE`: 对应DEVICE_OBJECT. 
+    * `WDFREQUEST`: 对IRP的封装. 
+    * `WDFQUEUE`: 与一个WDFDEVICE对象关联, 描述一个特殊的IO请求队列. 有一系列事件处理回调函数, 当IO请求进入队列时, 框架将自动调用驱动程序中对应的callback. 
+    * `WDFINTERRUPT`: 表示设备中断. 
 
 # Windbg
 * 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
@@ -254,67 +263,170 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `~<数字>`: 显示第<数字>个线程
     * `~.`: 显示活动线程
     * `~#`: 显示引起异常的线程
-    * 注: `~`相关指令仅限用户模式
+    * 注: `~`相关指令用户模式在用户模式下是切换线程, 在内核模式下则是切换处理器, 如`~0`
     * `!runaway`: 扩展显示有关每个线程使用的时间的信息
-* 进程
+* 进程, 线程
     * `!process`
         * `/m <名称加通配符>`
         * `!process 0 0`: 系统所有进程(简). 第一个0可替换为别的进程ID(16进制). 后面可以加要查找的程序的全称.
         * `!process -1 0`: 当前进程信息.
         * `!process 0 7`: 系统所有进程(详).
         * `!process <EPROCESS> 7`: 进程详细信息.
+        * `!process @$proc 0x1f`: 进程详细信息, 包括其中所有线程的线程栈A.
     * `.process /p <EPROCESS>`: 进入进程上下文. (`<EPROCESS>`表示进程的EPROCESS块的地址)
     * `!peb`: 查看当前进程的peb. 
     * `!thread <ETHREAD>`: 查看线程.
+        * `!thread @$thread 0x1f`: 获取线程信息, 其中包括一个从线程开始运行到切换上下文(`SwapContext`或通过`syscall`进入R0时发生上下文切换)之前的线程栈. 
     * `.thread <ETHREAD>`: 进入线程上下文.
     * `!irql`: 显示当前进程的irql. 
-* 断点
-    * `bl <*|n|n1-n2>`: 列出断点
-    * `bc <*|n|n1-n2>`: 清理断点
-    * `bd <*|n|n1-n2>`: 禁用断点
-    * `be <*|n|n1-n2>`: 启用断点
-    * `bp <addr|model!func>`: 设置断点. `bp`要求模块已加载, 失败则转化为`bu`断点
-    * `bu model!func`: u是unresolved.
-    * `bm model!fu*c`: 
-    * `ba <w4|r4|e4|i4> <addr>`: 内存断点. 读, 写, 执行, IO(端口, 寄存器). 地址可以写成0x8100xxxx这样.
-    * `<bp|ba> </p|/t> <proc> <addr|func>`: 进程/线程断点, 只有该进程或线程执行到这个地方时才中断.
-* 内存
+
+* 内存和寄存器
     * `dt [nt!]_EPROCESS [<字段>] [<addr>]`: 查看`nt`模块的`_EPROCESS`结构. 加`-r`参数可以递归打印. 带`<addr>`则用该结构打印某地址块. 带`<字段>`则只打印该字段.
     * `<db(1字节)|dw(2)|dd(4)|dq(8)|dp|dD|df> <addr> <L20>`: 打印数字, 打印0x20个单位. 在`db`等前面加感叹号, 即`!db`, 则后面可接物理地址. 
     * `<da|du|ds|dS> <addr>`: 打印字符
     * `<dpa|dpu|dps|dpp> <addr>`: 打印指针指向的数据. 第二个字符: d(32位指针), q(64位指针), **p(标准指针大小, 取决于处理器架构)**. 第三个字符: p(DWORD或QWORD), a(ascii), u(unicode), s(symbol).
     * 修改内存: 把d改成e, 如`eb <addr> <val>`.
+        * `e[a|u] <地址> <字符串>`: 
+        * `e[za|zu] <地址> <字符串>`: 会在字符串末尾加上0
+        * `f <地址> L<数量> <模式>`: 用给定模式反复填充一定数量的字节到内存. 
+    * `s <范围> <模式>`: 在内存中搜索指定模式. 
+    * `c <addr1> <addr2>`: 比较两端内存区域. 
+    * `.dvalloc <大小>`: 在调试器进程空间中分配内存. 
+        * `.dvfree <基址> <大小>`: 释放`.dvalloc`分配的内存. 
+    * `.readmem <文件名> <范围>`: 将一个文件从磁盘读入被调试程序的内存. 
+    * `.writemem <文件名> <范围>`: 将被调试程序的内存写入磁盘文件. 
+
     * `k`指令: 打印线程的栈帧. 后面加数字可以指定显示多少行. 
         * `kv`或`kb`: 查看调用栈, 显示栈帧的ebp, 返回地址, 函数在源代码的位置(可以点击跳转).
         * `kd`: 查看栈, 从ebp处开始打印.
         * 若要从栈顶开始查看栈数据, 可用`dds esp L<行数>`
     * `!pool <addr>`: 显示地址的信息. 若指定-1, 则显示进程中所有堆的信息.
     * `!vad <addr>`: 列出VAD树. `addr`是由`!process <进程id> 1`列出的`VadRoot`地址. 
+    * `!dh <addr>`: 转储PE映像头.
+    * `r`: 显示寄存器
+        * `rm`: 寄存器掩码
+            * `rm 2|4|8`: 设置默认掩码
+        * `rM1ff`: 打印所有寄存器
+        * `rF`: 打印浮点寄存器
+        * `rX`: 打印xmm寄存器
+        * `r <寄存器>:[f|d|ub|uw|ud|uq]`: 以 浮点|双精度浮点|字节|字|双字|四字 形式打印寄存器值. 
+    * `dg [cs|ds|ss|gs|fs]`: 显示段选择符信息
+
 * 调试
+    * alt + del: 中断, 进入调试器. 
     * `g`: 继续运行
+        * `gu`: go up, 执行当前函数直到结束, 返回到调用者. 
     * `p`: 执行一条指令(如果打开了source mode, 则执行一行源码)
+        * `pc`: 单步跳过, 直到遇到call
+        * `ph`: 单步跳过, 直到遇到分支
+        * `pc`: 单步跳过, 直到遇到ret
+        * `pct`: 单步跳过, 直到遇到call或ret
     * `pa <addr>`: 执行到addr处
     * `pc`: 执行到下一个函数调用处停下
     * `t <次数>`: 多次单步执行, **遇到函数会进入**
+    * 断点
+        * `bl <*|n|n1-n2>`: 列出断点
+        * `bc <*|n|n1-n2>`: 清理断点
+        * `bd <*|n|n1-n2>`: 禁用断点
+        * `be <*|n|n1-n2>`: 启用断点
+        * `bp <addr|model!func|<文件名>:<行号>>`: 设置断点. `bp`要求模块已加载, 失败则转化为`bu`断点. 
+            * `/p <eprocess>`: 设置只有对应进程能触发此断点. 
+            * 注意 **bp \`src.c\`:66** , 文件名要用反引号包起来. 
+        * `bu model!func`: u是unresolved.
+        * `bm model!fu*c`: 
+        * `ba <w4|r4|e4|i4> <addr>`: 内存断点(硬件断点). 读, 写, 执行, IO(端口, 寄存器). 地址可以写成0x8100xxxx这样.
+        * `<bp|ba> </p|/t> <proc> <addr|func>`: 进程/线程断点, 只有该进程或线程执行到这个地方时才中断.
+        * 条件断点(注意后面的条件表达式用的是默认语法masm)
+            * `bp <addr> "j (poi(var1) = 0n123) ''; 'gc'"`: 若`var1`为123, 则中断, 否则继续运行. 
+            * `bp <addr> ".if (@eax != 5) { gc; }"`, eax寄存器值为5时中断, 否则继续运行. 后面还可以接`else`, `elsif`
+            * `gc`: 从断点恢复执行. 
+    * `z(<条件>)`: 作为循环条件使用
+        * `reax = eax - 1; z(eax)`: 对eax作清零. 当eax不为0时, 重复执行分号前的表达式. 
+
+* 监控调试事件和异常
+    * `sx`: 列出所有事件. 下面`<e>`表示事件名称或事件代码数字
+        * `sxe <e>`: 为该事件打开断点
+            * `sxe ld:myDriver.sys`: 在该驱动程序加载的时候中断
+        * `sxd <e>`: 为该事件关闭断点
+        * `sxr <e>`: 只为该事件打开输出
+        * `sxi <e>`: 忽略该事件
+        * `sx- -c <cmd> <e>`: 将某个命令与事件相关联. 如`sx- -c "k" ld`, 在每一次加载模块的时候打印栈
 * 驱动和设备相关命令
     * `!drvobj <驱动名称, 如\Driver\AFD>`: 打印驱动对象的详情
     * `!devobj`: 
     * ``: 
+
 * 其他命令
-    * `r`: 打印寄存器值. 
+    * `.expr`: 查看使用的表达式求值语法(MASM还是C++)
+        * `.expr /s c++`: 指定使用c++
+    * `.printf "%d", @eax`: 打印, 与printf函数类似
+        * `%p`: 指针
+        * `%d, %x, %u`: 整型
+        * `%ma, %mu`: 打印指针处的ascii/unicode字符串
+        * `%msa, %msu`: 打印指针处的ansi_string/unicode_string
+        * `%y`: 打印指针处的符号名称
     * `lm`: 列出加载的模块
-    * `lm m sth*`: 按名称列出加载的模块
+        * `lm m sth*`: 按名称列出加载的模块
+        * 参数v: verbose模式, 列出模块更多信息
     * `.reload`: 加载符号表. `/user`则只加载用户层的符号. `f`可以强制加载(而非延迟加载).
-    * `.reload <可执行文件名>`: 直接加载可执行文件对应的符号文件. 注意要加'.exe'等文件后缀. 
-    * `.reload /i:` 忽略pdb文件和sys文件时间戳的不同, 强制加载符号文件
+        * `.reload <可执行文件名>`: 直接加载可执行文件对应的符号文件. 注意要加'.exe'等文件后缀. 
+        * `.reload /i:` 忽略pdb文件和sys文件时间戳的不同, 强制加载符号文件
     * `x nt!kes*des*table`: ssdt表
     * 查看shadowSsdt表: 先切换到进程上下文, 然后`x nt!kes*des*table`, 拿第一行的地址, 对其用`dd`, 打印出来的第二行的前4个字节即是该表地址.
     * `u`: 查看当前汇编
-    * `uf <addr>`: 反汇编
+        * `uf <addr>`: 反汇编
     * `.open -a <函数名>+<偏移>`: 调出源文件
     * `!pte <虚拟地址>`: 将虚拟地址转为物理地址
     * `!vtop <进程基地址> <虚拟地址>`: 将虚拟地址转为物理地址
     * `!idt`: 查看cpu的中断向量描述符表
+    * `!pcr`: 查看当前的处理器控制欲(processor control region)
+    * `!gle`: 返回最后的错误码
+    * `#`: 搜索某个反汇编模式
+    * `.cls`: 清理调试器输出窗口
+    
+* 其他语法
+    * 数值: 不加前缀时, 默认是十六进制
+        * `0n123`: 十进制
+        * `0x123`: 十六进制
+        * `0t123`: 八进制
+        * `0y10101`: 二进制
+        * `!abc`: 表示二进制数abc, 而非符号abc
+    * 表达式: 
+        * `? <默认语法表达式>`: 
+        * `?? <c++表达式>`: 注意不能直接接数字
+            * `? @@c++(<c++表达式>) + @@masm(<masm>)`
+                * 直接使用`@@`则后面接C++表达式(因为默认是masm)
+        * `.expr /s c++`: 切换windbg表达式语法为c++
+
+        * masm
+            * `poi(MyVar)`: 对MyVar作解引用, 得到MyVar的值. 
+        * C++
+            * `? @@c(@$peb->ImageSubSystemMajorVersion)`: 箭头运算符
+            * sizeof
+            * `#FILED_OFFSET(<结构体名>, <成员名>)`: 查看结构体成员的偏移值
+            * 三元操作符
+            * 类型转换
+        
+        * 伪寄存器
+            * 预定义伪寄存器(以$开始, 再加上前缀@等于告诉解释器这个标识符不是一个符号(但有时这样做会影响速度?))
+                * `$csp`: 当前调用栈指针
+                * `$ip`: 当前指令指针
+                * `$exentry`: 当前进程第一个可执行体的入口地址
+            * 自定义伪寄存器
+                * $t0 ~ $t19, 使用r命令为它们赋值: `r? $t0 = 1`
+        * 别名(alias)
+            * 用户命名别名
+                * `as myAlias lm;vertarget`
+                * `al`: 列出已命名别名
+                * `ad [<aliasName>|*]`: 删除指定别名或所有别名
+
+    * 脚本文件
+        * 打开脚本文件(注意文件路径和`$><`等前缀间不能有空格)
+            * `$><test.wds`: 会把所有换行符替换成分号, 所有内容连成一个命令块
+            * `$>a<test.wds <参数1>`: 可向脚本传参, 在脚本中$arg1为第一个参数($arg0包含脚本的名字)
+            * `$>test.wds`: 会将脚本文件里的每一行逐行在windbg里运行并打印结果. 如果有控制流命令, 有花括号换行时, 这样执行会报错(因为每一行不是完整可执行的命令)
+            * `.if ${/d:$arg1} `
+        * 注释: 用`*`, 并且它和前面的命令间应该有分号隔开, 不然报语法错误
 * 快捷键
     * f9: 断点
     * f10: 单步执行
@@ -414,7 +526,7 @@ uStr.MaximumLength = sizeof(sz);
     uStr1.Buffer = str1;
 
     // 常用API
-    RtlInitUnicodeString(&uStr1, str1);
+    RtlInitUnicodeString(&uStr1, str1); // 会根据字符串str1, 设置uStr1的Length属性为其长度, MaximumLength属性为其长度加2
     RtlCopyUnicodeString(&uStr1, &uStr2);
     RtlAppendUnicodeToString(&uStr1, str2);
     RtlAppendUnicodeStringToString(&uStr1, &uStr2);
@@ -570,24 +682,31 @@ uStr.MaximumLength = sizeof(sz);
             * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
     * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程中断
         * 相关文章
-            * [Windows DPC、APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
+            * [Windows DPC, APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
             * [Windows APC mechanism & alertable thread waiting state](https://blog.fireheart.in/a?ID=00550-4b95f022-ecfd-415b-8b3b-20b03a4d17fe)
             * [IRQL interrupt request level and APC_LEVEL discussion](https://blog.actorsfit.com/a?ID=00300-d2276e30-b233-4de0-a814-ad5d63f6b827)
         * 无中断
             * `PASSIVE_LEVEL`(0): **用户模式的代码**及**大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)**运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
         * 软中断
-            * `APC_LEVEL`(1)(Asynchronous Procedure Call): 
+            * `APC_LEVEL`(1): 
                 * **异步过程调用**和**缺页故障**发生在该级别上. 
                 * 屏蔽APC中断. **可访问分页内存**. 分页调度管理就运行在这个级别上.
-                * APC是附属于线程的, 一个线程有一个APC队列. 
-                * 优先级: 特殊APC > 普通APC > 用户APC. 
-                    * 前两者是内核APC
-                    * 特殊APC运行在APC级别, 后两者运行在Passive级. 
+                * 关于APC(Asynchronous Procedure Call): 
+                    * APC是附属于线程的, 一个线程有一个APC队列3. 
+                    * 用户APC被插入队列后, 要等到线程变成可警告状态(alertable state)时它才会被线程调用. 
+                        * alertable: 表示可警告, 可唤醒的. 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
+                        * `SleepEx`, `SignalObjectAndWait`, `MsgWaitForMultipleObjectsEx`, `WaitForMultipleObjectsEx`, `WaitForSingleObjectEx`, 线程调用了它们后就会进入`alertable wait`状态, APC队列中的就会被调用. 
+                        * `ReadFileEx`, `SetWaitableTimer`, `SetWaitableTimerEx`, `WriteFileEx`, 它们的实现方式就是用APC作为完成通知例程. 
+                    * 优先级: 特殊APC > 普通APC > 用户APC. 
+                        * 前两者是内核APC
+                        * 特殊APC运行在APC级别, 后两者运行在Passive级. 
             * `DISPATCH_LEVEL`(2): 
                 * **线程调度**和**DPC例程**运行在该级别上. 
                 * 屏蔽DPC(Deferred Procedure Call)及以下级别中断. **不能访问分页内存**. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
                 * 内核为每一个处理器保持一个**DPC队列**, 并且在相应的处理器的IRQL降低到`DISPATCH_LEVEL`之下时运行DPC. 
                 * 在任务管理器有一个伪线程`系统中断`(`interrupts`), 可显示花费在 IRQL >= 2 时的CPU时间. 
+                * DPC: 
+                    * 硬件驱动程序通过DPC来处理设备中断. 
         * 硬中断
             * `DIRQL`(Device IRQL): 设备中断请求级. 在该级别上, 所有中断均被忽略.
             * `PROFILE_LEVEL`: 配置文件定时器
@@ -618,8 +737,8 @@ uStr.MaximumLength = sizeof(sz);
         PsCreateSystemThread(
             OUT PHANDLE  ThreadHandle, //新创建的线程句柄
             IN ULONG  DesiredAccess, //创建的权限
-            IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性，一般设为NULL
-            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程。如果为NULL，则为系统进程，如果该值是一个进程句柄，则新创建的线程属于这个指定的进程。DDK提供的NTCurrentProcess可以得到当前进程的句柄。
+            IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性, 一般设为NULL
+            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程。如果为NULL, 则为系统进程, 如果该值是一个进程句柄, 则新创建的线程属于这个指定的进程。DDK提供的NTCurrentProcess可以得到当前进程的句柄。
             OUT PCLIENT_ID  ClientId  OPTIONAL,
             IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
             IN PVOID  StartContext //新线程接收的参数
@@ -629,6 +748,7 @@ uStr.MaximumLength = sizeof(sz);
         * KEVENT: 用于线程同步
             * Event两个状态: Signaled, Non-signaled
             * Event两个类别: Notification事件(不自动恢复, 比如从Signaled转为Non-Signaled要手动设置), synchronization事件(自动恢复)
+            * 在windbg中查看event是否为signaled状态: `dt myEvent`得到事件的Header, 点击Header找到`SignalState`成员. 
             * 代码
                 ```c
                 // 线程A
@@ -644,8 +764,8 @@ uStr.MaximumLength = sizeof(sz);
                 KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
 
                 // 线程B
-                KeWaitForSingleObject(&waitEvent, Executive, KernelMode, False, NULL); // NULL无限等待, 0立即返回
-                ...
+                KeWaitForSingleObject(&waitEvent, Executive, KernelMode, FALSE, NULL); // NULL无限等待, 0立即返回
+                ... 
                 KeClearEvent(&waitEvent); // 将事件设为non-signaled状态
                 KeResetEvent(&waitEvent);
 
@@ -678,8 +798,6 @@ uStr.MaximumLength = sizeof(sz);
 
                 // 获得自旋锁. KeAquireSpinLock会提高当前中断级别, 旧的中断级别则暂存于OldIrql
                 KeAquireSpinLock(&mySpinLockProc, &OldIrql);
-                // 如果线程已经在dpc级别, 则调用如下函数, 以避免性能损失
-                KeAquireSpinLock(&mySpinLockProc);
                 
                 
                 // 访问数据, 这里一次只有一个线程执行, 其它线程等待
@@ -687,6 +805,10 @@ uStr.MaximumLength = sizeof(sz);
 
                 // 释放
                 KeReleaseSpinLock(&mySpinLockProc, OldIrql);
+
+                // 如果线程已经在dpc级别, 则调用如下函数, 以避免性能损失
+                KeAquireSpinLockAtDpcLevel(&mySpinLockProc);
+                KeAquireSpinLockFromDpcLevel(&mySpinLockProc);
                 ```
             * 注意事项
                 * 多CPU共享安全
@@ -719,7 +841,7 @@ uStr.MaximumLength = sizeof(sz);
 
             ExReleaseResourceLite(lpLock);
             ```
-            * 独占锁是指同一时刻只能被一个线程持有, 也叫写锁. 共享锁则可被多个线程同时持有, 也叫读锁. 
+            * **独占锁**是指同一时刻只能被一个线程持有, 也叫**写锁**. **共享锁**则可被多个线程同时持有, 也叫**读锁**. 
             * 根据官方文档, 这些获取和释放锁的操作只能在APC及以下级别中访问. 
 
         * FAST_MUTEX
@@ -848,7 +970,7 @@ uStr.MaximumLength = sizeof(sz);
         * `InsertHeadList(listHead, entry)`: 结点头插入(操作的是`PLIST_ENTRY`型变量), 将`entry`插入到`listHead`前面. 
         * `InsertTailList`: 结点尾插入
         * `RemoveHeadList(PLIST_ENTRY listHead)`: 移除`listHead->Flink`, 并将其返回. 
-        * `RemoveEntryList(PLIST_ENTRY listEntry)`: 移除`listEntry`, 返回成功与否的布尔值. 
+        * `RemoveEntryList(PLIST_ENTRY listEntry)`: 移除`listEntry`, 返回True则表示删除entry后列表为空. 
         * `RemoveTailList(PLIST_ENTRY listTail)`: 移除`listTail->Blink`, 并将其返回. 
         * `IsListEmpty`: 判空
         * 可用确保线程安全的函数: 在remove, insert等函数前加前缀`ExInterlocked`, 并添加一个自定义的自旋锁`&sLock`作为三参. 
@@ -865,11 +987,26 @@ uStr.MaximumLength = sizeof(sz);
     * `RTL_AVL_TABLE`
     * `RtlInitializeGenericTableAvl`
 
-* LookAside结构: 用于防止内存碎片化的机制
+* LookAside结构: 用于在频繁申请相同大小的情形中, 防止内存碎片化的机制
     * 类别
         * PAGED_LOOKASIDE_LIST
         * NPAGED_LOOKASIDE_LIST
-    * `ExInitializePagedLookasideList`
+    * `ExInitializeNPagedLookasideList`: 
+        ```cpp
+        void ExInitializeNPagedLookasideList(
+            IN PNPAGED_LOOKASIDE_LIST Lookaside,
+            IN PALLOCATE_FUNCTION Allocate,
+            IN PFREE_FUNCTION Free,
+            IN ULONG Flags,
+            IN SIZE_T Size,
+            IN ULONG Tag,
+            IN USHORT Depth
+        );
+        ```
+        1. 初始化一个`PNPAGED_LOOKASIDE_LIST`结构. 
+        2. 将`Lookaside->L.ListEntry`插入到全局的look aside 表ExNPagedLookasideListHead中。
+    * `ExAllocateFromNPagedLookasideList(PNPAGED_LOOKASIDE_LIST Lookaside)`: 分配内存. 其会在`Lookaside`中找一个空闲节点, 如果找不到, 则使用`Lookaside->L.Allocate`指定的分配函数分配一块内存. 
+    * `ExFreeToNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside, IN PVOID Entry)`: 释放内存, 放到`Lookaside`
 
 # 强杀进程
 * `NtTerminateProcess` -> `PsTerminateProcess`(系统未导出) -> `PspTerminateProcess`  ->`PspTerminateThreadByPointer` -> `PspExitThread` 
@@ -887,7 +1024,48 @@ uStr.MaximumLength = sizeof(sz);
 * `ZwQueryInformationProcess(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径. 注意, 这个函数现在可以通过包含头文件`winternl.h`来调用. 
 * `NtCurrentProcess()`宏: 返回表示当前进程的特殊句柄值
 * ``: 
-* ``: 
+
+# 线程
+* TLS(thread local storage): 
+
+    <img alt="" src="./pic/tls.jpg" width="60%" height="60%">
+
+    * 一个进程中所有线程共享它们所属进程的虚拟地址空间(其中包含静态变量和全局变量), 若线程要独享某些变量, 则可用TLS来存储. 
+    * 使用索引来找存储在TLS的变量
+    * `TLS_MINIMUM_AVAILABLE`: 指定每个进程可使用的TLS索引的最小数目(至少64, 最大则是1088). 
+    * API
+        * 首先, 在程序声明一个全局变量, 如`DWORD dwIndex`. 
+        * `(dwIndex = TlsAlloc()) == TLS_OUT_OF_INDEXES`: 分配得到新的tls索引
+        * `TlsFree(dwIndex)`: 释放tls索引
+        * `lpvData = (LPVOID) LocalAlloc(LPTR, 256)`: 
+        * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
+        * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
+# 线程相关API
+* `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
+
+# 运行时API(RtlXxx)
+* `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
+
+# 一些全局变量
+* `KeLoaderBlock`: 该指针指向一个由OS的加载器构造的一个"加载器参数块". 
+
+# 其他API
+* 时间
+    * `VOID KeQueryTickCount(OUT PLARGE_INTEGER TickCount);`: 系统自启动后的时间计数. `TickCount->QuadPart * <每个计数所需百纳秒数> / 10000`可得到系统启动后经过的毫秒时间. 
+    * `VOID KeQueryTimeIncrement();`: 一个计数所需时间, 单位为100纳秒(nanosecond). 
+    * 获取时间:
+    ```cpp
+    KeQuerySystemTime(&GelinTime); // 得到格林威治时间
+    ExSystemTimeToLocalTime(&GelinTime, &LocalTime); // 转成本地时间
+    RtlTimeToTimeFields(&LocalTime, &NowFields);
+    KdPrint(("系统当前时间 : %4d年%2d月%2d日 %2d:%2d:%2d\n",
+        NowFields.Year, 
+        NowFields.Month,
+        NowFields.Day,
+        NowFields.Hour,
+        NowFields.Minute,
+        NowFields.Second));
+    ```
 
 # 内存
 * [官方文档](https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/managing-memory-for-drivers)
@@ -923,7 +1101,7 @@ uStr.MaximumLength = sizeof(sz);
 
 * api
     * `RtlCopyMemory`: 
-    * ``: 
+    * `MmAllocateContiguousMemory`: 分配的是非分页内存, 且保证在物理内存中连续. 
     * ``: 
 
 # 主防
@@ -1467,7 +1645,7 @@ uStr.MaximumLength = sizeof(sz);
 
 * windows网络防火墙技术
 
-    <img alt="" src="./pic/tdi_ndis_wfp.jpg" width="50%" height="50%">
+    <img alt="" src="./pic/tdi_ndis_wfp.jpg" width="60%" height="60%">
 
 * tdi
     <img alt="" src="./pic/tdi.jpg" width="50%" height="50%">
@@ -1498,7 +1676,7 @@ uStr.MaximumLength = sizeof(sz);
             * `net start tdifw`
 * ndis(network driver interface specification)
     * 层次
-        * 协议驱动: 绑定在所有网卡上, 所以能解惑接收到的包, 但无法截获发送的包. 
+        * 协议驱动: 绑定在所有网卡上, 所以能截获接收到的包, 但无法截获发送的包. 
         * 中间层驱动: (P部分)绑定在了所有的小端口驱动上;  (M部分)也被所有协议驱动绑定. 收发都能拦截
         * 小端口驱动: 网卡驱动
 
@@ -1508,15 +1686,15 @@ uStr.MaximumLength = sizeof(sz);
 
 * wfp
 
-    <img alt="" src="./pic/wfp_architecture.jpg" width="50%" height="50%">
+    <img alt="" src="./pic/wfp_architecture.jpg" width="70%" height="70%">
 
-    <img alt="" src="./pic/wfp_architecture.png" width="50%" height="50%">
+    <img alt="" src="./pic/wfp_architecture.png" width="70%" height="70%">
 
     * 概念
         * Layers
             * 把规则分成若干组
-            * 用户态用128位的GUID表示，内核态用64位的LUID表示
-            * 分层是一个容器，其中可包含多个过滤器
+            * 用户态用128位的GUID表示, 内核态用64位的LUID表示
+            * 分层是一个容器, 其中可包含多个过滤器
             * 子层
                 * 开发者可给子层指定权重(Weight), 权重大的子层先获得数据
             * 
@@ -1544,7 +1722,8 @@ uStr.MaximumLength = sizeof(sz);
         * 添加callout(R0/R3皆可, 设置layer)
         * 添加filter规则(R0/R3皆可, 设置layer, callout, conditions)
         * 实现classifyFn函数, 处理网络数据包
-
+    * 注意事项
+        * 运行时过滤层标识符(`FWPS_XXX`)被内核模式的callout驱动使用. 管理器过滤层标识符(`FWPM_XXX`)被`FwpmXxx`函数(`FwpmFilterAdd0`)使用(这些函数是跟基础驱动引擎(BFE)交互的)
 # VT技术
 * 概念
     * 硬件虚拟化技术, 在硬件级别上完成计算机的虚拟化(增加了一些寄存器)
@@ -1829,6 +2008,15 @@ uStr.MaximumLength = sizeof(sz);
         5. root vmm执行vmresume, 回到guest机
 
             <img alt="" src="./pic/NestedVmInsturction_01.jpg" width="100%" height="100%">
+
+    * 补充知识点: patchguard
+        * 被patchguard禁止的修改包括: 
+            * 对系统服务描述表(ssdt)进行修改或挂钩(Hook)
+            * 修改系统调用表
+            * 修改中断描述表(Interrupt descriptor table)
+            * 修改全局描述表(Global descriptor table)
+            * 使用未由内核分配的内核堆栈
+            * 修改或修补内核本身, 硬体抽象层(HAL)或网络驱动程式介面规范(NDIS)内核库中包含的代码[5]
         
 
 # 错误记录
@@ -1929,18 +2117,18 @@ uStr.MaximumLength = sizeof(sz);
 
 # DDK开发安全事项 
 
-1. 一定不要在没有标注 I/O 请求数据包 (IRP) 挂起 (IoMarkIrpPending) 的情况下通过调度例程返回 STATUS_PENDING.  
-2. 一定不要通过中断服务例程 (ISR) 调用 KeSynchronizeExecution.  它会使系统死锁.  
-3. 一定不要将 DeviceObject->Flags 设置为 DO_BUFFERED_IO 和 DO_DIRECT_IO.  它会扰乱系统并最终导致致命错误.  而且, 一定不要在 DeviceObject->Flags 中设置 METHOD_BUFFERED、METHOD_NEITHER、 METHOD_IN_DIRECT 或 METHOD_OUT_DIRECT, 因为这些值只在定义 IOCTL 时使用.  
+1. 一定不要在没有标注 I/O 请求数据包 (IRP) 挂起 (`IoMarkIrpPending`) 的情况下通过调度例程返回 `STATUS_PENDING`.  
+2. 一定不要通过中断服务例程 (ISR) 调用 `KeSynchronizeExecution`.  它会使系统死锁.  
+3. 一定不要将 `DeviceObject->Flags` 设置为 `DO_BUFFERED_IO` 和 `DO_DIRECT_IO`.  它会扰乱系统并最终导致致命错误.  而且, 一定不要在 `DeviceObject->Flags` 中设置 `METHOD_BUFFERED`, `METHOD_NEITHER`,  `METHOD_IN_DIRECT` 或 `METHOD_OUT_DIRECT`, 因为这些值只在定义 IOCTL 时使用.  
 4. 一定不要通过页面缓冲池分配调度程序对象.  如果这样做, 将会偶尔导致系统故障检测 (Bugcheck).  
-5. 当运行于 IRQL >= DISPATCH_LEVEL 时, 一定不要通过页面缓冲池分配内存, 或访问页面缓冲池中的内存.  这是一个致命错误.  
-6. 一定不要在 IRQL >= DISPATCH_LEVEL 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
-7. 在 IRQL >= DISPATCH_LEVEL 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
+5. 当运行于 IRQL >= `DISPATCH_LEVEL` 时, 一定**不要通过页面缓冲池分配内存, 或访问页面缓冲池中的内存**. 这是一个致命错误.  
+6. 一定不要在 IRQL >= `DISPATCH_LEVEL` 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
+7. 在 IRQL >= `DISPATCH_LEVEL` 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
 8. 一定不要把中断请求级别 (IRQL) 降低到低于您的顶级例程被调用的级别.  
 9. 如果没有调用过 KeRaiseIrql(), 则一定不要调用 KeLowerIrql().  
 10. 一定不要使处理器 (KeStallExecutionProcessor) 停止运转的时间超过 50 微秒.  
 11. 一定不要使旋转锁 (Spin Lock) 保持锁定状态的时间超过您的需要.  要使系统获得更好的总体性能, 请不要使任何系统范围内有效的旋转锁的锁定时间超过 25 微秒.  
-12. 当 IRQL 大于 DISPATCH_LEVEL 时, 一定不要调用 KeAcquireSpinLock 和 KeReleaseSpinLock, 或 KeAcquireSpinLockAtDpcLevel 和 KeReleaseSpinLockFromDpcLevel.  
+12. 当 IRQL 大于 `DISPATCH_LEVEL` 时, 一定不要调用 KeAcquireSpinLock 和 KeReleaseSpinLock, 或 KeAcquireSpinLockAtDpcLevel 和 KeReleaseSpinLockFromDpcLevel.  
 13. 一定不要通过调用 KeReleaseSpinLockFromDpcLevel 来释放 KeAcquireSpinLock 所获取的旋转锁, 因为这会使原始 IRQL 无法被还原.  
 14. 一定不要在 ISR 或 SynchCritSection 例程中调用 KeAcquireSpinLock 和 KeReleaseSpinLock 或者其它任何使用可执行旋转锁的例程.  
 15. 当您在例程中而不是在 DriverEntry 中创建设备对象时, 一定不要忘记清除 DO_DEVICE_INITIALIZING 标记.  
@@ -1968,7 +2156,7 @@ uStr.MaximumLength = sizeof(sz);
 37. 一定不要假定页面大小是常量, 即使是用于给定的 CPU.  为了保持可移植性, 应当使用 PAGE_SIZE 以及在头文件中所定义的其它页面相关常量.  
 38. 一定不要从引导\系统初始化阶段加载的驱动程序的 DriverEntry 例程中访问除 Registry\Machine\Hardware 和 Registry\Machine\System 以外的任何注册表项.  
 39. 一定不要为了加载驱动程序而在驱动程序的注册表项 (Registry\Machine\System\CurrentControlSet\Services) 下创建 Enum 项.  系统将动态地创建该项.  
-40. 如果没有先在注册表中申请必需的与总线相关的 I/O 端口、内存范围、中断或直接内存访问 (DMA) 通道/端口等硬件资源, 一定不要初始化物理设备.  
+40. 如果没有先在注册表中申请必需的与总线相关的 I/O 端口, 内存范围, 中断或直接内存访问 (DMA) 通道/端口等硬件资源, 一定不要初始化物理设备.  
 41. 一定不要在您的 DriverEntry 例程调用 IoRegisterDriverReinitialization, 除非重初始化例程返回了 STATUS_SUCCESS.  
 42. IRQL 为 PASSIVE_LEVEL 时, 一定不要从被页面调度的线程或驱动程序例程中在 Wait 参数被设置为 TRUE 的情况下调用 KeSetEvent.  如果碰巧在调用 KeSetEvent 和 KeWait..Object(s) 之间您的例程被页面调度出去, 这类调用 就会导致致命的页面错误.  
 43. 与上例相同的条件下, 同样不能调用 KeReleaseSemaphore .  

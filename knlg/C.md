@@ -247,6 +247,21 @@ int main(int argc,char *argv[])
     * 处理
         * if/goto
         * __try/__except
+            * `__except(<过滤器表达式>)`:
+            ```cpp
+            __try {
+
+            } __except(MyFilter(GetExceptionCode(), GetExceptionInformation())) {
+
+            }
+
+            int MyFilter(unsigned int code, struct _EXCEPTION_POINTERS* ep) {
+                DbgPrint("code: %u", code);
+                ep->ExceptionRecord->ExceptionAddress;
+                return 1;
+            }
+            ```
+            * 在__except的块中, 可以使用`GetExceptionCode`宏得到异常代码, 但不能使用`GetExceptionInformation`, 因为它指向的信息通常位于堆栈上, 并在控件传输到异常处理程序时被销毁. 
 * 宏
 ```cpp
 // 把宏参数拼接到字符串中: 
@@ -255,7 +270,38 @@ int main(int argc,char *argv[])
 // 把宏参数拼接到另一个c语言token
 #define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
 
-4```
+```
+
+# 编码经验教训
+* 内存, 指针, 字符串
+    * 初始化时清零是好习惯(`memset`, `RtlZeroMemory`), 否则字符串可能不结束, 这样可能导致溢出. 
+    * 涉及指针运算时, 比如`ptr->item`, `*ptr`, 要判断ptr是不是有效地址. 可以用__try__except捕获访问地址异常. 
+    * 在使用系统的未导出结构体时, 如果如果只需要用到其中某个字段, 可以自定义一个结构体类型, 把其他字段笼统合为一个buffer. 
+        ```cpp
+        typedef struct _KPROCESS {
+            BYTE NotUsed1[0x30];
+            LIST_ENTRY ThreadListHead;
+            BYTE NotUsed2[0x400 - 0x40];
+        } KPROCESS, *PKPROCESS;
+
+        ((PKPROCESS) ptr)->ThreadListHead;
+        
+        ```
+    * 在内核编程中, 传参基本都是引用传递(即参数类型为指针类型)
+* 数组
+* 链表
+    * 使用一个不存数据的头部, 可以少考虑很多事. 
+    * 在fd和fd->next间插入节点nd: 
+        ```cpp
+            // 错误做法
+            fd->next = nd;
+            nd->next = fd->next;
+
+            // 正确做法是交换上面两个表达式的顺序
+        ```
+* 同步, 异步, 互斥
+    * 获取的资源要确保被释放
+        * 注意goto, break, __try__except会不会导致释放步骤被跳过. 
 
 # 算法
 * 程序 = 算法(包括数据结构) + api调用 + "hello world" + 字符串处理 + 内存管理
