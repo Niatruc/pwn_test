@@ -1,7 +1,39 @@
 # 文章
 [【干货分享】恶意样本分析手册——常用方法篇](https://bbs.huaweicloud.com/blogs/109534)
 
-# 调试计数
+# 网站
+* https://opensecuritytraining.info/MalwareDynamicAnalysis.html
+* https://github.com/topics/bypass-antivirus
+
+# 机器码笔记
+* `mov`
+    * `mov <寄存器>, <操作数>`: 前三字节是操作码, 后4字节代表的DWORD数值是操作数, 寄存器得到的值是`该指令的下一条指令的地址加上操作数`. 
+* `call <函数>`
+    * 操作码为e8
+    * 其下一条指令的地址加上DWORD类型的操作数, 得到函数地址
+* `jmp <地址>`
+    * 操作码为e9
+
+# 软件破解笔记
+* source insight 4.0
+    * 参考: https://www.cnblogs.com/lixuejian/p/15117744.html
+
+# VS编译选项
+* `/sdl`: 安全开发生命周期检查. (vs2012以后). 要求严格按SDL的要求编译代码. 会有如下行为: 
+    * 会让一些函数无法通过编译. 
+    * 有一些warning会被视为错误. 
+    * 严格检测缓冲区溢出. 
+    * 定义一个对象时, 会自动为其赋值0. 
+    * 会在delete某个指针后, 为该指针赋值一个无效值, 防止重用. 
+* `/GS`: 安全检查. 在ebp和局部变量之间插入一个全局cookie, 防溢出. 
+    * 在函数体的开头部分代码中, 有一条`mov eax, [__security_cookie]`指令和`call __security_check_cookie`. 
+* `/JMC`: 支持仅我的代码调试. 代码中会调用`__CheckForDebuggerJustMyCode`函数. 
+* `/RTC`: 基本运行时检查. 代码中会调用如`_RTC_CheckStackVars`函数. 在 `项目属性` -> `C/C++` -> `代码生成` -> `基本运行时检查` 中设置. 
+    * `/RTCu`: 未初始化变量检查. 会调用`_RTC_UninitUse`函数. 
+    * `/RTCs`: 堆栈帧检查. 会调用`_RTC_CheckStackVars`函数. 
+    * `/RTCsu`或`/RTC1`: 以上两者都有. 
+
+# 调试技术
 * 调试CreateRemoteThread创建的线程
     * 在主进程创建svchost进程后, 执行CreateRemoteThread前, 打开新的od并附加创建的svchost, 之后来到注入的代码的入口点, 打下断点。然后在主进程那边执行了CreateRemoteThread, 另一个OD中就会断在注入代码入口点处
 
@@ -86,6 +118,12 @@
 * MapoAnalyzer
     * 让x64dbg拥有和IDA一样的函数识别, 反编译功能. 
     * 参考: https://bbs.pediy.com/thread-268502.htm
+
+# dnspy
+
+# jeb
+
+# jd
 
 ## 问题
 * 在附加时找不到进程

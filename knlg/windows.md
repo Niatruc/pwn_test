@@ -94,7 +94,7 @@
             CMenu m_Menu;
             m_Menu.LoadMenu(IDR_MENU1); // 加载菜单
             CMenu *nMenu = m_Menu.GetSubMenu(0); // 得到子菜单
-            POINT pos;
+            POINTxxpos;
             GetCursorPos(&pos); // 获取鼠标位置
             nMenu->TrackPopupMenu(TPM_LEFTALIGN, pos.x, pos.y, this);
             ```
@@ -188,6 +188,83 @@ void main()
         * 方法一: 换用新函数`inet_pton`. 需要导入头文件`WS2tcpip.h`
         * 方法二: 工程属性 -> c/c++ -> sdl检查, 改为否
 
+# win32 api
+## 文件操作
+```cpp
+// 打开或创建文件或io设备
+// 如果是文件的话, 必须提供完整路径
+HANDLE CreateFile(
+    LPCTSTR lpFileName, //普通文件名或者设备文件名
+    DWORD dwDesiredAccess, //访问模式（写GENERIC_WRITE/读GENERIC_READ/执行GENERIC_EXECUTE/所有GENERIC_ALL, 0则只允许获取设备信息）
+    DWORD dwShareMode, //共享模式, 如FILE_SHARE_READ; 0则不共享
+    LPSECURITY_ATTRIBUTES lpSecurityAttributes, //指向安全属性SECURITY_ATTRIBUTES结构的指针, 确定如何在子进程中继承这个句柄. 若为NULL, 则文件或设备得到默认安全描述符, 且子进程不能继承此文件句柄. 
+    
+    // 如何创建.
+    // CREATE_NEW: 不存在时新建
+    // CREATE_ALWAYS: 覆盖式新建
+    // OPEN_ALWAYS: 文件存在则打开文件并返回成功(GetLastError得到ERROR_ALREADY_EXISTS(183)); 不存在则新建文件(错误码为0)
+    // OPEN_EXISTING: 如果是设备而非文件, 通常设为该值. 
+    // TRUNCATE_EXISTING: 若文件存在, 打开文件, 截断之使之大小为0. 前提是设置了GENERIC_WRITE
+    // 
+    DWORD dwCreationDisposition, 
+
+    DWORD dwFlagsAndAttributes, // 文件属性. 最常用的是FILE_ATTRIBUTE_NORMAL
+    HANDLE hTemplateFile // 模板文件的句柄, 可为NULL. 用于复制文件句柄
+);
+
+BOOL ReadFile(
+    HANDLE hFile,            //文件的句柄
+    LPVOID lpBuffer,          //用于保存读入数据的一个缓冲区
+    DWORD nNumberOfBytesToRead,    //要读入的字节数
+    LPDWORD lpNumberOfBytesRead,    //指向实际读取字节数的指针
+    LPOVERLAPPED lpOverlapped
+    //如文件打开时指定了FILE_FLAG_OVERLAPPED, 那么必须, 用这个参数引用一个特殊的结构。
+    //该结构定义了一次异步读取操作。否则, 应将这个参数设为NULL
+);
+
+BOOL WriteFile(
+    HANDLE  hFile,//文件句柄
+    LPCVOID lpBuffer,//数据缓存区指针
+    DWORD   nNumberOfBytesToWrite,//要写的字节数
+    LPDWORD lpNumberOfBytesWritten,//用于保存实际写入字节数的存储区域的指针
+    LPOVERLAPPED lpOverlapped//OVERLAPPED结构体指针
+);
+
+// 新建目录
+BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes); // 一参为目录的完整路径
+```
+
+## 注册表操作
+```cpp
+```
+
+## 进程操作
+```cpp
+// 枚举进程中的模块
+BOOL EnumProcessModules(
+  IN  HANDLE  hProcess, // 进程句柄
+  OUT HMODULE *lphModule, // 这个列表用于保存模块列表
+  IN  DWORD   cb, // 数组长度
+  OUT LPDWORD lpcbNeeded // 可理解为模块总数
+);
+
+// 根据模块的内存基址, 获取模块文件名称
+GetModuleBaseName
+// 根据模块的内存基址, 获取模块文件完整路径
+DWORD GetModuleFileNameExW(
+    HANDLE  hProcess,
+    HMODULE hModule,
+    LPWSTR  lpFilename,
+    DWORD   nSize // 缓冲区lpFilename的大小(字符数而非字节数!)
+);
+```
+
+## 加解密API
+* 头文件: `Wincrypt.h`
+
+```cpp
+```
+
 # powershell
 * 管道: 命名管道的所有实例拥有相同的名称, 但是每个实例都有其自己的缓冲区和句柄, 用来为不同客户端通许提供独立的管道. 
     * 列出当前计算机所有命名管道: 
@@ -196,17 +273,21 @@ void main()
 
 # 注册表
 * `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug`中的Debugger键: 可以设置系统默认调试器, 如: `"C:\debuggers\windbg.exe" -p %ld -e %ld -g`
-# PE文件
-* VA和RVA
-    * 参考: https://www.loidair.com/2018/02/13/binary-basic-one/
-    * VA = Image Base + RVA
+
 
 # svchost
-* svchost.exe根据注册表项`HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsNT\CurrentVersion\Svchost`下面的键值分组管理DLL申请的服务, 每一键值对应一个独立的Svchost.exe进程. 
+* svchost.exe本身并不实现任何服务功能, 需要成为服务的dll可由svchost加载成为服务. 这些dll内部需要实现`ServiceMain`函数, 并且**要把它导出**. 
+* svchost.exe根据注册表项`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost`下面的键值分组管理DLL申请的服务, 每一键值对应一个独立的Svchost.exe进程. 
+    * `svchost`键本身存多个项, 各个项的名称是服务名, 值是服务所属分组. 
+* 服务的注册表项
+    * `HKEY_LOCAL_MACHINE\SYSTEM\CurrentVersion\Services\<服务名>`
+        * `Parameters`子键: 
+            * `ServiceDll`: 指出dll文件路径
+            * `ImagePath`: 值为`svchost.exe -k <组名>`. 
 * `tasklist /svc`: 可以显示每个进程主持的服务
 * `tasklist /M`: 可以显示每个进程用的模块(dll)
 
-## 一些方法
+# 一些方法
 * 重命名文件卡死的解决方法(以及删文件时卡在99%很长时间)
     * `sfc /scannow`: 系统会开始扫描受损的文件然后修复. 参考: https://www.bilibili.com/read/cv8178838
 
@@ -221,3 +302,12 @@ void main()
     * 运行`mmc`, 然后如下添加`IP安全策略管理`
 
     <img alt="" src="./pic/windows_mmc.jpg" width="40%" height="40%">
+
+* 更改用户主目录
+    1. 管理员权限运行cmd, 执行`net user administrator /active:yes`, 开启administrator账户. 
+    2. 注册表, 找到`HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`, 在下面的列表中找到要改的用户, 即逐个点击子项, 找其中的`ProfileImagePath`子健, 看其中的路径, 找到后修改它. 
+    * 有问题: 开始菜单无法使用. (如下解决)
+
+* 点击开始菜单时出现错误: `您的“开始菜单”出现了问题。我们将尝试在你下一次登录时修复它。`
+    * 以管理员权限启动powershell: `Start-Process powershell -Verb runAs`
+    * 执行`Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register “$（$_.InstallLocation）\AppXManifest.xml”}`, 然后重启电脑. 

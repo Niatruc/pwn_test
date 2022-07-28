@@ -75,7 +75,7 @@
                 * 陷阱门: 111, DPL-0, 不关中断
                 * 系统门: 010, DPL-3 (向量号3, 4, 5, 0x80)
 
-        <img alt="" src="./pic/linux_idt_1.jpg" width="30%" height="30%">
+            <img alt="" src="./pic/linux_idt_1.jpg" width=" 30%" height="30%">
 
     * 中断上半部和下半部
         * 上半部: 快, 关中断. 硬件中断. 

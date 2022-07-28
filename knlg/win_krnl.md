@@ -110,7 +110,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
     * Win10: 开始菜单, 按`shift`并点击重启按钮(或者开机选择引导项时进入'其他选项'). 找到问题修复->高级选项->启动设置, 并选择"禁用驱动程序强制签名".
 
-    * 网上关于永久禁用驱动强制签名, 一般都是说执行`bcdedit /set testsigning on`和`bcdedit /set nointegritychecks on`, 但是在最新的win10中测试无效.
+    * 网上关于永久禁用驱动强制签名, 一般都是说执行`bcdedit /set testsigning on` (可能需要重启, 之后会看到右下角有"测试模式"的水印)和`bcdedit /set nointegritychecks on`.
 
 * Windows平台普通程序开发
     * [配置vscode](https://code.visualstudio.com/docs/cpp/config-msvc)
@@ -189,6 +189,21 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * PpXxx: PnP, 即插即用管理
     * RtlXxx: Runtime Library
     * ZwXxx: 和NtXxx一样, 不过在内核编程中调用的都是ZwXxx. ZwXxx会先将Previous Mode设置为Kernel Mode, 再调用相应的NtXxx.
+        * 在x64中Zw函数的汇编如下, 其中有一条`syscall`
+
+            ```x86asm
+            mov     rax, rsp
+            cli     
+            sub     rsp, 10h
+            push    rax
+            pushfq  
+            push    10h
+            lea     rax, [ntkrnlmp!KiServiceLinkage (fffff80261dfb700)]
+            push    rax
+            mov     eax, 23h ; ssdt索引
+            jmp     ntkrnlmp!KiServiceInternal (fffff80261e08d40)
+            ret   
+            ```
     * FltXxx: MiniFilter框架
     * NdisXxx: Ndis框架
     * 部分常用函数(引用自《windows内核安全与驱动开发》)
@@ -302,7 +317,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * 若要从栈顶开始查看栈数据, 可用`dds esp L<行数>`
     * `!pool <addr>`: 显示地址的信息. 若指定-1, 则显示进程中所有堆的信息.
     * `!vad <addr>`: 列出VAD树. `addr`是由`!process <进程id> 1`列出的`VadRoot`地址. 
-    * `!dh <addr>`: 转储PE映像头.
+    * `!dh <addr>`: 打印PE头部.
     * `r`: 显示寄存器
         * `rm`: 寄存器掩码
             * `rm 2|4|8`: 设置默认掩码
@@ -319,7 +334,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `p`: 执行一条指令(如果打开了source mode, 则执行一行源码)
         * `pc`: 单步跳过, 直到遇到call
         * `ph`: 单步跳过, 直到遇到分支
-        * `pc`: 单步跳过, 直到遇到ret
+        * `pt`: 单步跳过, 直到遇到ret
         * `pct`: 单步跳过, 直到遇到call或ret
     * `pa <addr>`: 执行到addr处
     * `pc`: 执行到下一个函数调用处停下
@@ -383,6 +398,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `!gle`: 返回最后的错误码
     * `#`: 搜索某个反汇编模式
     * `.cls`: 清理调试器输出窗口
+    * `.echo myVar`: 如果`myVar`是已赋值的别名, 则打印其值, 否则打印"myVar". 
     
 * 其他语法
     * 数值: 不加前缀时, 默认是十六进制
@@ -401,36 +417,136 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * masm
             * `poi(MyVar)`: 对MyVar作解引用, 得到MyVar的值. 
         * C++
-            * `? @@c(@$peb->ImageSubSystemMajorVersion)`: 箭头运算符
+            * `? @@c++(@$peb->ImageSubSystemMajorVersion)`: 箭头运算符
             * sizeof
             * `#FILED_OFFSET(<结构体名>, <成员名>)`: 查看结构体成员的偏移值
             * 三元操作符
             * 类型转换
         
-        * 伪寄存器
-            * 预定义伪寄存器(以$开始, 再加上前缀@等于告诉解释器这个标识符不是一个符号(但有时这样做会影响速度?))
-                * `$csp`: 当前调用栈指针
-                * `$ip`: 当前指令指针
-                * `$exentry`: 当前进程第一个可执行体的入口地址
-            * 自定义伪寄存器
-                * $t0 ~ $t19, 使用r命令为它们赋值: `r? $t0 = 1`
-        * 别名(alias)
-            * 用户命名别名
-                * `as myAlias lm;vertarget`
+    * 伪寄存器
+        * 预定义伪寄存器(以$开始, 再加上前缀@等于告诉解释器这个标识符不是一个符号(但有时这样做会影响速度?))
+            * `$csp`: 当前调用栈指针
+            * `$ip`: 当前指令指针
+            * `$exentry`: 当前进程第一个可执行体的入口地址
+        * 自定义伪寄存器
+            * $t0 ~ $t19, 使用r命令为它们赋值: `r? $t0 = 1`
+    * 别名(alias)
+        * 用户命名别名
+            * 创建和管理用户命名别名
+                * `as myAlias lm;vertarget`: 注意是小写s, 大写的话会在分号结束. 等价命令是`aS myAlias "lm;vertarget"`
+                * `aS`
+                    * `/f myAlias c:\temp\line.txt`: 为别名myAlias赋予**文件内容**. 
+                    * `/x myAlias <expr>`: 将**expr表达式(不是指令)**求得的值(64位)赋予别名myAlias. 
+                    * `/c myAlias <command>`: 将**command指令**得到的结果赋予别名myAlias. 
+                    * `/e myAlias envVar`: 将**环境变量envVar的值**赋予别名myAlias. 
+                    * `/m[a|u|sa|su] myAlias <addr>`: 将addr地址处的NULL结尾的ascii字符串|Unicode字符串|ASCII_STRING类型数据|UNICODE_STRING类型数据赋予别名myAlias. 
                 * `al`: 列出已命名别名
-                * `ad [<aliasName>|*]`: 删除指定别名或所有别名
+                * `ad [/q] [<aliasName>|*]`: 删除指定别名或所有别名. 使用/q开关的话, 如果没找到别名, 不会报错. 
+            * 用户命名别名解释执行
+                * `.printf "myAlias value is ${myAlias}"`
+                * `${/d:myAlias}`: 若myAlias已定义, 则返回1, 否则0. 
+                * `${/f:myAlias}`: 若myAlias未定义, 返回空字符串. 
+                * `${/n:myAlias}`: 若myAlias未定义, 则保持原样"${/n:myAlias}". 
+                * `${/v:myAlias}`: 禁止别名求值, 得到"${/v:myAlias}". 
+            * 注意
+                * `aS myVar 0n123; .printf "v=%d", ${myVar}`: 会出错. **不能在指定别名的同一行中使用别名**. 可在新块使用别名, `aS myVar 0n123; .block { .printf "v=%d", ${myVar}; }`
+                * 如果要给一个别名重新赋值(即更新别名的值):
+                    * 错误写法: `aS myVar 0n123; .block { aS /x myVar ${myVar}+1; }`, 会得到一个名为0n123, 值为0n124的别名. 
+                    * 正确写法: `aS myVar 0n123; .block { aS /x ${/v:myVar} ${myVar}+1; }`
+        * 固定名称别名
+            * $u0 ~ $u9 十个别名. 如: 
+                * `r $.u0 = .printf`
+                * `r $.u1 = hello world`
+                * `$u0 "$u2\n"`
+            * 固定名称别名替换的优先级高于用户命名别名. 
+        * 自动别名
+            * 类似于预定义的伪寄存器, 不同之处在于它们可以使用${}语法. 
+            * 有如下: 
+                * `$ntnsym`: 
+                * `$ntwsym`: 
+                * `$ntsym`: 
+                * `$CurrentDumpFile`: 
+                * `$CurrentDumpPath`: 
+                * `$CurrentDumpArchiveFile`: 
+                * `$CurrentDumpArchivePath`: 
+            * 一个例子
+                * `cdb -cf av.wds -z m:\xp_kmem.dmp`
+                * `av.wds`如下: 
+                    ```
+                    .logopen @"${$CurrentDumpFile}.log" $$ 打开一个与当前dmp文件同名且后缀为.log的日志文件
+                    !analyze -v
+                    .logclose
+                    .printf "finished"
+                    q
+                    ```
+    * 语言
+        * 注释: 
+            * `$$ 注释 ;` 分号可作为注释的结束标志. 
+            * `* 注释 ` 星号后面的内容都不会被执行. 它和前面的命令间应该有分号隔开, 不然报语法错误 
+        * 字符, 字符串
+            * 同C语言
+            * 原始字符串: `@"C:\temp"`, 加`@`标识**字面值字符串**
+        * 块: `.block {...}`
+        * 条件语句: `.if, .elsif, .else`
+            ```
+            .if '${var1}' == 'hello' {
+                .printf "equal\n"
+            }
+            ```
+            * 注意上边的字符串对比中, 两边都得用单引号包围, **不能用双引号**. 
+        * 类似C的三元操作符: `j (poi(var1) = 0n123) ''; 'gc'` 注意这个表达式不返回值. 
+        * 脚本错误处理: 如下, 会在出错后跳出. 
+            ```
+            .catch {
+                <非法命令>
+                .printf "reached\n"
+            }
+            ```
 
+            * 在`.catch`块中使用`.leave`可跳出块. 
+        * 重复结构
+            * 作用域
+                * 调试发现, 一个`.block`块里是一个作用域, 其中的变量跟块外的同名变量的值可能会不一致. 
+            * `.for (r $t0=0; 1; r $t0=@$t0+1) {...}`
+            * 有`.break` `.continue`
+            * `.while (<condition>) {...}`
+            * `.do {...} (<condition>)`
+            * `reax = eax - 1; z(eax)` 重复z命令前的指令
+            * foreach循环
+                * `/pS <数值>`: 初始跳过的令牌个数
+                * `/ps <数值>`: 每个迭代中要跳过的令牌个数
+                * `.foreach /s (myVar "ntdll kernel32 kernelbase") { x ${myVar}!*CreateFile* }` 字符串分词. 如这条指令, 是在字符串指定的三个模块中找形如`*CreateFile*`的函数. 
+                * `.foreach /pS 5 (myVar {.dvalloc 0x1000}) { r $t0 = ${myVar}; .break }` 命令输出结果分词. 如这条指令, 把`.dvalloc 0x1000`指令产生的前5个token跳过, 取最后一个值, 赋予$t0. 
+                * `.foreach /f (line "<文件路径>") {.printf "${line}\n"}` 文件分词. 读取文件的每一行. 
+                * 扩展的.foreach
+                    * `!for_each_frame`: 为当前线程栈的每个帧执行命令. 
+                    * `!for_each_function`: 对给定模块作模式匹配, 对其中匹配到的每个函数执行命令. 
+                    * `!for_each_local`: 为当前帧的每个局部变量执行命令. 
+                    * `!for_each_module`: 为每个加载的模块执行命令. 
+                    * `!for_each_process`: 为每个进程执行命令. (内核调试时)
+                    * `!for_each_thread`: 为每个线程执行命令. (内核调试时)
+                    * 例: `!for_each_function -m:ntdll -p:*File* -c:.echo @#SymbolName`: 
+        * 模式匹配
+            * `$spat(@"c:\dir\name.txt", "*name*")`: 返回匹配到的位置(从1开始). 若未匹配到, 返回0. 
     * 脚本文件
-        * 打开脚本文件(注意文件路径和`$><`等前缀间不能有空格)
-            * `$><test.wds`: 会把所有换行符替换成分号, 所有内容连成一个命令块
-            * `$>a<test.wds <参数1>`: 可向脚本传参, 在脚本中$arg1为第一个参数($arg0包含脚本的名字)
-            * `$>test.wds`: 会将脚本文件里的每一行逐行在windbg里运行并打印结果. 如果有控制流命令, 有花括号换行时, 这样执行会报错(因为每一行不是完整可执行的命令)
-            * `.if ${/d:$arg1} `
-        * 注释: 用`*`, 并且它和前面的命令间应该有分号隔开, 不然报语法错误
+        * 打开脚本文件(注意文件路径和`$$><`等前缀间不能有空格)
+            * `$$><test.wds`: 会把所有换行符替换成分号, 所有内容连成一个命令块
+                * `$$>a<test.wds <参数1>`: 可向脚本传参, 在脚本中$arg1为第一个参数($arg0包含脚本的名字)
+            * `$$>test.wds`: 会将脚本文件里的每一行**逐行在windbg里运行**并打印结果. 如果有控制流命令, 有花括号换行时, 这样执行会报错(因为每一行不是完整可执行的命令)
+            * `.if $${/d:$arg1} `
+
 * 快捷键
     * f9: 断点
     * f10: 单步执行
     * f11: 单步步入
+
+* 使用经验记录
+    * 调试物理机应用层程序时不能下断点: 
+        * 方法: 以管理员运行windbg
+    * 调试虚拟机的应用程序, 第一次可以进断点, 后面某一次进不了
+        * 方法: 目前看来只能重启windbg
+    * 调试时切换栈帧, 发现寄存器的值并没有随着变化. 
+
 * 反调试
     * `EPROCESS`结构中的`DebugPort`成员为调试端口, 将之清零以防止调试
     * `KdDisable`
@@ -572,6 +688,133 @@ uStr.MaximumLength = sizeof(sz);
 * 其他知识点
     * 8个扇区 == 1个簇
 
+## 强删文件
+* R0层关句柄
+    * 打开文件: `IoCreateFile`(比`ZwCreateFile`更底层)
+    * 删除独占文件
+        * 从全局句柄表找到打开这个文件的进程和文件的句柄
+            * `ZwQuerySystemInformation( SystemHandleInformation, buf, size, NULL )`. 因为没法得到全局句柄表的大小, 所以要逐渐递增buf大小. 注: `ZwQuerySystemInformation`这个函数在ntdll中, 内核层编程时可在头文件声明一下, 声明头加上`NTSYSAPI`和`NTAPI`. `SystemHandleInformation`值为16.
+        * 把句柄拷贝过来: `ZwDuplicateObject`, `DUPLICATE_CLOSE_SOURCE`则表示同时在目标进程中把文件句柄关掉
+        * 再次打开文件, 得到handle
+        * 通过handle得到fileObject(用`ObReferenceObjectByHandle`)
+        * `IoGetRelatedDeviceObject(fileObject)`得到设备对象deviceObject
+        * 初始化事件`KeInitializeEvent`; 初始化用来删除文件的Irp
+        * 为Irp设置一个例程(回调)(`IoSetCompletionRoutine`), 当下层驱动完成文件的删除时, 会通知执行该例程.
+        * 下发Irp(交给下层的文件系统驱动处理): `IoCallDriver(DeviceObject, Irp)`
+        * 等待完成: `KeWaitForSingleObject`
+    * 删除正在运行的exe文件
+        * 系统会检查`fileObject->SectionObjectPointer`中的`ImageSectionObject`和`DataSectionObject`, 都不为0则表示exe正在运行. 
+        * 因此强删的方法是先把上述两项设为0, 欺骗系统.
+
+* R3层关句柄
+    * 原理与R0层类似
+    * 用线程处理死锁
+        * `NtQueryObject`会导致某些句柄hang住
+        * `GetFileType(hFile)`也是
+## PE文件
+* 参考资料
+    * https://docs.microsoft.com/en-us/windows/win32/debug/pe-format
+
+* 编程
+    * 头文件
+        * 在应用层时, 导入`Windows.h`
+        * 在内核层时, 导入`ntimage.h`
+
+* 转储内存中的PE镜像
+    * 使用微软提供的windows sysinternal中的`procdump`
+
+* PE文件中的大小值
+    * 磁盘PE文件的dos头, pe头, 节表的总大小记录在optional头部的`SizeOfHeaders`字段
+
+* 文件载入内存前后的情况
+
+    <img alt="" src="./pic/pe_in_mem.png" width="50%" height="50%">
+
+    * 根据RVA计算某个项在文件中的偏移
+        1. 已知该项的rva, 该项所属的节的节头部
+            * 获取节表地址: 使用宏`IMAGE_FIRST_SECTION`, 传入的宏参数为nt头部的地址. 
+        2. 从节头获取节的RVA以及节在文件中的偏移`PoiterToRawData`
+        3. 计算: `PoiterToRawData` + (项rva - 节rva)
+
+* 数据目录表(data directory): 位于`IMAGE_OPTIONAL_HEADER`结构体的最后, 是一个`IMAGE_DATA_DIRECTORY`数组. 
+    ```cpp
+    typedef struct _IMAGE_DATA_DIRECTORY {
+        DWORD VirtualAddress;
+        DWORD Size;
+    } IMAGE_DATA_DIRECTORY, PIMAGE_DATA_DIRECTORY;
+    ```
+
+    |偏移 (PE/PE32+)|Field|解释|
+    |-|-|-|
+    |96/112|导出表(Export Table) | `.edata`.|
+    |104/120|导入表(Import Table) | `.idata`.|
+    |112/128|资源表(Resource Table) | `.rsrc`.|
+    |120/136|异常表(Exception Table) | `.pdata`.|
+    |128/144|(Certificate Table) | `Attribute Certificate Table`.|
+    |136/152|重定位表(Base Relocation Table) |  `.reloc`.|
+    |144/160|Debug | `.debug`.|
+    |152/168|Architecture | 保留, 须为0. |
+    |160/176|Global Ptr | 要保存在全局指针寄存器的值的RVA. 其`size`成员的值要设为0. |
+    |168/184|线程局部存储器(TLS Table) | thread local storage (TLS), `.tls`. 用来保存变量或回调函数.  |
+    |176/192|(Load Config Table) | The load configuration table address and size. see The Load Configuration Structure.|
+    |184/200|Bound Import | The bound import table address and size.|
+    |192/208|IAT | 导入地址表.|
+    |200/216|Delay Import Descriptor | The delay import descriptor address and size. see `Delay-Load Import Tables`.|
+    |208/224|CLR Runtime Header | The CLR runtime header address and size. see The `.cormeta` Section (Object Only).|
+    |216/232| 保留, 须为0. | 
+
+    * 导出表
+
+        <img alt="" src="./pic/pe_image_export_directory.jpg" width="80%" height="80%">
+
+        * 数据目录表的第一项. 
+        * 两种方法获取某导出函数地址
+            * 通过函数名获取函数地址
+                1. 遍历`AddressOfNames`. 当在`AddressOfNames`找到匹配的名称时, 在`AddressOfNameOrdinals`数组拿到它对应的序号.
+                2. 以序号为索引在`AddressOfFunctions`数组中找到函数地址(这些地址是RVA, 即相对于模块在内存地址的偏移). 
+            * 通过序号获取函数地址: 省掉上一种方法的第一步. 
+    
+    * 导入表
+
+        <img alt="" src="./pic/pe_image_import_directory.jpg" width="80%" height="80%">
+
+        * `OriginalFirstThunk`字段指向导入名称表INT. 
+            * INT的每一项如果高位为0, 则该项为RVA; 为1, 则剩余数字为导入函数的序号. 
+            * `IMAGE_IMPORT_BY_NAME`: 前2字节为序号, 一般无用. 后面是导入函数名, 以0结尾. 
+        * `FirstThunk`字段指向导入地址表IAT. 
+            * IAT表初始与INT相同. 
+            * PE装载器将导入函数地址装入IAT(`GetProcAddress("函数名")`): 
+                * 对比INT中的名称或序号. 
+                * 将得到的函数地址填入IAT. 
+
+    * 重定位表
+        * 数据目录表的第六项, `IMAGE_DIRECTORY_ENTRY_BASERELOC`. 
+
+    * TLS表
+        * 接口: `TlsAlloc`, `TlsFree`, `TlsSetValue`, `TlsGetValue`
+
+* 节表: 紧接着PE头存储. 
+    ```cpp
+    // 节头(即节表的每一项)
+    typedef struct _IMAGE_SECTION_HEADER {
+        BYTE    Name[IMAGE_SIZEOF_SHORT_NAME];
+        union {
+                DWORD   PhysicalAddress;
+                DWORD   VirtualSize; // 节在内存中没对齐的大小(即去掉尾部填充的0之后的节的实际数据的数量) (大致能视为节的"有效数据的大小")
+        } Misc;
+        DWORD   VirtualAddress; // 节在内存中的偏移
+        DWORD   SizeOfRawData; // 节在文件中的大小
+        DWORD   PointerToRawData; // 节在文件中的位置
+        DWORD   PointerToRelocations;
+        DWORD   PointerToLinenumbers;
+        WORD    NumberOfRelocations;
+        WORD    NumberOfLinenumbers;
+        DWORD   Characteristics;
+    } IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+    ```
+
+    * `SizeOfRawData`通常比`VirtualSize`大, **因为在磁盘中的节包含填充的0字节**. 
+
 # 系统引导和磁盘分区
 * BIOS和MBR
     * 流程
@@ -631,29 +874,6 @@ uStr.MaximumLength = sizeof(sz);
     * 删除: `ZwDeleteKey`, `ZwDeleteValueKey`
     * 设置: `ZwSetValueKey`新增键值对
 
-# 强删文件
-* R0层关句柄
-    * 打开文件: `IoCreateFile`(比`ZwCreateFile`更底层)
-    * 删除独占文件
-        * 从全局句柄表找到打开这个文件的进程和文件的句柄
-            * `ZwQuerySystemInformation( SystemHandleInformation, buf, size, NULL )`. 因为没法得到全局句柄表的大小, 所以要逐渐递增buf大小. 注: `ZwQuerySystemInformation`这个函数在ntdll中, 内核层编程时可在头文件声明一下, 声明头加上`NTSYSAPI`和`NTAPI`. `SystemHandleInformation`值为16.
-        * 把句柄拷贝过来: `ZwDuplicateObject`, `DUPLICATE_CLOSE_SOURCE`则表示同时在目标进程中把文件句柄关掉
-        * 再次打开文件, 得到handle
-        * 通过handle得到fileObject(用`ObReferenceObjectByHandle`)
-        * `IoGetRelatedDeviceObject(fileObject)`得到设备对象deviceObject
-        * 初始化事件`KeInitializeEvent`; 初始化用来删除文件的Irp
-        * 为Irp设置一个例程(回调)(`IoSetCompletionRoutine`), 当下层驱动完成文件的删除时, 会通知执行该例程.
-        * 下发Irp(交给下层的文件系统驱动处理): `IoCallDriver(DeviceObject, Irp)`
-        * 等待完成: `KeWaitForSingleObject`
-    * 删除正在运行的exe文件
-        * 系统会检查`fileObject->SectionObjectPointer`中的`ImageSectionObject`和`DataSectionObject`, 都不为0则表示exe正在运行. 
-        * 因此强删的方法是先把上述两项设为0, 欺骗系统.
-
-* R3层关句柄
-    * 原理与R0层类似
-    * 用线程处理死锁
-        * `NtQueryObject`会导致某些句柄hang住
-        * `GetFileType(hFile)`也是
 
 # 线程的IRQL(Interrupt Request Level)
 * 如果某个中断产生了, 且IRQL <= 目前处理器的IRQL, 那么将不会影响目前程序的运行; 否则执行中断程序.
@@ -747,7 +967,9 @@ uStr.MaximumLength = sizeof(sz);
     * 同步(A告诉B发生了什么事)
         * KEVENT: 用于线程同步
             * Event两个状态: Signaled, Non-signaled
-            * Event两个类别: Notification事件(不自动恢复, 比如从Signaled转为Non-Signaled要手动设置), synchronization事件(自动恢复)
+            * Event两个类别: 
+                * `NotificationEvent`(不自动恢复, 比如从Signaled转为Non-Signaled要手动设置). 
+                * `SynchronizationEvent`(自动恢复). **如果有多个线程在等待这个事件, 则只会有一个线程恢复执行**. 
             * 在windbg中查看event是否为signaled状态: `dt myEvent`得到事件的Header, 点击Header找到`SignalState`成员. 
             * 代码
                 ```c
@@ -1040,8 +1262,10 @@ uStr.MaximumLength = sizeof(sz);
         * `lpvData = (LPVOID) LocalAlloc(LPTR, 256)`: 
         * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
         * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
-# 线程相关API
-* `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
+
+* 线程相关API
+    * `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
+
 
 # 运行时API(RtlXxx)
 * `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
@@ -1077,6 +1301,7 @@ uStr.MaximumLength = sizeof(sz);
         * 如果代码和数据总量大于等于4K(即一页的大小), 则要将节设置为paged. 
         * 如果可以的话, 应该将可分页代码或数据和`有时可能分页但有时又要锁定的代码或数据`分开放到不同节, 因为如果放到一块的话, 在锁定的时候就会有更多内存空间被锁定. 不过如果代码和数据总量小于4K, 那就放到同一个节, 没问题. 
     * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
+    * `ExAllocatePoolZero`: 同`ExAllocatePoolWithTag`, 但会初始化为全零. 
 * 虚拟地址空间的分区
     * 空指针赋值分区: `0x00000000 - 0x0000ffff`. 若线程读写该区域, 会引发访问违规. 
     * 用户模式分区: 
@@ -1102,7 +1327,50 @@ uStr.MaximumLength = sizeof(sz);
 * api
     * `RtlCopyMemory`: 
     * `MmAllocateContiguousMemory`: 分配的是非分页内存, 且保证在物理内存中连续. 
+    * `NtQueryVirtualMemory`: 查询进程中某个地址所在的内存分区的信息. **枚举进程中的内存分区信息可以用这个方法**. 注意在内核层应该调用`ZwQueryVirtualMemory`而非`NtQueryVirtualMemory`, 后者会报错(0xC0000005, 越界访问), 前者有`syscall`(用于进入`KernelMode`)
+        ```cpp
+        NTSTATUS NTAPI NtQueryVirtualMemory (
+            HANDLE ProcessHandle, // 进程句柄
+            PVOID BaseAddress, // 内存页的基址
+            MEMORY_INFORMATION_CLASS MemoryInformationClass, // 内存信息类型
+            PVOID MemoryInformation, // 用于接收结果的缓存
+            SIZE_T MemoryInformationLength, // 缓存的长度, 比如sizeof(MEMORY_BASIC_INFORMATION)
+            PSIZE_T ReturnLength); // 返回的结果的长度
+
+        // 内存信息类型
+        typedef enum _MEMORY_INFORMATION_CLASS {
+            MemoryBasicInformation // 内存基本信息
+        #if DEVL
+            ,MemoryWorkingSetInformation
+        #endif
+            ,MemoryMappedFilenameInformation
+            ,MemoryRegionInformation
+            ,MemoryWorkingSetExInformation
+        } MEMORY_INFORMATION_CLASS;
+
+        // MemoryBasicInformation类型返回数据是如下结构体
+        typedef struct _MEMORY_BASIC_INFORMATION {  
+            PVOID       BaseAddress;           // 内存页区域的基址
+            PVOID       AllocationBase;        // VirtualAlloc分配的内存页所属分区的基址. BaseAddress包含在AllocationBase指向的内存区域中. 
+            DWORD       AllocationProtect;     // 内存区域初始分配时的保护属性. 为0则是无权限, 否则就是PAGE_EXECUTE, PAGE_READONLY, PAGE_READWRITE, PAGE_GUARD, PAGE_NOCACHE等各权限
+            SIZE_T      RegionSize;            // 从BaseAddress开始, 具有相同属性的内存页的大小, (?)
+            DWORD       State;                 // 内存页的状态, 值为MEM_COMMIT, MEM_FREE或MEM_RESERVE
+            DWORD       Protect;               // 内存页的属性, 取值范围与AllocationProtect相同
+            DWORD       Type;                  // 该内存块的类型, 有三种可能值：MEM_IMAGE, MEM_MAPPED和MEM_PRIVATE
+        } MEMORY_BASIC_INFORMATION, *PMEMORY_BASIC_INFORMATION;
+
+        // 调用VirtualAlloc时指定的分配类型: 
+        // MEM_COMMIT: 为指定地址空间提交物理内存. 提交已经提交的内存页不会导致失败. 
+        // MEM_RESERVE: 保留指定地址空间, 不分配物理内存
+        // MEM_FREE: 空闲区域
+        ```
+
+        * 分区的三种类型
+            * `MEM_IMAGE`: 分区内的内存页都被映射到了一个镜像节的视图(即exe, dll, sys)
+            * `MEM_MAPPED`: 分区内的内存页都被映射到了一个视图
+            * `MEM_PRIVATE`: 分区内的内存页都是私有的(即其他进程不可访问)
     * ``: 
+    * `VirtualMemoryEx`: `NtQueryVirtualMemory`的R3版本. 
 
 # 主防
 * 弹窗
@@ -1149,16 +1417,57 @@ uStr.MaximumLength = sizeof(sz);
             * IRP: `IoSkipCurrentIrpStackLocation(IpIrp)`, `IoCallDriver()`
 * 其他
     * 应用层异步读文件
-        ```cpp
-        OVERLAPPED Overlapped;
-        HANDLE g_hOverlappedEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-        Overlapped.hEvent = g_hOverlappedEvent;
-        ReadFile(gh_Device, &OpInfo, sizeof(OP_INFO), &ulBytesReturn, &Overlapped);
-        ...
-        WaitForSingleObject(Overlapped.hEvent, INFINITE);
+        * `ReadFile`
+            ```cpp
+            OVERLAPPED Overlapped;
+            HANDLE g_hOverlappedEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+            Overlapped.hEvent = g_hOverlappedEvent;
+            ReadFile(gh_Device, &OpInfo, sizeof(OP_INFO), &ulBytesReturn, &Overlapped);
+            ...
+            WaitForSingleObject(Overlapped.hEvent, INFINITE);
 
-        // 当驱动程序完成IO, 调用IoCompleteRequest后, 上面Overlapped.hEvent会被激发, WaitForSingleObject会返回
-        ```
+            // 在IO调用还没完成时(驱动返回STATUS_PENDING), Overlapped.hEvent会被系统设为nonsignaled状态
+            // 当驱动程序完成IO, 调用IoCompleteRequest后, 上面Overlapped.hEvent会被激发, WaitForSingleObject会返回
+            ```
+        * `ReadFileEx`: 可以指定完成例程(即异步操作的回调函数). 
+    * 应用层的完成端口(实现类似于异步回调的功能)
+        * `CreateIoCompletionPort(__in HANDLE FileHandle, __in_opt HANDLE ExistingCompletionPort, __in ULONG_PTR CompletionKey, __in DWORD NumberOfConcurrentThreads);`: 创建完成端口, 或绑定文件句柄和完成端口
+            * 文件句柄必须是overlapped方式打开的
+            * `NumberOfConcurrentThreads`表示工作者线程数量. 0则表示有多少个处理器就开多少个线程. 
+        * `BOOL GetQueuedCompletionStatus(HANDLE CompletionPort, LPDWORD lpNumberOfBytes, PULONG_PTR lpCompletionKey, LPOVERLAPPED *lpOverlapped, DWORD dwMilliseconds)`: 尝试从完成端口的队列中取出一个IO完成包. 若无, 则等待pending操作的完成. 
+        * 示例
+            ```cpp
+            // 初始化完成端口
+            CompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+
+            // 创建工作者线程
+            CreateThread(NULL, 0, WorkerThread, CompletionPort, 0, &dwThreadId);
+            
+            ...
+
+            //将新到来的客户套接字和完成端口绑定到一起。
+            CreateIoCompletionPort((HANDLE)sClient, CompletionPort, ( DWORD)sClient, 0);
+
+            // 工作者线程的例程
+            DWORD WINAPI WorkerThread(LPVOID CompletionPortID) {
+                HANDLE                   CompletionPort=(HANDLE)CompletionPortID;
+                DWORD                    dwBytesTransferred;
+                SOCKET                   sClient;
+                LPPER_IO_OPERATION_DATA lpPerIOData = NULL;
+                while (TRUE)
+                {
+                    GetQueuedCompletionStatus( //遇到可以接收数据则返回, 否则等待
+                    CompletionPort, // 完成端口
+                    &dwBytesTransferred, //返回的字数
+                    (LPDWORD)&sClient,           //是响应的哪个客户套接字？
+                    (LPOVERLAPPED *)&lpPerIOData, //得到该套接字保存的IO信息
+                    INFINITE);     // 无限等待
+
+                    ... 
+                }
+            }
+            ```
+        
     * 同步非阻塞: 虽然和同步阻塞一样IO不会立即返回, 但它是有数据时才IO. 实现方式包括IO多路复用.
 
 # x86hook
@@ -1358,6 +1667,13 @@ uStr.MaximumLength = sizeof(sz);
         * 工程生成的文件
             * dll文件: 包含实际的函数和数据
             * lib文件: 包含被dll导出的函数的名称和位置. exe程序可使用之链接到dll文件.
+        * 开发dll
+            ```cpp
+            // 导出函数的定义形式, 注意顺序, 名称都不能写错. 
+            extern "C" _declspec(dllexport) int myFunc1(int v) {
+                return v + 1;
+            }
+            ```
         * 调用dll
             * 隐式链接(可直接调用函数)
                 * 把dll文件拷贝到exe的目录下
@@ -1368,7 +1684,7 @@ uStr.MaximumLength = sizeof(sz);
                 * `HMODULE hMod = LoadLibrary(_T("myDll.dll"));`
                 * `if(hMod) {MYFUNC myFunc = (MYFUNC)GetProcess(hMod, "fnMyFunc"); myFunc();}`
                 * 注意  
-                    * 如果dll是cpp编译, 注意name mangling(c++为支持函数重载, 会该函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
+                    * 如果dll是cpp编译, 注意name mangling(c++为支持函数重载, 会改函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
                     * `LoadLibrary`使用的是相对路径, windows会按一定顺序找目录, 有劫持漏洞. 
                         * 搜索顺序: 
                             * 程序所在目录
@@ -1454,18 +1770,45 @@ uStr.MaximumLength = sizeof(sz);
 
         * 直接注入dll: (LibSpy项目的`OnMouseMove`和`InjectDll`)
             * `OpenProcess`打开目标进程(一参为`PROCESS_CREATE_THREAD|PROCESS_QUERY_INFORMATION|PROCESS_VM_OPERATION|PROCESS_VM_WRITE| PROCESS_VM_READ`, 后面`CreateRemoteThread`才能执行)
-                * 打开进程前, 需要**给进程提权, 得到debug权限**. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限, 然后用`OpenProcessToken(GetCurrentProcess(),		TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄, 最后用`AdjustTokenPrivileges`启用特权.
-                * 若要打开关键进程(csrss等), 需在驱动中打开, 去掉关键进程的`EPROCESS`中的`PsIsProtectProcess`标志位, 并关闭dll签名策略. (参考开源项目`blackbone`)
-            * 获取待注入的dll路径, 在目标进程内分配一块内存(`VirtualAllocateEx`), 将路径拷贝到该内存中
-            * 获取kernel32中的`LoadLibraryA`地址
+                * 需要**给进程提权, 得到SeDebug权限1**. 
+                    0. 注: **准确地说不是提权, 而是将访问令牌中禁用的权限启用**. 成功使用下面这些函数的前提是进程具备该权限, 只是访问令牌中没有启用该权限. 而如果进程没有该权限, 则使用下面的函数后再调用`GetLastError`会返回`ERROR_NOT_ALL_ASSIGN`. 
+                    1. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限. 
+                    2. 然后用`OpenProcessToken(GetCurrentProcess(),	 TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄. 
+                    3. 最后用`AdjustTokenPrivileges`启用特权.
+                * 若要打开关键进程(`csrss.exe`等), 需在驱动中打开, 去掉关键进程的`EPROCESS`中的`PsIsProtectProcess`标志位, 并`关闭dll签名策略`. (参考开源项目`blackbone`)
+            * 获取待注入的dll路径, 在目标进程内分配一块内存(`VirtualAllocateEx`), 将路径拷贝到该内存中(`WriteProcessMemory`)
+            * 获取kernel32中的`LoadLibraryA`地址(如果dll路径是宽字符串, 则)
             * 调用`CreateRemoteThread`, 在目标进程中执行`LoadLibrary`及dll动作
                 * 注意, 因为`VirtualAllocEx`返回的是虚拟地址, 默认情况下`CreateRemoteThread`函数的`lpStartAddress`参数使用该地址是没问题的. 但是若注入器是32位而被注入程序是64位, 则可能导致`CreateRemoteThread`失败而返回NULL. 参考: https://stackoverflow.com/questions/60687458/createremotethread-returns-null-while-trying-to-use-it-to-inject-dll
             * DllMain执行(hook, 拷贝一些进程数据)
             * 释放分配的目标进程内存
             * 获取kernel32中`FreeLibrary`地址
             * 调用`CreateRemoteThread`, 在目标进程中执行`FreeLibrary`及dll动作
-        * 通过memload注入dll(内存注入)
-            * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain
+        * 通过memload注入dll(内存注入, 反射式注入(reflective injection))
+            * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain. 
+            * 将自己实现的LoadLibrary功能函数保存为shellcode. 
+                * 注: 在shellcode中使用的系统api都要事先通过`GetProcAddress`获取(使用`GetModuleHandleA`获取模块句柄, 传入的模块名不用后缀), 并作为参数传进去. 
+                * 注意注入器保存的shellcode是否是真实的函数体. 调试发现在vs2019中, 按默认选项编译**得到的函数地址处一条跳转到实际函数体的jmp指令**. 因此`需要使用jmp指令的操作数计算实际函数地址`.
+                * 注: 可用0xCCCCCCCCCCCCCCCC作为函数体结束识别标识.
+                * 问题: 远程线程中出现地址访问冲突:
+                    * 原因1: 出问题的地方试图读取`__security_cookie`
+                    * 解决: 编译时关闭/GS选项, 禁用栈保护.
+                    * 原因2: 远程线程中试图调用一些不可用的函数, 包括`__CheckForDebuggerJustMyCode`, `_RTC_CheckStackVars`
+                    * 解决: 禁用/JMC选项, /RTC选项, 其他的如果是必要使用的动态库函数, 则需要用`LoadLibrary`和`GetProcAddress`获取, 且要确保目标进程已载入相应dll.
+
+            * 在目标进程中开辟新内存, 写入: 
+                * 要注入的dll的文件内容
+                * shellcode
+                * 传给shellcode的参数, 主要是shellcode需要的系统api的函数地址. 
+            * 创建远程线程, 执行shellcode, 由shellcode载入dll. 
+        * dll镂空(dll hollowing): 注入一个合法dll, 然后修改dll入口点处代码为自己想执行的代码. 
+            * 首先, 进行如普通的dll注入, 但是是将一个合法dll注入到进程. 
+            * `EnumProcessModules`枚举进程模块, `GetModuleBaseNameA`得到每个模块的名称, 从而找到注入的dll. 
+            * 本进程分配0x1000的内存空间(可用`malloc`或`HeapAlloc`), 然后将找到的dll的PE头部内容读进来. 
+            * 由PE头中的optional头得到dll的入口地址, 加上枚举模块时得到的dll
+            的基址, 得到实际dll入口地址, 并向该地址写入shellcode. 
+                * 如同反射式dll注入, 生成shellcode的方法也是在注入器中定义shellcode函数并获取其机器码. 需要注意, **shellcode函数中不要用字符串常量, 因为在vs2019中调试发现这些字符串总是存在注入器进程的数据区而非栈上, 这样一来shellcode在运行时无法获取字符串(毕竟注入并运行的shellcode在目标进程而非注入器进程)**
+            * 创建远程线程, 并以dll入口地址为线程执行地址. 
         * 通过驱动注入
     * r3跨进程hook
         * 现有引擎: nthookengine, mhook, Detour(微软的)
@@ -1474,7 +1817,8 @@ uStr.MaximumLength = sizeof(sz);
             * 一个hooker(监控软件)负责把dll文件注入到目标进程
             * 一个hookee程序, 获得其pid并被hooker成功打开, 被hooker注入dll
         * r3为什么需要dll注入才能hook其它进程
-            * r3进程是私有地址空间, 在自己进程hook了api, 无法影响其它进程中的api.
+            * r3进程是私有地址空间, 在自己进程hook了api, 无法影响其它进程中的api. 
+
 * 文件过滤驱动
     * 分层驱动框架和过滤
         * IRP经过: 文件过滤驱动设备 -> 文件卷设备 -> 磁盘设备
@@ -1673,6 +2017,7 @@ uStr.MaximumLength = sizeof(sz);
             * R0: `DeviceDispatch`中由控制设备处理添加规则
         * 测试
             * 运行`install.bat`
+
             * `net start tdifw`
 * ndis(network driver interface specification)
     * 层次
@@ -1684,7 +2029,7 @@ uStr.MaximumLength = sizeof(sz);
 
     * passthru
 
-* wfp
+* wfp(windows filtering platform)
 
     <img alt="" src="./pic/wfp_architecture.jpg" width="70%" height="70%">
 
@@ -1724,6 +2069,7 @@ uStr.MaximumLength = sizeof(sz);
         * 实现classifyFn函数, 处理网络数据包
     * 注意事项
         * 运行时过滤层标识符(`FWPS_XXX`)被内核模式的callout驱动使用. 管理器过滤层标识符(`FWPM_XXX`)被`FwpmXxx`函数(`FwpmFilterAdd0`)使用(这些函数是跟基础驱动引擎(BFE)交互的)
+
 # VT技术
 * 概念
     * 硬件虚拟化技术, 在硬件级别上完成计算机的虚拟化(增加了一些寄存器)
@@ -2108,11 +2454,23 @@ uStr.MaximumLength = sizeof(sz);
 
 * 用vmware时windbg连不上虚拟机
 
-    按网上的说法, 将虚拟机中启动项的高级选项中的调试端口改为 COM2: .
+        按网上的说法, 将虚拟机中启动项的高级选项中的调试端口改为 COM2: .
 
 * 安装驱动后启动时蓝屏(发生位置是`_IMPORT_DESCRIPTOR_ntoskrnl`, 报Access violation异常)
 
-    在编译驱动前, 检查一下工程属性中, Driver Settings -> Target OS Version, 确保目标操作系统选对了. 
+        在编译驱动前, 检查一下工程属性中, Driver Settings -> Target OS Version, 确保目标操作系统选对了. 
+
+* vs使用git时报错: `未能正确加载"SccProviderPackage"包`
+    * 可能要用`visual studio installer`修复vs
+    * 网上的另一种方法, 曾经有效: 
+        * 找到`C:\Users\<用户名>\AppData\Local\Microsoft\VisualStudio\14.0\ComponentModelCache`, 删除`Microsoft.VisualStudio.Default.cache`文件. 
+
+* vs中某些常量或头文件无法跳转(`在当前源文件的目录或生成系统路径中未找到文件xxx`)
+        
+        配置属性 -> 常规 -> windows sdk版本, 如果有 $(LatestTargetPlatformVersion), 而实际上又没安装最新版本, 就会找不到文件. 点击选择已安装版本号. 
+
+* 调用`StartService`失败, 使用`GetLastError`得到错误码为2(表示文件不存在), 但驱动文件已存在相应路径中. 
+    * 在vs中调试时出现这个问题. 是路径问题, 要先看vs用调试程序时`CreateService`在注册表保存驱动的路径(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`, 找到`ImagePath`键), 然后把编译得到的驱动文件放到这个路径. 
 
 
 # DDK开发安全事项 
