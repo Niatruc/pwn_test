@@ -1,4 +1,5 @@
-# 空指针
+# C语言
+* 空指针
 ```cpp
 // C
 #define NULL (void*)0
@@ -7,260 +8,238 @@
 #define NULL 0
 ```
 
-# 格式字符串
-%Z: ANSI
-%wZ: Unicode
-%zx: 64位16进制
+* 格式字符串
+    * %Z: ANSI
+    * %wZ: Unicode
+    * %zx: 64位16进制
+    * %zd或%I64d: 64位10进制
+    * %ls: 宽字符串
+    * %hs: 窄字符串
 
-# 执行程序
-* Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
-* 有windows界面的程序: `WinMainCRTStartup` -> `WinMain`
-* 在`main`执行前执行自定义代码:
-    * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute((constructor)) void before() {}`
-    * VC: 如下定义`.CRT$XIU`段, 链接器就会形成日下的C初始化函数表: 
+* 执行程序
+    * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
+    * 有windows界面的程序: `WinMainCRTStartup` -> `WinMain`
+    * 在`main`执行前执行自定义代码:
+        * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute((constructor)) void before() {}`
+        * VC: 如下定义`.CRT$XIU`段, 链接器就会形成日下的C初始化函数表: 
 
-       [__xi_a, ..., before1(xiu), ..., __xi_z]
+        [__xi_a, ..., before1(xiu), ..., __xi_z]
 
-       以及C++初始化函数表: 
+        以及C++初始化函数表: 
 
-       [__xc_a, ..., before2(xcu), ..., __xc_z]
+        [__xc_a, ..., before2(xcu), ..., __xc_z]
+            ```cpp
+            void before_main () {}
+            typedef void func();
+            #pragma data_seg(".CRT$XIU")
+            static func *before[] = { before_main };
+            #pragma data_seg()
+            ```
+        * C++: 全局对象的初始化函数会在`main`前执行. 下面的`g_iValue`赋值也会先执行, 故而`func`先于`main`执行.
+            ```cpp
+            A a;
+            int g_iValue = func();
+            ```
+
+* 数据长度(32位及64位系统)
+    |数据类型或数据|长度(字节)|
+    |-|-|
+    |char|1|
+    |short|2|
+    |long|4或8|
+    |int|4|
+    |float|4|
+    |double|8|
+    |double*|4或8|
+    |bool|1|
+    |"str"|4|
+    |100i64|8|
+
+* 数据定义
+    * `const char *str = "abc";` `str`指向常量, `str`是变量
+    * `char const *str = "abc";` `str`是常量, 相当于`char str[3] = "abc"`
+
+* 结构体
+    * 对齐
+        * 结构体成员所在地址需是该成员大小的整数倍. 下面结构体大小: 16, 1 + 1 + 2(补齐给i) + 4 + 8
+            
+            ```cpp
+            struct a {
+                char c1;
+                char c2;
+                long i;
+                double f;
+            }
+            ```
+
+        * 栈对齐: x86(4), x64(16, 入栈8字节).
+        * 如下表示按一字节对齐(如网络协议, 需要让总数据量较少, 以提高报文传播速度).
+           
+            ```cpp
+            // push和pop之间的代码保持1字节对齐; pop以后就按原来的字节对齐
+            #pragma pack(push)
+            #pragma pack(1) // 这两行可直接写成: #pragma pack(push, 1)
+            struct {...}
+            #pragma pack(pop)
+            ```
+
+    * 位域
+        * 参考: https://blog.csdn.net/qq_33270521/article/details/85058248
+            
+            ```cpp
+            typedef struct{
+                int a:2;	// 最低位
+                int b:2;
+                int c:1;    // 最高位
+            }test;
+            
+            int main(void)
+            {
+                test t;
+                t.a = 1;
+                t.b = 3;
+                t.c = 1;
+                printf("%d, %d, %d\n", a, b, c); // 1, -1, -1
+                return 0;
+            }
+            ```
+
+            * 因为最高位视为符号位, 所以打印b和c得到了负数. 
+
+* 变量存储位置
+    * 全局变量: 静态区(`.data`存已初始化变量, `.bss`存未初始化变量). 用了`static`关键字声明的变量不可被其它文件通过`extern`导入.
+    * 在函数中定义的局部变量: 
+        * `char s1[] = "123";` `s1`和"123"都存在栈上, 因而`s1`的值将是栈上地址(指向"123"); 
+        * `char *s2 = "123";` "123"存在`.rdata`中;
+        * `static int c = 10;` 作用域为函数内, 类似于闭包中的变量(会在函数执行完后仍保留); 存于`.data`
+    * 局部变量的地址不可被返回(编译不通过)
+
         ```cpp
-        void before_main () {}
-        typedef void func();
-        #pragma data_seg(".CRT$XIU")
-        static func *before[] = { before_main };
-        #pragma data_seg()
+        // 存储位置, 作用域, 生命周期
+        int a = 1;  // .data节, 整个项目, 程序执行期间
+        char *p1; // .bss节, 整个项目, 程序执行期间
+        static int x = 10; // .data节, 本文件, 程序执行期间
+        int main(void) 
+        { 
+            int b = 0; // 栈, main函数, main函数执行期间
+            char s1[] = "123"; // 栈, main函数, main函数执行期间(栈上存了"123\0")
+            char *p2; // 栈, main函数, main函数执行期间
+            char *s2 = "123"; // 栈, main函数, main函数执行期间("123\0"存于.rdata节, s2指向之)
+            static int c =10; // .data节, main函数, 程序执行期间
+            p1 = (char *)malloc(128); 
+            p2 = (char *)malloc(256); 
+            free(p1); 
+            free(p2); 
+            return 0; 
+        } 
         ```
-    * C++: 全局对象的初始化函数会在`main`前执行. 下面的`g_iValue`赋值也会先执行, 故而`func`先于`main`执行.
+
+* 内存布局
+    * x86为32位寻址, 因此寻址空间上限为4GB, 也可通过PAE(Physical address extension)扩到36位(64GB)
+    * x64理论最大寻址2^64. Windows支持44位(16TB). Linux则48位(256TB)
+    * 栈大小: 
+        * Windows: 应用栈默认1M(可用编译指令`/stack`指定). 内核栈: 12K(x86), 24K(x64)
+        * Linux: 应用栈10M(`ulimit -s`查看或设置). 内核栈4K或8K
+
+            <img alt="" src="./pic/mem.jpg" width="70%" height="70%">
+    * 其他
+        * `int a[1024*1024*1024] = {1};` 这样初始化数组会导致`.data`节大小为4G.
+
+* 位运算
+    * 算术右移用符号位填充, 逻辑右移用0填充. 
+    * -1为二进制全1; 有符号数最大值为01111..., 最小值为10000...
+
         ```cpp
-        A a;
-        int g_iValue = func();
+        (char)(127<<1)+1    // -1
+        (char)(-1>>1)+1   // 0
+        1<<2+3  // 32
+        (15&240)+((2^100)%7)    // 2 (第二项: (2 * (1 + 7) ^ 33) % 7)
+        (char)(-128 * -1)   // -128 (0b10000000)
+        1^2^4^5^6^...^1024  // 1027 (1^2^3^4^5^6^...^1024)
+        0x12345678 | ~0xFFFEFFFF    // 0x12355678
         ```
 
-# 数据长度(32位及64位系统)
-|数据类型或数据|长度(字节)|
-|-|-|
-|char|1|
-|short|2|
-|long|4或8|
-|int|4|
-|float|4|
-|double|8|
-|double*|4或8|
-|bool|1|
-|"str"|4|
-|100i64|8|
+* 函数
+    * 函数传参
+        * 传值, 传指针, 传引用
+            * 注: C语言没有引用传递, 这个是C++的概念. 故在C源码文件中如下`func2`的定义不通过. 
 
-# 数据定义
-* `const char *str = "abc";` `str`指向常量, `str`是变量
-* `char const *str = "abc";` `str`是常量, 相当于`char str[3] = "abc"`
+        ```cpp
+        // x86
 
-# 对齐
-结构体成员所在地址需是该成员大小的整数倍. 下面结构体大小: 16, 1 + 1 + 2(补齐给i) + 4 + 8
-```c
-struct a {
-    char c1;
-    char c2;
-    long i;
-    double f;
-}
-```
-栈对齐: x86(4), x64(16, 入栈8字节).
-如下表示按一字节对齐(如网络协议, 需要让总数据量较少, 以提高报文传播速度).
-```c
-#pragma pack(1)
-``` 
+        void fun(char c[]) 
+        { 
+            printf("%d\n" , sizeof(c));     // c是指针
+        }
+        void fun2(char &c) // 传引用, 就是实参本身
+        { 
+            printf("%d\n" , sizeof(c)); 
+        }
+        void fun3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用fun3时传给它的数组大小若大于9则会出错
+        { 
+            printf("%d\n" , sizeof(c)); 
+        } 
 
-# 变量存储位置
-* 全局变量: 静态区(`.data`存已初始化变量, `.bss`存未初始化变量). 用了`static`关键字声明的变量不可被其它文件通过`extern`导入.
-* 在函数中定义的局部变量: 
-    * `char s1[] = "123";` `s1`和"123"都存在栈上, 因而`s1`的值将是栈上地址(指向"123"); 
-    * `char *s2 = "123";` "123"存在`.rdata`中;
-    * `static int c = 10;` 作用域为函数内, 类似于闭包中的变量(会在函数执行完后仍保留); 存于`.data`
-* 局部变量的地址不可被返回(编译不通过)
+        void f(char *p);
+        void f1(char **p);
+        void f2(char *&p);  // 指针的引用
+        int main() 
+        {   
+            int a = 0;
+            int *p = &a; // p是实参
+            f(p);   // 传的是a的地址, 因而可改变a的值
+            char c[] = "12345678"; 
+            printf("%d\n" , sizeof(c)); // 9
+            fun(c); // 4
+            fun2(*c); // 1(*c即c[0])
+            fun3(c); // 9
+            return 0; 
+        }
+        ```
 
-```c
-// 存储位置, 作用域, 生命周期
-int a = 1;  // .data节, 整个项目, 程序执行期间
-char *p1; // .bss节, 整个项目, 程序执行期间
-static int x = 10; // .data节, 本文件, 程序执行期间
-int main(void) 
-{ 
-    int b = 0; // 栈, main函数, main函数执行期间
-    char s1[] = "123"; // 栈, main函数, main函数执行期间(栈上存了"123\0")
-    char *p2; // 栈, main函数, main函数执行期间
-    char *s2 = "123"; // 栈, main函数, main函数执行期间("123\0"存于.rdata节, s2指向之)
-    static int c =10; // .data节, main函数, 程序执行期间
-    p1 = (char *)malloc(128); 
-    p2 = (char *)malloc(256); 
-    free(p1); 
-    free(p2); 
-    return 0; 
-} 
-```
+    * 调用约定
+        * __stdcall: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
+        * __cdecl: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
+        * __fastcall: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
 
-# 内存布局
-* x86为32位寻址, 因此寻址空间上限为4GB, 也可通过PAE(Physical address extension)扩到36位(64GB)
-* x64理论最大寻址2^64. Windows支持44位(16TB). Linux则48位(256TB)
-* 栈大小: 
-    * Windows: 应用栈默认1M(可用编译指令`/stack`指定). 内核栈: 12K(x86), 24K(x64)
-    * Linux: 应用栈10M(`ulimit -s`查看或设置). 内核栈4K或8K
+    * 不定长参数
 
-        <img alt="" src="./pic/mem.jpg" width="70%" height="70%">
-* 其他
-    * `int a[1024*1024*1024] = {1};` 这样初始化数组会导致`.data`节大小为4G.
+        ```cpp
+        void func(int var1, ...) {
+            va_list vl;  
+            va_start(vl, var1); // 使vl指向可选参数列表的第一个参数. var1是可选参数列表前的一个指针
+            va_arg(vl, type); // 返回参数列表指针指向的参数, 类型为type, 并使vl指向下一个参数. 
+            va_end(vl); // 清空参数列表, 并置参数指针vl为无效指针
+        }
+        ```
 
-# 位运算
-* 算术右移用符号位填充, 逻辑右移用0填充. 
-* -1为二进制全1; 有符号数最大值为01111..., 最小值为10000...
-```c
-(char)(127<<1)+1    // -1
-(char)(-1>>1)+1   // 0
-1<<2+3  // 32
-(15&240)+((2^100)%7)    // 2 (第二项: (2 * (1 + 7) ^ 33) % 7)
-(char)(-128 * -1)   // -128 (0b10000000)
-1^2^4^5^6^...^1024  // 1027 (1^2^3^4^5^6^...^1024)
-0x12345678 | ~0xFFFEFFFF    // 0x12355678
-```
+* 内存分配
 
-# 函数
-## 函数传参
-* 传值, 传指针, 传引用
-    * 注: C语言没有引用传递, 这个是C++的概念. 故在C源码文件中如下`func2`的定义不通过. 
+    ```cpp
+    // C
+    char *p = (char *) malloc(1024);
+    if (p == NULL) return ;
+    memset(p, 0, 1024); // 用以清空潜在的恶意代码
+    free(p);
+    p = NULL;
 
-```c
-// x86
+    // C++
+    char *p = new char[1024];
+    delete []p;
 
-void fun(char c[]) 
-{ 
-    printf("%d\n" , sizeof(c));     // c是指针
-}
-void fun2(char &c) // 传引用, 就是实参本身
-{ 
-    printf("%d\n" , sizeof(c)); 
-}
-void fun3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用fun3时传给它的数组大小若大于9则会出错
-{ 
-    printf("%d\n" , sizeof(c)); 
-} 
+    // 内核
+    char *p = (char *) kmalloc(1024);
+    kfree(p);
+    ```
 
-void f(char *p);
-void f1(char **p);
-void f2(char *&p);  // 指针的引用
-int main() 
-{   
-    int a = 0;
-    int *p = &a; // p是实参
-    f(p);   // 传的是a的地址, 因而可改变a的值
-    char c[] = "12345678"; 
-    printf("%d\n" , sizeof(c)); // 9
-    fun(c); // 4
-    fun2(*c); // 1(*c即c[0])
-    fun3(c); // 9
-    return 0; 
-}
-```
-
-## 调用约定
-* __stdcall: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
-* __cdecl: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
-* __fastcall: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
-
-## 不定长参数
-```cpp
-void func(int var1, ...) {
-    va_list vl;  
-    va_start(vl, var1); // 使vl指向可选参数列表的第一个参数. var1是可选参数列表前的一个指针
-    va_arg(vl, type); // 返回参数列表指针指向的参数, 类型为type, 并使vl指向下一个参数. 
-    va_end(vl); // 清空参数列表, 并置参数指针vl为无效指针
-}
-```
-
-# 内存分配
-```cpp
-// C
-char *p = (char *) malloc(1024);
-if (p == NULL) return ;
-memset(p, 0, 1024); // 用以清空潜在的恶意代码
-free(p);
-p = NULL;
-
-// C++
-char *p = new char[1024];
-delete []p;
-
-// 内核
-char *p = (char *) kmalloc(1024);
-kfree(p);
-```
-
-# 问题代码
-```c
-void GetMemory(char *p) 
-{
-    p = (char *)malloc(100);
-} 
-void Test(char *s) 
-{ 
-    char *str = NULL; 
-    GetMemory(str); 
-    strcpy(str, s); 
-    printf(str); 
-}
-
-// 改进后
-void GetMemory(char **p) 
-{
-    *p = (char *)malloc(100);
-} 
-void Test(char *s) 
-{ 
-    char *str = NULL; 
-    GetMemory(&str); 
-    strcpy(str, s); 
-    printf("%s", str); 
-    free(str);
-}
-```
-* 问题
-    * `GetMemory`是传值, 因而str的值不会改变, 因而`strcpy`会把值拷贝给NULL地址, 会崩溃. 
-    * `GetMemory`还是会malloc一段内存, 之后没有free, 有内存泄漏. 
-    * `strcpy`会有堆溢出.
-    * `printf(str)`有格式化字符串漏洞.
-
-
-```cpp
-#include <stdio.h>
-int main(int argc,char *argv[])
-{
-    char x,y,z;
-    int i;
-    int a[16];
-    for(i=0;i<=16;i++)
-    {
-          a[i]=0;
-         printf("\n");
-   }
-   return 0;
-}
-```
-
-# 编程
-* 参数检查
-    * 指针是否为NULL
-    * 参数中缓存长度是否在合理范围内
-    * 用C++中的RTTI对参数类型进行检查
-* 边界
-    * 应考虑的特征: 第一个/最后一个, 开始/完成, 空/满, 最慢/最快, 相邻/最远, 最小值/最大值, 超过/在内, 最短/最长, 最早/最迟, 最高/最低. 
-    * 在循环体中使用`continue`前, 切记**检查是否有记得修改循环判断条件值, 不然可能陷入死循环**. 
-* 出错
+* 错误/异常
     * 类型
         * 文件打开失败
         * 分配内存返回NULL
         * 等等
     * 处理
         * if/goto
-        * __try/__except
+        * __try/__except: 这个是windows独有的异常处理模型, 即SEH. 
             * `__except(<过滤器表达式>)`:
             ```cpp
             __try {
@@ -290,15 +269,74 @@ int main(int argc,char *argv[])
     ```
 
     * 预定义宏
-        |宏|	描述|
+        |宏|描述|
         |-|-|
         |__LINE__|	这会在程序编译时包含当前行号. |
         |__FILE__|	这会在程序编译时包含当前文件名. |
         |__DATE__|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
         |__TIME__|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
 
+* 问题代码
+
+    ```cpp
+    void GetMemory(char *p) 
+    {
+        p = (char *)malloc(100);
+    } 
+    void Test(char *s) 
+    { 
+        char *str = NULL; 
+        GetMemory(str); 
+        strcpy(str, s); 
+        printf(str); 
+    }
+
+    // 改进后
+    void GetMemory(char **p) 
+    {
+        *p = (char *)malloc(100);
+    } 
+    void Test(char *s) 
+    { 
+        char *str = NULL; 
+        GetMemory(&str); 
+        strcpy(str, s); 
+        printf("%s", str); 
+        free(str);
+    }
+    ```
+        
+    * 问题
+        * `GetMemory`是传值, 因而str的值不会改变, 因而`strcpy`会把值拷贝给NULL地址, 会崩溃. 
+        * `GetMemory`还是会malloc一段内存, 之后没有free, 有内存泄漏. 
+        * `strcpy`会有堆溢出.
+        * `printf(str)`有格式化字符串漏洞.
+
+    ```cpp
+    #include <stdio.h>
+    int main(int argc,char *argv[])
+    {
+        char x,y,z;
+        int i;
+        int a[16];
+        for(i=0;i<=16;i++)
+        {
+            a[i]=0;
+            printf("\n");
+    }
+    return 0;
+    }
+    ```
 
 # 编码经验教训
+* 参数检查
+    * 指针是否为NULL
+    * 参数中缓存长度是否在合理范围内
+    * 用C++中的RTTI对参数类型进行检查
+* 边界
+    * 应考虑的特征: 第一个/最后一个, 开始/完成, 空/满, 最慢/最快, 相邻/最远, 最小值/最大值, 超过/在内, 最短/最长, 最早/最迟, 最高/最低. 
+    * 在循环体中使用`continue`前, 切记**检查是否有记得修改循环判断条件值, 不然可能陷入死循环**. 
+
 * 内存, 指针, 字符串
     * 初始化时清零是好习惯(`memset`, `RtlZeroMemory`), 否则字符串可能不结束, 这样可能导致溢出. 
     * 涉及指针运算时, 比如`ptr->item`, `*ptr`, 要判断ptr是不是有效地址. 可以用__try__except捕获访问地址异常. 
@@ -327,8 +365,23 @@ int main(int argc,char *argv[])
         ```
 * 同步, 异步, 互斥
     * 获取的资源要确保被释放
-        * 注意goto, break, __try__except会不会导致释放步骤被跳过. 
+        * 要留意goto, break, __try__except会不会导致释放步骤被跳过. 
+* 奇技淫巧
+    * 有时为了在捕获到错误时终止一段代码, 会用到大量if-else或goto语句. 可以如下用do-while: 
+    ```cpp
+    if (a) goto NEXT;
+    ...
+    if (b) goto NEXT;
+    ...
+    NEXT: ;
 
+    // 替换写法
+    do {
+        if (a) break;
+        ...
+        if (b) break;
+    } while (FALSE);
+    ```
 
 # C++
 ## 数据类型
@@ -347,6 +400,16 @@ int main(int argc,char *argv[])
     int* const p2 = &me; // p2不可变, *p2可变
     const int* const p3 = &me; // p2不可变, *p2也不可变
     ```
+* `explicit`: 
+    * 防止类构造函数的隐式自动转换. 
+    * 其只对只有一个参数的类构造函数有效. 
+        
+        ```cpp
+        MyClass c1(1); // 
+        MyClass c1 = 1; // 隐式转换, 如果构造函数用了explicit声明, 则这句不会成功. 
+        ```
+
+* `implicit`: 隐式(默认). 
 
 ## 控制流
 * range-for
@@ -400,7 +463,7 @@ int main(int argc,char *argv[])
             friend class B; // B的所有成员函数都是类C的友元函数, 在B中可以访问C的所有成员
 
             virtual void vfunc();
-            virtual void vfunc2() = 0; // 纯虚函数
+            virtual void vfunc2() = 0; // 纯虚函数, 也叫抽象函数, 在基类中定义, 没有函数体. 
 
             // 运算符重载
             C operator+(const C &c2) {
@@ -412,7 +475,13 @@ int main(int argc,char *argv[])
         private: // 私有成员只有类和友元函数可以访问私有成员
     }
 
-    // 定义类函数
+    int C::s; // 对于静态成员, 必须在类的声明外再定义一次. 
+
+    void C::sFunc() {
+        s; // 静态成员函数可以直接访问静态成员
+    }
+
+    // 定义构造函数
     C::C(int i) {
         a = i;
         this->a = i; // this指针指向本对象
@@ -437,7 +506,7 @@ int main(int argc,char *argv[])
 
     void main() {
         C c(1);
-        C::s ++; // 访问静态成员
+        C::s++; // 访问静态成员
 
     }
     ```
@@ -549,6 +618,20 @@ int main(int argc,char *argv[])
         char *buf[128];
         int *p1 = new(buf) int[10];
         ```
+## 字符串
+    ```cpp
+    #include <string>
+    
+    std::string s = "s";
+    
+    // 数字转字符串
+    std::to_string(1234); 
+
+    // stringstream
+    #include <sstream>
+
+    ```
+
 ## 文件和流
 * `close`函数是fstream, ifstream 和 ofstream 对象的一个成员. 
 
@@ -740,6 +823,10 @@ int main(int argc,char *argv[])
         * 其中每个元素都要包含一个指向下个元素的指针. 
     * `std::map`
         * 内部是平衡二叉树
+        * 默认值: 看元素类型
+            * 整型: 0
+            * `std::string`: ""
+            * 结构体: 每个成员都赋予默认值(0或""等)
 
             ```cpp
             #include <map>
@@ -753,6 +840,10 @@ int main(int argc,char *argv[])
             // 初始化
             std::map <std::string, int> myMap1;
             std::map <const char *, int, myComp> myMap2;
+            std::map <int, std::string> myMap3 = {
+                {1, "one"},
+                {2, "two"},
+            };
 
             myMap2["key1"] = 123;
             ```
@@ -766,22 +857,24 @@ int main(int argc,char *argv[])
 
 * lambda表达式
     * 参考: https://blog.csdn.net/u014711890/article/details/123441799
-    * []标识一个Lambda表达式的开始, 这一部分是不可以忽略的. 函数对象参数只能使用到定义该Lambda表达式为止定义过的局部变量, 包括Lambda表达式所在类的成员变量. 函数参数有以下几种形式: 
+    * `[]`标识一个Lambda表达式的开始, 这一部分是不可以忽略的. 函数对象参数只能使用到定义该Lambda表达式为止定义过的局部变量, 包括Lambda表达式所在类的成员变量. 函数参数有以下几种形式: 
         * 空: 代表不捕获Lambda表达式外的变量；
-        * &: 代表以引用传递的方式捕获Lambda表达式外的变量；
-        * =: 代表以值传递的方式捕获Lambda表达式外的变量, 即以const引用的方式传值；
-        * this: 表示Lambda表达式可以使用Lambda表达式所在类的成员变量；
-        * a或=a: 表示以值引用的方式传递变量a aa, 即const int a,在函数体内不可改变a的值；但是可以对Lambda表达式使用mutable修饰符修饰, 使得函数对象参数可以进行赋值, 但是该函数对象参数不是被修改为引用传递方式, 下面进行细说；
-        * &a: 表示以引用传递的方式传递变量a aa, 在函数体内可以改变a的值；
-        * x, &y: x为值传递方式, y为引用传值方式；
-        * =, &x, &y: 除x, y为引用传递方式以外, 其他参数都为值传递方式进行传递；
-        * &, x, y: 除x, y为值传递方式以外, 其他参数都为引用传递方式进行传递;
+        * `&`: 代表以引用传递的方式捕获Lambda表达式外的变量；
+        * `=`: 代表以值传递的方式捕获Lambda表达式外的变量, 即以const引用的方式传值；
+        * `this`: 表示Lambda表达式可以使用Lambda表达式所在类的成员变量；
+        * `a`或`=a`: 表示以值传递的方式传递变量a, 即`const int a`,在函数体内不可改变a的值；但是可以对Lambda表达式使用`mutable`修饰符修饰, 使得函数对象参数可以进行赋值, 但是该函数对象参数不是被修改为引用传递方式, 下面进行细说；
+        * `&a`: 表示以引用传递的方式传递变量a, 在函数体内可以改变a的值；
+        * `x, &y`: x为值传递方式, y为引用传值方式；
+        * `=, &x, &y`: 除x, y为引用传递方式以外, 其他参数都为值传递方式进行传递；
+        * `&, x, y`: 除x, y为值传递方式以外, 其他参数都为引用传递方式进行传递;
     * lambda表达式会自动推断返回值类型. 
     * 代码
 
         ```cpp
-        auto f = [] (string s) {
+        int a = 0;
+        auto f = [&] (string s) {
             cout << "Hello " << s << '\n';
+            a++;
         };
         f();
 
@@ -798,3 +891,5 @@ int main(int argc,char *argv[])
     
     * `无法解析的外部符号`
         * 在引用静态成员时出现此错误: 除了类内部声明, 在类外部应该对静态变量再定义一次. 
+
+    * `C2712`   

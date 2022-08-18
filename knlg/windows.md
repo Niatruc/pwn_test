@@ -259,6 +259,13 @@ DWORD GetModuleFileNameExW(
 );
 ```
 
+## 进程操作
+```cpp
+CreateThread
+OpenThread
+ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数以退出线程
+```
+
 ## 加解密API
 * 头文件: `Wincrypt.h`
 

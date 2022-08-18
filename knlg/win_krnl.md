@@ -161,9 +161,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * DeviceType: 设备对象的类型.
             * Function: 自定义的IO控制码, 取0x800到0xFFF. (0x0到0x7FF为微软保留)
             * Method: 数据的操作模式(`DeviceObject->Flags`域)
-                * `METHOD_BUFFERED`: 缓冲区模式. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
+                * `METHOD_BUFFERED`: `缓冲区模式`. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
                     * 仍可能存在安全问题: IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
-                * 直接模式: **系统依然对Ring3的输入缓冲区进行缓冲, 但没对Ring3的输出缓冲区进行缓冲, 而是在内核中进行锁定, 这样Ring3输出缓冲区在驱动程序完成IO请求前, 都是无法访问的.** 通过内存描述元列表(MDL, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个 MDL 列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO 管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
+                * `直接模式`: **系统依然对Ring3的输入缓冲区进行缓冲, 但没对Ring3的输出缓冲区进行缓冲, 而是在内核中进行锁定, 这样Ring3输出缓冲区在驱动程序完成IO请求前, 都是无法访问的.** 通过内存描述元列表(`MDL`, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个MDL列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
                     * `METHOD_IN_DIRECT`: 直接写模式. IO 管理器读取上述缓冲区给驱动去读. 
                     * `METHOD_OUT_DIRECT`: 直接读模式. IO 管理器获取上述缓冲区给驱动去写.
                 * `METHOD_NEITHER`: Neither模式. 通过用户模式的指针访问用户数据. `irpStack->Parameters.DeviceIoControl.Type3InputBuffer` 为输入缓冲区的地址. `pIrp->UserBuffer` 为输出缓冲区地址. 因为这个缓冲区在用户地址空间上, 驱动程序必须在用之前使相应的地址合法化. 驱动程序在 try/except 块里调用 `ProbeForRead`(检查一个用户模式缓冲区地址是否真的是Ring3中的地址, 并且是否正确对齐) 或者 `ProbeForWrite`(在ProbeForRead的基础上, 再检查是否可写) 函数来合法化特定的指针. 驱动还必须完全在 try/except块里处理所有对这一缓冲区的访问. 另外, 驱动还必须在应用数据之前将它拷贝到池或堆栈里一个安全的内核模式地址. 将数据拷贝到内核模式缓冲区确保了用户模式的调用者不会在驱动已经合法化数据之后再修改它. 
@@ -267,7 +267,21 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `WDFDEVICE`: 对应DEVICE_OBJECT. 
     * `WDFREQUEST`: 对IRP的封装. 
     * `WDFQUEUE`: 与一个WDFDEVICE对象关联, 描述一个特殊的IO请求队列. 有一系列事件处理回调函数, 当IO请求进入队列时, 框架将自动调用驱动程序中对应的callback. 
+        * 根据网上说法, 将
     * `WDFINTERRUPT`: 表示设备中断. 
+* 引用计数
+    * WDF框架维护每个对象的引用计数. 
+        * 创建对象时引用计数为1. 
+        * 调用`WdfObjectReference`时引用计数加1. 
+        * 调用`WdfObjectDereference`时引用计数减1. 
+* 卸载驱动时的取消操作
+    * 参考: https://www.osr.com/nt-insider/2017-issue2/handling-cleanup-close-cancel-wdf-driver/
+    * 应用调用`CloseHandle`关闭驱动句柄, 驱动调用`EvtFileCleanup`回调, 并对还在WDFQUEUE中的request发起取消操作. 
+        * 一般不应该自己实现`EvtFileCleanup`. 
+    * 当文件对象的引用计数减到零时(**意味着已经没有pending的io操作了**), windows会产生close请求, WDF会在`EvtFileCleanup`之后调用`EvtFileClose`函数. 
+    * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
+    * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
+    * 如果要对已经标记为cancelable的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
 
 # Windbg
 * 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
@@ -372,6 +386,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * ``: 
 
 * 其他命令
+    * `.ofilter /! <通配符表达式>`: 在windbg控制台中隐藏不想输出的内容
     * `.expr`: 查看使用的表达式求值语法(MASM还是C++)
         * `.expr /s c++`: 指定使用c++
     * `.printf "%d", @eax`: 打印, 与printf函数类似
@@ -527,7 +542,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                     * `!for_each_thread`: 为每个线程执行命令. (内核调试时)
                     * 例: `!for_each_function -m:ntdll -p:*File* -c:.echo @#SymbolName`: 
         * 模式匹配
-            * `$spat(@"c:\dir\name.txt", "*name*")`: 返回匹配到的位置(从1开始). 若未匹配到, 返回0. 
+            * `$spat("c:\dir\name.txt", "*name*")`: 返回匹配到的位置(从1开始). 若未匹配到, 返回0. 
+            * `$scmp`: 字符串比较(大小写敏感)
+            * `$sicmp`: 字符串比较(大小写不敏感)
     * 脚本文件
         * 打开脚本文件(注意文件路径和`$$><`等前缀间不能有空格)
             * `$$><test.wds`: 会把所有换行符替换成分号, 所有内容连成一个命令块
@@ -580,15 +597,16 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 高中断级访问了缺页内存
 
 * 例子
-```c
-UNICODE_STRING uStr = {0};
-uStr.Buffer = ExAllocatePoolWithTag(PagedPool, wcslen(L"Nice to meet u")+sizeof(WCHAR), 'POCU');
-if (uStr.Buffer == NULL) return;
-RtlZeroMemory(uStr.Buffer, wcslen(L"Nice to meet u")+sizeof(WCHAR));
-RtlInitUnicodeString(&uStr, L"Nice to meet u"); // 会直接将L"Nice to meet u"的地址赋给uStr.Buffer, 而该地址在静态常量区
-DbgPrint("%wZ\n", &uStr);
-ExFreePool(uStr.Buffer); // 导致蓝屏
-```
+
+    ```cpp
+    UNICODE_STRING uStr = {0};
+    uStr.Buffer = ExAllocatePoolWithTag(PagedPool, wcslen(L"Nice to meet u")+sizeof(WCHAR), 'POCU');
+    if (uStr.Buffer == NULL) return;
+    RtlZeroMemory(uStr.Buffer, wcslen(L"Nice to meet u")+sizeof(WCHAR));
+    RtlInitUnicodeString(&uStr, L"Nice to meet u"); // 会直接将L"Nice to meet u"的地址赋给uStr.Buffer, 而该地址在静态常量区
+    DbgPrint("%wZ\n", &uStr);
+    ExFreePool(uStr.Buffer); // 导致蓝屏
+    ```
 
 # 字符串
 * Unicode字符串数据类型(https://blog.csdn.net/aishuirenjia/article/details/88996228). L表示long, P表示指针,C表示constant, T表示指针指向的字符占的字节数取决于Unicode是否定义, W表示wide, STR就是string的意思. 
@@ -600,36 +618,36 @@ ExFreePool(uStr.Buffer); // 导致蓝屏
     * `LPCWSTR`:32-bit指针, 指向一个unicode字符串常量的指针,每个字符占2字节. 
 * 定义常量UNICODE_STRING: `UNICODE_STRING str = RTL_CONSTANT_STRING(L”my first string”);`
 
-```c
-typedef struct _UNICODE_STRING {
-    USHORT Length; // Buffer中字符串的字节数(不含结尾的NULL)
-    USHORT MaximumLength; // Buffer的大小(字节数)
-    PWSTR Buffer; // PWSTR等价于WCHAR *
-} UNICODE_STRING, *PUNICODE_STRING;
-typedef struct _STRING {
-    USHORT Length; 
-    USHORT MaximumLength;
-    PCHAR Buffer; 
-} ANSI_STRING, *PANSI_STRING;
+    ```cpp
+    typedef struct _UNICODE_STRING {
+        USHORT Length; // Buffer中字符串的字节数(不含结尾的NULL)
+        USHORT MaximumLength; // Buffer的大小(字节数)
+        PWSTR Buffer; // PWSTR等价于WCHAR *
+    } UNICODE_STRING, *PUNICODE_STRING;
+    typedef struct _STRING {
+        USHORT Length; 
+        USHORT MaximumLength;
+        PCHAR Buffer; 
+    } ANSI_STRING, *PANSI_STRING;
 
-// 初始化方式1
-UNICODE_STRING uStr = {0};
-WCHAR *sz = L"Hello";
-RtlInitUnicodeString(&uStr, sz);
-// 或
-DECLARE_CONST_UNICODE_STRING(uStr, L"Hello")
+    // 初始化方式1
+    UNICODE_STRING uStr = {0};
+    WCHAR *sz = L"Hello";
+    RtlInitUnicodeString(&uStr, sz);
+    // 或
+    DECLARE_CONST_UNICODE_STRING(uStr, L"Hello")
 
-// 初始化方式2: 栈上buffer
-UNICODE_STRING uStr = {0};
-WCHAR sz[512] = L"Hello";
-uStr.Buffer = sz;
-uStr.Length = wcslen(L"Hello");
-uStr.MaximumLength = sizeof(sz);
-
-```
+    // 初始化方式2: 栈上buffer
+    UNICODE_STRING uStr = {0};
+    WCHAR sz[512] = L"Hello";
+    uStr.Buffer = sz;
+    uStr.Length = wcslen(L"Hello");
+    uStr.MaximumLength = sizeof(sz);
+    ```
 
 * 常用API
-    ```c
+
+    ```cpp
     UNICODE_STRING uStr1 = {0};
     WCHAR buff[100] = "Hello";
     uStr1.Length = 10;
@@ -656,6 +674,7 @@ uStr.MaximumLength = sizeof(sz);
     RtlUnicodeStringCopy(&uStr1, &str1);
     RtlUnicodeStringCat(&uStr1, &str1);
 
+    // 将char字符串转为w_char字符串
     ```
 
 * UNICODE_STRING常见问题
@@ -667,12 +686,84 @@ uStr.MaximumLength = sizeof(sz);
 * 文件的表示
     * 应用层: `"c:\\doc\\a.txt"`
     * 内核: `L"\\??\\c:\\a.txt"` -> `"\\device\\harddiskvolume3\\a.txt"`, 前面问号是卷设备对象的符号链接名.
+        * 注意: 实验发现, **反斜杠不能多!**
     * R3: 设备名: `L"\\\\.\\xxDrv"`
     * R0: 设备名: `L"\\device\\xxDrv"`; 符号链接名: `"\\dosdevices\\xxDrv"` -> `"\\??\\xxDrv"`
 * 内核文件操作API
     * 打开文件获得handle -> 基于handle读写查删 -> 关闭
     * `InitializeObjectAttributes`宏: 初始化一个`OBJECT_ATTRIBUTES` 结构体
     * `ZwCreateFile`: 打开文件
+        ```cpp
+        NTSTATUS ZwCreateFile(
+            _Out_     PHANDLE FileHandle, // 得到的文件句柄
+            
+            // 申请的权限
+            // FILE_WRITE_DATA: 打开写文件内容,  
+            // FILE_READ_DATA: 读文件内容,  
+            // DELETE: 删除文件或文件改名, 
+            // FILE_WRITE_ATTRIBUTES: 设置文件属性,  
+            // FILE_READ_ATTRIBUTES: 读文件属性 
+            // SYNCHRONIZE: 同步操作
+            _In_      ACCESS_MASK DesiredAccess, // 
+
+            // 属性, 包含文件路径
+            _In_      POBJECT_ATTRIBUTES ObjectAttributes, // 
+
+            // 其中的status保存文件操作结果状态
+                // FILE_CREATED
+                // FILE_OPENED
+                // FILE_OVERWRITTEN
+                // FILE_SUPERSEDED
+                // FILE_EXISTS
+                // FILE_DOES_NOT_EXIST
+            _Out_     PIO_STATUS_BLOCK IoStatusBlock, // 
+
+            _In_opt_  PLARGE_INTEGER AllocationSize, // 设为NULL即可
+
+            _In_      ULONG FileAttributes, // 新建的文件的属性. 一般设为FILE_ATTRIBUTE_NORMAL
+            
+            _In_      ULONG ShareAccess, // 本程序打开这个文件的时候, 允许别的程序同时打开这个文件所持有的权限, 包括FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
+
+            // 本次打开文件需要做的操作
+                // FILE_CREATE: 新建文件. 如果文件已经存在, 则这个请求失败. 
+                // FILE_OPEN: 打开文件. 如果文件不存在, 则请求失败. 
+                // FILE_OPEN_IF: 打开或新建. 如果文件存在, 则打开. 如果不存在, 则失败. 
+                // FILE_OVERWRITE: 覆盖. 如果文件存在, 则打开并覆盖其内容. 如果文件不存在, 这个请求返回失败. 
+                // FILE_OVERWRITE_IF: 新建或覆盖. 如果要打开的文件已存在, 则打开它, 并覆盖其内存. 如果不存在, 则简单的新建新文件. 
+                // FILE_SUPERSEDE: 新建或取代. 如果要打开的文件已存在. 则生成一个新文件替代之. 如果不存在, 则简单的生成新文件. 
+            _In_      ULONG CreateDisposition, // 
+
+            // FILE_DIRECTORY_FILE: 打开目录文件
+            // FILE_RANDOM_ACCESS: 意味着文件能随机读取(因此系统不会执行线性预读(sequential read-ahead))
+                // 线性预读: 以extend为单位的. 通过判断当前的extend中的数据是否是连续访问的, 并以此来预测是否有必要把下一个extend提前从磁盘文件中读取出来, 加载到buffer pool中
+                // 随机预读: 针对的是当前extend, 通过判断当前extend中的page被读取的次数, 来预测是否有必要把当前extend的数据加载到buffer pool中
+            // FILE_SYNCHRONOUS_IO_NONALERT: 对该文件的所有操作都是同步执行的(意味着不会出现pending状态). 要求DesiredAccess必须有SYNCHRONIZE
+            _In_      ULONG CreateOptions, // 
+            _In_opt_  PVOID EaBuffer, // 设备驱动中必须设为NULL
+            _In_      ULONG EaLength // 须设为0
+        );
+
+        // 新建文件夹(若不存在)
+        HANDLE hTmpFile;
+        IO_STATUS_BLOCK statusBlk = { 0 };
+        OBJECT_ATTRIBUTES objAttr;
+        UNICODE_STRING uTmpDumpPath;
+        RtlInitUnicodeString(&uTmpDumpPath, L"\\??\\C:\\myDir");
+        InitializeObjectAttributes(&objAttr, &uTmpDumpPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+        status = ZwCreateFile(
+            &hTmpFile,
+            FILE_READ_ATTRIBUTES, // SYNCHRONIZE | GENERIC_READ,
+            &objAttr,
+            &statusBlk,
+            NULL,
+            FILE_ATTRIBUTE_NORMAL,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            FILE_OPEN_IF,
+            FILE_DIRECTORY_FILE,
+            NULL,
+            0
+        );
+        ```
     * `ZwWriteFile`
     * `ZwReadFile`
     * `ZwQueryInformationFile`读取文件属性, `ZwSetInformationFile`: 可用于删文件
@@ -711,6 +802,7 @@ uStr.MaximumLength = sizeof(sz);
     * 用线程处理死锁
         * `NtQueryObject`会导致某些句柄hang住
         * `GetFileType(hFile)`也是
+
 ## PE文件
 * 参考资料
     * https://docs.microsoft.com/en-us/windows/win32/debug/pe-format
@@ -789,6 +881,12 @@ uStr.MaximumLength = sizeof(sz);
 
     * 重定位表
         * 数据目录表的第六项, `IMAGE_DIRECTORY_ENTRY_BASERELOC`. 
+        ```cpp
+        typedef struct _IMAGE_BASE_RELOCATION {
+            DWORD   VirtualAddress;            //重定位数据所在页的RVA
+            DWORD   SizeOfBlock;               //当前页中重定位数据块的大小
+        } IMAGE_BASE_RELOCATION;
+        ```
 
     * TLS表
         * 接口: `TlsAlloc`, `TlsFree`, `TlsSetValue`, `TlsGetValue`
@@ -910,9 +1008,12 @@ uStr.MaximumLength = sizeof(sz);
         * 软中断
             * `APC_LEVEL`(1): 
                 * **异步过程调用**和**缺页故障**发生在该级别上. 
-                * 屏蔽APC中断. **可访问分页内存**. 分页调度管理就运行在这个级别上.
+                * 屏蔽APC中断. **可访问分页内存**. **分页调度管理**就运行在这个级别上.
                 * 关于APC(Asynchronous Procedure Call): 
-                    * APC是附属于线程的, 一个线程有一个APC队列3. 
+                    * APC是附属于线程的, 一个线程有一个APC队列. 
+                    * 相关api: 
+                        * `KeInitializeApc`: 初始化一个`KAPC`对象
+                        * `KeInsertQueueApc`: 将APC插入队列
                     * 用户APC被插入队列后, 要等到线程变成可警告状态(alertable state)时它才会被线程调用. 
                         * alertable: 表示可警告, 可唤醒的. 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
                         * `SleepEx`, `SignalObjectAndWait`, `MsgWaitForMultipleObjectsEx`, `WaitForMultipleObjectsEx`, `WaitForSingleObjectEx`, 线程调用了它们后就会进入`alertable wait`状态, APC队列中的就会被调用. 
@@ -920,6 +1021,8 @@ uStr.MaximumLength = sizeof(sz);
                     * 优先级: 特殊APC > 普通APC > 用户APC. 
                         * 前两者是内核APC
                         * 特殊APC运行在APC级别, 后两者运行在Passive级. 
+                * 编程: 
+                    * 实验发现, 在APC级别中调用`ZwReadFile`会不返回. 相同的代码在Passive级别下运行没问题. 事实上, 官方文档中这些文件操作函数都要求在Passive级别下使用. 
             * `DISPATCH_LEVEL`(2): 
                 * **线程调度**和**DPC例程**运行在该级别上. 
                 * 屏蔽DPC(Deferred Procedure Call)及以下级别中断. **不能访问分页内存**. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
@@ -958,7 +1061,7 @@ uStr.MaximumLength = sizeof(sz);
             OUT PHANDLE  ThreadHandle, //新创建的线程句柄
             IN ULONG  DesiredAccess, //创建的权限
             IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性, 一般设为NULL
-            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程。如果为NULL, 则为系统进程, 如果该值是一个进程句柄, 则新创建的线程属于这个指定的进程。DDK提供的NTCurrentProcess可以得到当前进程的句柄。
+            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程. 如果为NULL, 则为系统进程, 如果该值是一个进程句柄, 则新创建的线程属于这个指定的进程. DDK提供的NTCurrentProcess可以得到当前进程的句柄. 
             OUT PCLIENT_ID  ClientId  OPTIONAL,
             IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
             IN PVOID  StartContext //新线程接收的参数
@@ -975,6 +1078,8 @@ uStr.MaximumLength = sizeof(sz);
                 ```c
                 // 线程A
                 KEVENT waitEvent;
+
+                // 初始化事件, 三参为FALSE表示事件初始时为non-signaled状态
                 KeInitializeEvent(&waitEvent, NotificationEvent, FALSE);
 
                 // 内核中创建自命名事件则如下
@@ -982,7 +1087,7 @@ uStr.MaximumLength = sizeof(sz);
                 PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle); // 生成的事件的句柄放到Handle中
                 KeClearEvent(Event); // 将事件设为non-signaled状态
 
-                // 触发事件
+                // 触发事件. 三参如果为TRUE, 则后面必须接KeWaitXxx函数
                 KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
 
                 // 线程B
@@ -1041,12 +1146,12 @@ uStr.MaximumLength = sizeof(sz);
             * 队列自旋锁
             * 和Mutex的区别: 
 
-            |SpinLock|Mutex|
-            |-|-|
-            |忙等, 不会睡眠(不阻塞). 忙等线程会占着CPU, 一直轮询. 适用于等待时间不长的情况(如小于25微秒)|会阻塞请求线程. 若要长时间串行化访问一个对象, 应首先考虑使用互斥量而非自旋锁|
-            |SpinLock请求成功之后, CPU的执行级别会提升到Dispatch级别. DL及以下级别可请求SpinLock|Mutex通常在PL请求, 在DL上Timeout要设为0|
-            |非递归锁(不能递归获得该锁)|递归锁|
-            |主要用于多CPU, 但效率不高, 使用ERESOURCE较好|-|
+                |SpinLock|Mutex|
+                |-|-|
+                |忙等, 不会睡眠(不阻塞). 忙等线程会占着CPU, 一直轮询. 适用于等待时间不长的情况(如小于25微秒)|会阻塞请求线程. 若要长时间串行化访问一个对象, 应首先考虑使用互斥量而非自旋锁|
+                |SpinLock请求成功之后, CPU的执行级别会提升到Dispatch级别. DL及以下级别可请求SpinLock|Mutex通常在PL请求, 在DL上Timeout要设为0|
+                |非递归锁(不能递归获得该锁)|递归锁|
+                |主要用于多CPU, 但效率不高, 使用ERESOURCE较好|-|
 
         * ERESOURCE(读写共享锁)(2:14)
             ```cpp
@@ -1058,7 +1163,7 @@ uStr.MaximumLength = sizeof(sz);
             // 释放
             ExReleaseResourceLite(lpLock);
 
-            // 获取共享锁
+            // 获取共享锁. 二参为TRUE, 则当无法获得锁时, 线程会一直等待
             ExAcquireResourceSharedLite(lpLock, TRUE); 
 
             ExReleaseResourceLite(lpLock);
@@ -1185,6 +1290,8 @@ uStr.MaximumLength = sizeof(sz);
         (PCHAR)(address) - \
         (ULONG_PTR)(&((type *)0)->field)))
         ```
+
+        * 例子: `CONTAINING_RECORD(p, MY_STRUCT, listNode)`, 即已知某个`MY_STRUCT`类型结构体变量中成员`listNode`的地址为`p`, 通过该宏可计算出该结构体的首地址. 
     * 使用方法
         * `LIST_ENTRY`结构体: 其中有`Flink`(指向下一个节点)`Blink`(指向上一个节点)
         * `PLIST_ENTRY`: 头结点
@@ -1211,8 +1318,8 @@ uStr.MaximumLength = sizeof(sz);
 
 * LookAside结构: 用于在频繁申请相同大小的情形中, 防止内存碎片化的机制
     * 类别
-        * PAGED_LOOKASIDE_LIST
-        * NPAGED_LOOKASIDE_LIST
+        * `PAGED_LOOKASIDE_LIST`
+        * `NPAGED_LOOKASIDE_LIST`
     * `ExInitializeNPagedLookasideList`: 
         ```cpp
         void ExInitializeNPagedLookasideList(
@@ -1226,13 +1333,13 @@ uStr.MaximumLength = sizeof(sz);
         );
         ```
         1. 初始化一个`PNPAGED_LOOKASIDE_LIST`结构. 
-        2. 将`Lookaside->L.ListEntry`插入到全局的look aside 表ExNPagedLookasideListHead中。
+        2. 将`Lookaside->L.ListEntry`插入到全局的look aside 表ExNPagedLookasideListHead中. 
     * `ExAllocateFromNPagedLookasideList(PNPAGED_LOOKASIDE_LIST Lookaside)`: 分配内存. 其会在`Lookaside`中找一个空闲节点, 如果找不到, 则使用`Lookaside->L.Allocate`指定的分配函数分配一块内存. 
     * `ExFreeToNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside, IN PVOID Entry)`: 释放内存, 放到`Lookaside`
 
 # 强杀进程
 * `NtTerminateProcess` -> `PsTerminateProcess`(系统未导出) -> `PspTerminateProcess`  ->`PspTerminateThreadByPointer` -> `PspExitThread` 
-* 暴力搜索未导出函数PsTerminateProcess
+* 暴力搜索未导出函数`PsTerminateProcess`
     * 获取特征值
         * windbg中, 加载上系统符号, dd <函数名> L4, 获得前16个字节的特征值
     * 内核地址空间
@@ -1242,9 +1349,13 @@ uStr.MaximumLength = sizeof(sz);
 * `PsGetCurrentProcessId`: 获取当前线程所属进程的pid. 在DispatchIoControl函数中实际是获得向驱动发出请求的进程的id.
 * `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的EPROCESS结构的指针.
 * `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取进程EPROCESS结构
+* `PsLookupProcessByThreadId(tid, &pEThread)`: 根据tid获取线程ETHREAD结构
 * `KeStackAttachProcess(pEProcess, &ApcState)`: 将当前线程附加到目标进程的地址空间. 对应函数`KeUnstackDetachProcess(&ApcState)`. `ApcState`直接初始化为`{0}`, 或者`PKAPC_STATE pApcState = (PKAPC_STATE)ExAllocatePool(NonPagedPool, sizeof(PKAPC_STATE)); ApcState = *pApcState;`. `KeAttachProcess(pEProcess)`是旧方法.
 * `ZwQueryInformationProcess(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径. 注意, 这个函数现在可以通过包含头文件`winternl.h`来调用. 
 * `NtCurrentProcess()`宏: 返回表示当前进程的特殊句柄值
+* `ZwOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr, &cliendId)`: 根据进程id获取进程句柄
+    * `objAttr`: 
+    * `clientId`: `CLIENT_ID`结构体变量. 其中`UniqueProcess`设为进程id, `UniqueThread`可设为0. 
 * ``: 
 
 # 线程
@@ -1372,6 +1483,75 @@ uStr.MaximumLength = sizeof(sz);
     * ``: 
     * `VirtualMemoryEx`: `NtQueryVirtualMemory`的R3版本. 
 
+* 其他
+    * `DeviceIoControl`
+        ```cpp
+        BOOL WINAPI DeviceIoControl(
+            _In_ HANDLE hDevice,    // 设备句柄
+            _In_ DWORD dwIoControlCode, // 设备控制码, 在驱动中通过 IoGetCurrentIrpStackLocation Irp)->Parameters.DeviceIoControl.IoControlCode 得到
+            _In_opt_ LPVOID lpInBuffer, // 传给驱动程序的输入缓冲区的地址
+            _In_ DWORD nInBufferSize, // 输入缓冲区的大小
+            _Out_opt_ LPVOID lpOutBuffer, // 输出缓冲区, 用于接收驱动返回的数据. 一定不能为空!
+            _In_ DWORD nOutBufferSize, // 输出缓冲区的大小
+            _Out_opt_ LPDWORD lpBytesReturned, // 驱动实际返回的数据量
+            _Inout_opt_ LPOVERLAPPED lpOverlapped
+        );
+        ```
+    * 应用层异步读文件
+        * `ReadFile`
+            ```cpp
+            OVERLAPPED Overlapped;
+            HANDLE g_hOverlappedEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+            Overlapped.hEvent = g_hOverlappedEvent;
+            ReadFile(gh_Device, &OpInfo, sizeof(OP_INFO), &ulBytesReturn, &Overlapped);
+            ...
+            WaitForSingleObject(Overlapped.hEvent, INFINITE);
+
+            // 在IO调用还没完成时(驱动返回STATUS_PENDING), Overlapped.hEvent会被系统设为nonsignaled状态
+            // 当驱动程序完成IO, 调用IoCompleteRequest后, 上面Overlapped.hEvent会被激发, WaitForSingleObject会返回
+            ```
+        * `ReadFileEx`: 可以指定完成例程(即异步操作的回调函数). 
+    * 应用层的完成端口(实现类似于异步回调的功能)
+        * `CreateIoCompletionPort(__in HANDLE FileHandle, __in_opt HANDLE ExistingCompletionPort, __in ULONG_PTR CompletionKey, __in DWORD NumberOfConcurrentThreads);`: 创建完成端口, 或绑定文件句柄和完成端口
+            * 文件句柄必须是overlapped方式打开的
+            * `NumberOfConcurrentThreads`表示工作者线程数量. 0则表示有多少个处理器就开多少个线程. 
+        * `BOOL GetQueuedCompletionStatus(HANDLE CompletionPort, LPDWORD lpNumberOfBytes, PULONG_PTR lpCompletionKey, LPOVERLAPPED *lpOverlapped, DWORD dwMilliseconds)`: 尝试从完成端口的队列中取出一个IO完成包. 若无, 则等待pending操作的完成. 
+        * 示例
+            ```cpp
+            // 初始化完成端口
+            CompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+
+            // 创建工作者线程
+            CreateThread(NULL, 0, WorkerThread, CompletionPort, 0, &dwThreadId);
+            
+            ...
+
+            //将新到来的客户套接字和完成端口绑定到一起. 
+            CreateIoCompletionPort((HANDLE)sClient, CompletionPort, ( DWORD)sClient, 0);
+
+            // 工作者线程的例程
+            DWORD WINAPI WorkerThread(LPVOID CompletionPortID) {
+                HANDLE                   CompletionPort=(HANDLE)CompletionPortID;
+                DWORD                    dwBytesTransferred;
+                SOCKET                   sClient;
+                LPPER_IO_OPERATION_DATA lpPerIOData = NULL;
+                while (TRUE)
+                {
+                    GetQueuedCompletionStatus( //遇到可以接收数据则返回, 否则等待
+                    CompletionPort, // 完成端口
+                    &dwBytesTransferred, //返回的字数
+                    (LPDWORD)&sClient,           //是响应的哪个客户套接字？
+                    (LPOVERLAPPED *)&lpPerIOData, //得到该套接字保存的IO信息
+                    INFINITE);     // 无限等待
+
+                    ... 
+                }
+            }
+            ```
+        
+    * 同步非阻塞: 虽然和同步阻塞一样IO不会立即返回, 但它是有数据时才IO. 实现方式包括IO多路复用.
+
+
 # 主防
 * 弹窗
     * R3某进程发生某操作
@@ -1415,60 +1595,6 @@ uStr.MaximumLength = sizeof(sz);
         * 如何放行
             * HOOK直接调用原API
             * IRP: `IoSkipCurrentIrpStackLocation(IpIrp)`, `IoCallDriver()`
-* 其他
-    * 应用层异步读文件
-        * `ReadFile`
-            ```cpp
-            OVERLAPPED Overlapped;
-            HANDLE g_hOverlappedEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-            Overlapped.hEvent = g_hOverlappedEvent;
-            ReadFile(gh_Device, &OpInfo, sizeof(OP_INFO), &ulBytesReturn, &Overlapped);
-            ...
-            WaitForSingleObject(Overlapped.hEvent, INFINITE);
-
-            // 在IO调用还没完成时(驱动返回STATUS_PENDING), Overlapped.hEvent会被系统设为nonsignaled状态
-            // 当驱动程序完成IO, 调用IoCompleteRequest后, 上面Overlapped.hEvent会被激发, WaitForSingleObject会返回
-            ```
-        * `ReadFileEx`: 可以指定完成例程(即异步操作的回调函数). 
-    * 应用层的完成端口(实现类似于异步回调的功能)
-        * `CreateIoCompletionPort(__in HANDLE FileHandle, __in_opt HANDLE ExistingCompletionPort, __in ULONG_PTR CompletionKey, __in DWORD NumberOfConcurrentThreads);`: 创建完成端口, 或绑定文件句柄和完成端口
-            * 文件句柄必须是overlapped方式打开的
-            * `NumberOfConcurrentThreads`表示工作者线程数量. 0则表示有多少个处理器就开多少个线程. 
-        * `BOOL GetQueuedCompletionStatus(HANDLE CompletionPort, LPDWORD lpNumberOfBytes, PULONG_PTR lpCompletionKey, LPOVERLAPPED *lpOverlapped, DWORD dwMilliseconds)`: 尝试从完成端口的队列中取出一个IO完成包. 若无, 则等待pending操作的完成. 
-        * 示例
-            ```cpp
-            // 初始化完成端口
-            CompletionPort = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-
-            // 创建工作者线程
-            CreateThread(NULL, 0, WorkerThread, CompletionPort, 0, &dwThreadId);
-            
-            ...
-
-            //将新到来的客户套接字和完成端口绑定到一起。
-            CreateIoCompletionPort((HANDLE)sClient, CompletionPort, ( DWORD)sClient, 0);
-
-            // 工作者线程的例程
-            DWORD WINAPI WorkerThread(LPVOID CompletionPortID) {
-                HANDLE                   CompletionPort=(HANDLE)CompletionPortID;
-                DWORD                    dwBytesTransferred;
-                SOCKET                   sClient;
-                LPPER_IO_OPERATION_DATA lpPerIOData = NULL;
-                while (TRUE)
-                {
-                    GetQueuedCompletionStatus( //遇到可以接收数据则返回, 否则等待
-                    CompletionPort, // 完成端口
-                    &dwBytesTransferred, //返回的字数
-                    (LPDWORD)&sClient,           //是响应的哪个客户套接字？
-                    (LPOVERLAPPED *)&lpPerIOData, //得到该套接字保存的IO信息
-                    INFINITE);     // 无限等待
-
-                    ... 
-                }
-            }
-            ```
-        
-    * 同步非阻塞: 虽然和同步阻塞一样IO不会立即返回, 但它是有数据时才IO. 实现方式包括IO多路复用.
 
 # x86hook
 * (24: 00): 各种hook对应的函数名在调用栈中的示例
@@ -1710,7 +1836,7 @@ uStr.MaximumLength = sizeof(sz);
                     * WH_MOUSE_LL: 
                     * WH_KEYBOARD: 
                     * 其他
-                * 回调函数原型: `LRESULT CALLBACK ShellProc( int nCode, WPARAM wParam,LPARAMlParam );`
+                * 回调函数原型: `LRESULT CALLBACK ShellProc( int nCode, WPARAM wParam, LPARAM lParam );`
                 * 回调函数处理完消息后, 用`CallNextHookEx(g_Hook, nCode, wParam, lParam);` `g_hook`是前面`SetWindowsHookEx`的返回值
                 * 代码
                 ```cpp
@@ -1770,7 +1896,7 @@ uStr.MaximumLength = sizeof(sz);
 
         * 直接注入dll: (LibSpy项目的`OnMouseMove`和`InjectDll`)
             * `OpenProcess`打开目标进程(一参为`PROCESS_CREATE_THREAD|PROCESS_QUERY_INFORMATION|PROCESS_VM_OPERATION|PROCESS_VM_WRITE| PROCESS_VM_READ`, 后面`CreateRemoteThread`才能执行)
-                * 需要**给进程提权, 得到SeDebug权限1**. 
+                * 需要**给进程提权, 得到SeDebug权限**. 
                     0. 注: **准确地说不是提权, 而是将访问令牌中禁用的权限启用**. 成功使用下面这些函数的前提是进程具备该权限, 只是访问令牌中没有启用该权限. 而如果进程没有该权限, 则使用下面的函数后再调用`GetLastError`会返回`ERROR_NOT_ALL_ASSIGN`. 
                     1. 先用`LookupPrivilegeValue(NULL,SE_DEBUG_NAME,&luid)`得到用户的debug权限. 
                     2. 然后用`OpenProcessToken(GetCurrentProcess(),	 TOKEN_ADJUST_PRIVILEGES,&hToken)`获取进程的令牌句柄. 
@@ -1785,17 +1911,18 @@ uStr.MaximumLength = sizeof(sz);
             * 获取kernel32中`FreeLibrary`地址
             * 调用`CreateRemoteThread`, 在目标进程中执行`FreeLibrary`及dll动作
         * 通过memload注入dll(内存注入, 反射式注入(reflective injection))
-            * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain. 
+            * 自己实现LoadLibrary: 解析PE, 构建内存节, 重定位修复, 导入表, IAT表初始化, 如果该dll文件调用了其它dll则需`LdrLoadDll`加载那些dll, 最后执行dllmain.
+                1. 将dll头部(包括`DOS头`, `PE头`, `区块表`)逐字节写入新开辟的内存. 
+                2. 
             * 将自己实现的LoadLibrary功能函数保存为shellcode. 
                 * 注: 在shellcode中使用的系统api都要事先通过`GetProcAddress`获取(使用`GetModuleHandleA`获取模块句柄, 传入的模块名不用后缀), 并作为参数传进去. 
                 * 注意注入器保存的shellcode是否是真实的函数体. 调试发现在vs2019中, 按默认选项编译**得到的函数地址处一条跳转到实际函数体的jmp指令**. 因此`需要使用jmp指令的操作数计算实际函数地址`.
                 * 注: 可用0xCCCCCCCCCCCCCCCC作为函数体结束识别标识.
-                * 问题: 远程线程中出现地址访问冲突:
+                * 问题: 用windbg调试远程线程, 发现远程线程中出现地址访问冲突:
                     * 原因1: 出问题的地方试图读取`__security_cookie`
                     * 解决: 编译时关闭/GS选项, 禁用栈保护.
                     * 原因2: 远程线程中试图调用一些不可用的函数, 包括`__CheckForDebuggerJustMyCode`, `_RTC_CheckStackVars`
                     * 解决: 禁用/JMC选项, /RTC选项, 其他的如果是必要使用的动态库函数, 则需要用`LoadLibrary`和`GetProcAddress`获取, 且要确保目标进程已载入相应dll.
-
             * 在目标进程中开辟新内存, 写入: 
                 * 要注入的dll的文件内容
                 * shellcode
@@ -2039,10 +2166,31 @@ uStr.MaximumLength = sizeof(sz);
         * Layers
             * 把规则分成若干组
             * 用户态用128位的GUID表示, 内核态用64位的LUID表示
-            * 分层是一个容器, 其中可包含多个过滤器
+            * 分层是一个容器, 其中可包含多个过滤器. 
+                * 分层的后缀`v4`和`v6`分别代表ipv4和ipv6协议栈. 
+                * `FWPS_Xxx`: Runtime Filter Layer Identifiers, 用于内核层的callout驱动. 
+                * `FWPM_Xxx`: Management Filtering Layer Identifiers. 既可用于应用层也可用于内核层. 
+                * 根据TCPIP通讯协议栈来分,  WFP框架分成死层固定过滤层: (参考: https://cdmana.com/2021/02/20210228170513237w.html)
+                    * 数据流层和ALE
+                        * `Stream Data`: 数据流层接收应用层的原始数据包, 已经去掉个TCPIP各种头信息
+                        * `ALE(Application Layer Enforcement)`: `bind`, `connect`, `accept`, `listen`等控制信息. 
+                            * WFP的内核模式层的集合. 用于有状态的过滤. 
+                            * **其会跟踪网络连接的状态, 且只允许匹配了已有连接的数据包(通过).**
+                            * 如果要在callout的classifyfn函数中通过`PsGetCurrentProcessId`获取收发包进程的id, 则**必须在ALE层完成此操作**. 
+                    * `transport layer`: 传输层, 接收发送的TCP, UDP数据包, 已经包含TCP, UDP等协议头. 
+                    * `fowarding layer`: 网际层, 接收发送IP数据包, 已经包含IP协议头. 
+                    * 链路层, 包含以太网卡MAC地址的链路层数据包. 
+
             * 子层
                 * 开发者可给子层指定权重(Weight), 权重大的子层先获得数据
-            * 
+            * 部分分层: 
+                * `FWPM_LAYER_STREAM_V4`: `send`, `sendto`等函数发的包的内容会被它拦截. 接收到的包经过协议栈层层剥开后得到的应用层数据也会到这里处理.   
+                * `FWPM_LAYER_INBOUND_TRANSPORT_V4`: 捕获网卡接收到的包. 
+                * `FWPM_LAYER_OUTBOUND_TRANSPORT_V4`: 拦截网卡接发出的包. 
+                * `FWPM_LAYER_ALE_AUTH_CONNECT_V4`: 若不允许, 则`connect`函数会失败. 
+                * `FWPM_LAYER_ALE_CONNECT_REDIRECT_V4`: 可以在建立连接前修改IP地址. 对于实现代理服务器很有用. 
+                * `FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4`: 作为服务端(调用`listen`)接收到TCP第一次握手的syn包, 会经过该层. 
+                * `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4`: TCP第三次握手的ack包, 会经过该层.
         * Filters
             * 用于处理包的一些规则和动作的集合. 
             * 要为过滤器指定分层(给`layerKey`分层的GUID, 给`subLayerKey`赋值子层的GUID)
@@ -2054,6 +2202,7 @@ uStr.MaximumLength = sizeof(sz);
             * 由驱动暴露的一组接口函数, 负责进一步分析或修改包. **当数据包命中某过滤器的规则并且过滤器指定一个callout时, 该callout内的回调函数即被调用.** 如classify数据处理函数. 可返回一组permit, block, continue, defer, needmoredata等. 
             * Classify
                 * 利用规则过滤包的过程. 将包的各种属性与规则中的conditions进行比较. 
+        
     * 整体工作流程
         1. 数据包到达网络栈
         2. 网络栈寻找并调用垫片
@@ -2069,6 +2218,77 @@ uStr.MaximumLength = sizeof(sz);
         * 实现classifyFn函数, 处理网络数据包
     * 注意事项
         * 运行时过滤层标识符(`FWPS_XXX`)被内核模式的callout驱动使用. 管理器过滤层标识符(`FWPM_XXX`)被`FwpmXxx`函数(`FwpmFilterAdd0`)使用(这些函数是跟基础驱动引擎(BFE)交互的)
+        * `FWPS_XXX`常量是enum, `FWPM_XXX`常量是GUID. 
+    * 编程
+        * 示例
+            
+            ```cpp
+            FWPS_CALLOUT_CLASSIFY_FN0 MyFwpsCalloutClassifyFn0;
+
+            void MyFwpsCalloutClassifyFn0(
+                // 保存数据包中的各协议数据域, 如IP地址和端口等. 通过引用incomingValue成员
+                const FWPS_INCOMING_VALUES0 *inFixedValues,
+
+                // 指向的结构体包含一些元数据, 如进程id
+                const FWPS_INCOMING_METADATA_VALUES0 *inMetaValues,
+
+                // 指向一个描述原始数据的结构体
+                // 对于数据流层, 其指向FWPS_STREAM_CALLOUT_IO_PACKET0结构体
+                // 对于其他层, 则指向NET_BUFFER_LIST结构
+                void *layerData,
+
+                // 指向一个FWPS_FILTER0结构体
+                const FWPS_FILTER0 *filter,
+
+                // 与数据流关联的上下文. 若无关联, 则该值为0
+                UINT64 flowContext,
+
+                // 其指向的结构体包含了要返回给调用者的数据
+                IN OUT FWPS_CLASSIFY_OUT0 *classifyOut
+            ) {
+                inFixedValues->incomingValue[FWPS_FILED_OUTBOUND_TRANSPORT_V4_IP_LOCAL_ADDRESS].value.unint32; // 获取本地ip
+
+                // 判断元数据中进程id域是否有设置
+                if (FWPS_IS_METADATA_FIELD_PRESENT(inMetaValues, FWPS_METADATA_FIELD_PROCESS_ID)) {
+                    inMetaValues->processId;
+                }
+
+                classifyOut->actionType = FWP_ACTION_PERMIT;
+            }
+            ```
+        * 获取数据
+            * 一条由`NET_BUFFER_LIST`结构体链接成的链表. 一般情况下, 链表只有一个节点, 除非以下两种情形: 
+                * 在数据流层
+                * 当callout分类对象是IP包分段, 其中每个`NET_BUFFER_LIST`代表一个ip片段. 
+            * 虽然`NET_BUFFER_LIST`描述了整个数据包, 但在不同类型的分层中, 它的偏移(以IP头为基址)可能不同. 
+                * 在network层, 指向了IP头之后. 
+                * 在transport层, 指向了transport头之后. 
+                    * 根据实验, 在`FWPM_LAYER_OUTBOUND_TRANSPORT_V4`层, 得到的偏移是TCP头开始处. 
+            * 使用`FWPS_INCOMING_METADATA_VALUES0`的`ipHeaderSize`和`transportHeaderSize`得到数据的起始偏移. 
+            * 微软提供的示例代码中, `WFPSampler`中有个`HelperFunctions_NetBuffer.cpp`文件, 其中的`KrnlHlprNBLCopyToBuffer`函数实现了从一个`NET_BUFFER_LIST`拷贝数据到一个缓冲区的功能. 
+                * `NdisGetDataBuffer`: 
+                    * 返回值: 返回连续数据的起始地址或NULL. 
+                        * 若`NetBuffer->DataLength`小于`BytesNeeded`, 则返回NULL. 
+                        * 若数据在缓存中是连续的, 则返回由NDIS提供的指针. 
+                        * 若数据不连续, 则NDIS如下使用使用`Storage`参数: 
+                            * 若`Storage`非NULL, NDIS将数据拷贝到`Storage`, 返回值是存放到`Storage`中的指针. 
+                            * 若`Storage`为NULL, 则返回值为NULL.
+                        * 若系统资源不足, 也可能返回NULL. 
+                
+                    ```cpp
+                        PVOID
+                        NdisGetDataBuffer(
+                            IN PNET_BUFFER  NetBuffer,
+                            IN ULONG  BytesNeeded,
+
+                            // 这个缓冲的大小必须比BytesNeeded大. 
+                            // 若Storage非NULL, 且请求的数据不连续, 则NDIS将请求的数据拷贝到Storage指向的区域
+                            IN PVOID  Storage, 
+
+                            IN UINT   AlignMultiple,
+                            IN UINT   AlignOffset
+                        );
+                    ```
 
 # VT技术
 * 概念

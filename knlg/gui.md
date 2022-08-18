@@ -7,6 +7,7 @@
 * .pro文件
     * `LIBS += -L路径 -l库名`: 添加库. 对于系统库, 在QT已设好环境变量的情形中, 则不需要`-L路径`
     * `CONFIG += console thread`: 在运行程序时打开控制台窗口. 
+    * `CONFIG += exceptions_off`: 可屏蔽系统异常引起的弹框. 在使用windows的`__try__except`时有用. 
 
 * 文件目录
     * .pro文件: 项目文件
@@ -19,7 +20,7 @@
 * QTCreator远程调试
     * windows
         * 调试机
-            * 把`QTCreator\lib\qtcreatorcdbext64`文件夹拷贝到调试机, 将环境变量`_NT_DEBUGGER_EXTENSION_PATH`设为该文件路径. 
+            * 把`Tools\QTCreator\lib\qtcreatorcdbext64`文件夹拷贝到调试机, 将环境变量`_NT_DEBUGGER_EXTENSION_PATH`设为该文件路径. 
             * 环境变量`_NT_SYMBOL_PATH`也可以设一下, 这个是cdb的符号查找路径. cdb命令行的用法同windbg. 
             * 把项目生成的exe和pdb文件都拷贝到调试机
         * 启动调试
@@ -30,9 +31,17 @@
 
 ## 编程
 * 控件
+
+    <img alt="" src="./pic/qt_window.png" width="80%" height="80%">
+
+
     * 父类: `QWidget`
     * 接口
-        * `setData`
+        * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
+        * 在组件中绑定数据
+            * `Q_DECLARE_METATYPE`: 
+            * `setData`: 
+            * `data`: 
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * QT Creator生成的MainWindow主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
@@ -60,7 +69,18 @@
             ```cpp
             QTreeWidget qTreeWidget; 
             ```
-
+    * `QTextEdit`: 文本框
+        * 接口
+            * 追加内容
+                * `append(sth)`: 会换行
+                * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行
+            * 光标
+                * `tc = textCursor()`: 获取光标
+                * `tc.insertText(sth)`: 光标处插入内容
+    * `QPlainTextEdit`: 也是文本框
+        * 渲染html的性能比`QTextEdit`好. 
+            * `appendHtml(sth)`: 不会换行
+            * 
 * 事件
     * 一个 Qt 界面程序要想接收事件, main() 函数中就必须调用 exec() 函数, 它的功能就是使程序能够持续不断地接收各种事件. 
 
@@ -68,7 +88,7 @@
     * 信号函数
         * 如, "按钮被按下"这个信号可以用`clicked`函数表示
         * 用`signals`关键字修饰
-        * 只需声明, 无需定义
+        * 只需声明一个函数, 无需定义
     * 槽函数
         * 对信号作出响应的函数
         * 如, "窗口关闭"这个槽可以用`close`函数表示
@@ -84,9 +104,19 @@
         2. 重载run, 在其中调用`QThread::exec()`方法
         3. 相关成员函数:
             * `start`: 启动
-            * `quit`: 
+            * `quit`: 在`run`函数中调用之, 可主动结束线程. 
+            * `exit`: 
             * `wait`: 
-
+    * `QtConcurrent`: 可以以lambda的形式启动新线程. 
+        ```cpp
+        int a = 10;
+        QFuture future = QtConcurrent::run([&] () {
+            while (a--) { ... }
+        });
+        future.waitForFinished(); // 阻塞当前线程, 等待子线程返回结果
+        ```
+    * 注意
+        * 启动一个QThread子线程, 并在子线程中调用主线程生成的组件的渲染函数(如, 对`QTextEdit`组件调用`append`函数), 会导致程序崩溃退出(`0xC0000005`)
 * 数据
     * `QString`
         ```cpp
