@@ -124,7 +124,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
 
-* 驱动运行流程<a id="driverProgress"></a>
+* 驱动运行流程<a id="驱动运行流程"></a>
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
         * 启动的GROUP与`StartType`决定了驱动启动方式. `StartType`值越小越早启动. `StartType`值相同则按GroupOrder顺序启动(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GroupOrderList`). `StartType`值如下:
