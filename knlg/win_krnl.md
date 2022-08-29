@@ -17,9 +17,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
 若是用串口通信, 则虚拟机需要添加串口, 选com1口, 并添加管道文件路径.
 
-## 调试工具设置
+## 开发和调试工具设置
 * vs2019
-    * 添加设备(即目标虚拟机).
+    * 添加设备(即目标虚拟机). 
     
         <img alt="" src="./pic/vs_device_config.png" width="50%" height="50%">
 
@@ -124,7 +124,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
 
-* 驱动运行流程
+* 驱动运行流程<a id="driverProgress"></a>
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
         * 启动的GROUP与`StartType`决定了驱动启动方式. `StartType`值越小越早启动. `StartType`值相同则按GroupOrder顺序启动(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GroupOrderList`). `StartType`值如下:
@@ -591,7 +591,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `.open -a <模块名>!<函数名>+<偏移>`
 * 常见原因
     * 关闭了无效HANDLE
-    * 在没有`ObReferenceObject(pFileObject)`的情况下`ObDeferenceObject(pFileObject)`
+    * 在没有`ObReferenceObject(pFileObject)`的情况下`ObDereferenceObject(pFileObject)`
     * 引用NULL指针
     * 内存访问越界
     * 高中断级访问了缺页内存
@@ -690,6 +690,8 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * R3: 设备名: `L"\\\\.\\xxDrv"`
     * R0: 设备名: `L"\\device\\xxDrv"`; 符号链接名: `"\\dosdevices\\xxDrv"` -> `"\\??\\xxDrv"`
 * 内核文件操作API
+    * 参考: 
+        * 异步读写文件: https://blog.actorsfit.com/a?ID=01250-c1a81826-93fe-49ff-8f3a-3c95f78ca582
     * 打开文件获得handle -> 基于handle读写查删 -> 关闭
     * `InitializeObjectAttributes`宏: 初始化一个`OBJECT_ATTRIBUTES` 结构体
     * `ZwCreateFile`: 打开文件
@@ -727,7 +729,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             // 本次打开文件需要做的操作
                 // FILE_CREATE: 新建文件. 如果文件已经存在, 则这个请求失败. 
                 // FILE_OPEN: 打开文件. 如果文件不存在, 则请求失败. 
-                // FILE_OPEN_IF: 打开或新建. 如果文件存在, 则打开. 如果不存在, 则失败. 
+                // FILE_OPEN_IF: 打开或新建. 如果文件存在, 则打开. 如果不存在, 则新建文件. 
                 // FILE_OVERWRITE: 覆盖. 如果文件存在, 则打开并覆盖其内容. 如果文件不存在, 这个请求返回失败. 
                 // FILE_OVERWRITE_IF: 新建或覆盖. 如果要打开的文件已存在, 则打开它, 并覆盖其内存. 如果不存在, 则简单的新建新文件. 
                 // FILE_SUPERSEDE: 新建或取代. 如果要打开的文件已存在. 则生成一个新文件替代之. 如果不存在, 则简单的生成新文件. 
@@ -765,6 +767,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         );
         ```
     * `ZwWriteFile`
+        * 官方文档中有这么一段话: 
+            > 文件和事件句柄只有在创建句柄的进程上下文中才合法. 为了避免安全问题, 驱动应在系统进程而非驱动所在进程上下文中创建要传给`ZwWriteFile`函数的文件或事件句柄. 
+            
     * `ZwReadFile`
     * `ZwQueryInformationFile`读取文件属性, `ZwSetInformationFile`: 可用于删文件
         * 第五参
@@ -1015,7 +1020,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                         * `KeInitializeApc`: 初始化一个`KAPC`对象
                         * `KeInsertQueueApc`: 将APC插入队列
                     * 用户APC被插入队列后, 要等到线程变成可警告状态(alertable state)时它才会被线程调用. 
-                        * alertable: 表示可警告, 可唤醒的. 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
+                        * alertable: 
+                            * 表示可警告, 可唤醒的. 如果当前线程没事干, 就是这个状态. 这时候它就会去调用apc函数. 
+                            * 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
                         * `SleepEx`, `SignalObjectAndWait`, `MsgWaitForMultipleObjectsEx`, `WaitForMultipleObjectsEx`, `WaitForSingleObjectEx`, 线程调用了它们后就会进入`alertable wait`状态, APC队列中的就会被调用. 
                         * `ReadFileEx`, `SetWaitableTimer`, `SetWaitableTimerEx`, `WriteFileEx`, 它们的实现方式就是用APC作为完成通知例程. 
                     * 优先级: 特殊APC > 普通APC > 用户APC. 
@@ -1038,10 +1045,10 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * `IPI_LEVEL`: 处理器之间中断级
             * `POWER_LEVEL`: 电源故障级
         * 遵守中断级别要求
-            * PASSIVE级别可访问任何函数和内存
-            * DISPATCH级别只能访问运行在DISPATCH级别的API和非分页内存(NONPAGEDPOOL)
-            * NONPAGEDPOOL可在任何级别使用
-            * PAGEDPOOL只能在PASSIVE和APC级别使用
+            * `PASSIVE`级别可访问任何函数和内存
+            * `DISPATCH`级别只能访问运行在DISPATCH级别的API和非分页内存(`NONPAGEDPOOL`)
+            * `NONPAGEDPOOL`可在任何级别使用
+            * `PAGEDPOOL`只能在PASSIVE和APC级别使用
                 * 在这两个级别的代码中用`PAGED_CODE`宏(其调用`KeGetCurrentIrql`), 其会检测当前代码IRQL是否高于APC, 是则异常.
             * 补充
                 * 系统在APC_LEVEL处理缺页中断, 所以, 执行在>=APC_LEVEL上的代码必须存放在NON-PGAE内存中
@@ -1091,6 +1098,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
 
                 // 线程B
+                
                 KeWaitForSingleObject(&waitEvent, Executive, KernelMode, FALSE, NULL); // NULL无限等待, 0立即返回
                 ... 
                 KeClearEvent(&waitEvent); // 将事件设为non-signaled状态
@@ -1108,6 +1116,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中 **. 
             * 可等待的对象: `KEVENT`, `KMUTEX/KMUTANT`, `KPROCESS`, `KQUEUE`, `KSEMAPHORE`, `KTHREAD`, `KTIMER`(它们都带dispatcher header). 
             * 不可等待: `fileobject`/`driverobject`
+                * 微软不建议对一个文件句柄调用`XxWaitForSingleObject`, 因为当该文件上有很多`pending`的IO操作时, 任何一个操作的完成都会让文件对象变成`signaled`状态. (参考 https://stackoverflow.com/questions/775014/waitforsingleobject-on-a-file-handle) . 
         * R0到R3同步通信
             * 内核层
                 * 创建Event: `IoCreateNotificationEvent`, `L"\\BaseNamedObjects\\ProcEvent"`
@@ -1348,13 +1357,12 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 # 进程相关API
 * `PsGetCurrentProcessId`: 获取当前线程所属进程的pid. 在DispatchIoControl函数中实际是获得向驱动发出请求的进程的id.
 * `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的EPROCESS结构的指针.
-* `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取进程EPROCESS结构
-* `PsLookupProcessByThreadId(tid, &pEThread)`: 根据tid获取线程ETHREAD结构
+* `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取指向进程EPROCESS结构的指针. 
 * `KeStackAttachProcess(pEProcess, &ApcState)`: 将当前线程附加到目标进程的地址空间. 对应函数`KeUnstackDetachProcess(&ApcState)`. `ApcState`直接初始化为`{0}`, 或者`PKAPC_STATE pApcState = (PKAPC_STATE)ExAllocatePool(NonPagedPool, sizeof(PKAPC_STATE)); ApcState = *pApcState;`. `KeAttachProcess(pEProcess)`是旧方法.
 * `ZwQueryInformationProcess(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径. 注意, 这个函数现在可以通过包含头文件`winternl.h`来调用. 
 * `NtCurrentProcess()`宏: 返回表示当前进程的特殊句柄值
-* `ZwOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr, &cliendId)`: 根据进程id获取进程句柄
-    * `objAttr`: 
+* `ZwOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr, &cliendId)`: 根据进程id获取进程句柄. 
+    * `objAttr`: 可设为`{0}`. 
     * `clientId`: `CLIENT_ID`结构体变量. 其中`UniqueProcess`设为进程id, `UniqueThread`可设为0. 
 * ``: 
 
@@ -1374,9 +1382,17 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
         * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
 
+* 系统工作者线程(system worker threads)
+    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队，系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池，其中每个线程一次执行一个工作项. 
+    * workitem写法
+    ```cpp
+
+    ```
+
 * 线程相关API
     * `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
-
+    * `PsGetCurrentThread()`: 获取指向当前线程的EThread的指针. 
+    * `PsLookupThreadByThreadId(thrdId, &pEthread)`: 给定线程id, 获取线程的EThread. 
 
 # 运行时API(RtlXxx)
 * `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
@@ -1401,18 +1417,53 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         NowFields.Minute,
         NowFields.Second));
     ```
+* object: 
+    * `ObOpenObjectByPointer`: 获取所给对象的句柄
+    * `ObReferenceObject(pObj)`: 对象的引用计数加一. (引用计数为0时, 内核组件可以将对象移出系统)
+    * `ObDereferenceObject(pObj)`: 对象的引用计数减一. 
+
+* 事件
+    * `ZwCreateEvent`, `KeInitializeEvent`: 前者只能在passive级别调用. 后者则可在任意irql中使用. 
+        ```cpp
+        NTSYSAPI NTSTATUS ZwCreateEvent(
+            OUT          PHANDLE            EventHandle, // 用于保存返回的事件句柄
+
+            // 访问类型. 
+            // EVENT_QUERY_STATE:	查询事件对象的状态.
+            // EVENT_MODIFY_STATE:	修改事件对象的状态.
+            // EVENT_ALL_ACCESS:	所有对事件对象的操作权限.
+            IN           ACCESS_MASK        DesiredAccess,
+
+            IN OPTIONAL POBJECT_ATTRIBUTES ObjectAttributes, // 包含对象名称和安全描述符. 可以为NULL
+            IN           EVENT_TYPE         EventType, // SynchronizationEvent或NotificationEvent.
+            IN           BOOLEAN            InitialState // 事件的初始状态
+        );
+        
+        ```
+    * `ZwWaitForSingleObject`, `KeWaitForSingleObject`: 
+        * 前者只能在passive级别调用. 
+        * 后者: 运行的IRQL <= DPC; 若timeout指针为NULL或timeout值不为0, 运行的IRQL <= APC
+        ```cpp
+        NTSTATUS
+        KeWaitForSingleObject (
+            PVOID Object,
+            KWAIT_REASON WaitReason, // 在驱动中, 其一般设为Executive, 除非它代表用户工作, 并且在用户线程上下文中运行, 此时设为UserRequest
+            KPROCESSOR_MODE WaitMode, // KernelMode或UserMode. 低层和中间层驱动设为KernelMode. 若给定对象是mutex, 则也是设为KernelMode
+            BOOLEAN Alertable,
+            PLARGE_INTEGER Timeout // 以100纳秒为单位, 负数表示相对于当前时间, 正数则相对于1601/01/01,  0则不等待, 若提供了NULL指针, 则无限等待. 
+        );
+        ```
 
 # 内存
 * [官方文档](https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/managing-memory-for-drivers)
 * 内存分配: 
     * PagedPool
-        * 分页内存, 物理内存不够时, 这片内存会被移到磁盘上. 总量多. 通常可申请一大片来存数据.
+        * 分页内存. 物理内存不够时, 这片内存会被移到磁盘上. 总量多. 通常可申请一大片来存数据.
     * NonPagedPool
         * 总量有限(物理内存). 
         * 如果代码和数据总量大于等于4K(即一页的大小), 则要将节设置为paged. 
         * 如果可以的话, 应该将可分页代码或数据和`有时可能分页但有时又要锁定的代码或数据`分开放到不同节, 因为如果放到一块的话, 在锁定的时候就会有更多内存空间被锁定. 不过如果代码和数据总量小于4K, 那就放到同一个节, 没问题. 
-    * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
-    * `ExAllocatePoolZero`: 同`ExAllocatePoolWithTag`, 但会初始化为全零. 
+   
 * 虚拟地址空间的分区
     * 空指针赋值分区: `0x00000000 - 0x0000ffff`. 若线程读写该区域, 会引发访问违规. 
     * 用户模式分区: 
@@ -1436,7 +1487,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 驱动程序的全局变量放在.data节, 在测试中发现这些全局变量可能处于分页内存中(因为多次在dpc级别中出现访问这些全局变量而引起的蓝屏, bsod错误码为`IRQL_NOT_LESS_OR_EQUAL`)
 
 * api
-    * `RtlCopyMemory`: 
+    * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
+    * `ExAllocatePoolZero`: 同`ExAllocatePoolWithTag`, 但会初始化为全零. 
+    * `RtlCopyMemory`: 同`memcpy`. 
     * `MmAllocateContiguousMemory`: 分配的是非分页内存, 且保证在物理内存中连续. 
     * `NtQueryVirtualMemory`: 查询进程中某个地址所在的内存分区的信息. **枚举进程中的内存分区信息可以用这个方法**. 注意在内核层应该调用`ZwQueryVirtualMemory`而非`NtQueryVirtualMemory`, 后者会报错(0xC0000005, 越界访问), 前者有`syscall`(用于进入`KernelMode`)
         ```cpp
@@ -1929,7 +1982,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 * 传给shellcode的参数, 主要是shellcode需要的系统api的函数地址. 
             * 创建远程线程, 执行shellcode, 由shellcode载入dll. 
         * dll镂空(dll hollowing): 注入一个合法dll, 然后修改dll入口点处代码为自己想执行的代码. 
-            * 首先, 进行如普通的dll注入, 但是是将一个合法dll注入到进程. 
+            * 首先, 如普通的dll注入, 但是是将一个合法dll注入到进程. 
             * `EnumProcessModules`枚举进程模块, `GetModuleBaseNameA`得到每个模块的名称, 从而找到注入的dll. 
             * 本进程分配0x1000的内存空间(可用`malloc`或`HeapAlloc`), 然后将找到的dll的PE头部内容读进来. 
             * 由PE头中的optional头得到dll的入口地址, 加上枚举模块时得到的dll

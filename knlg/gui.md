@@ -80,7 +80,17 @@
     * `QPlainTextEdit`: 也是文本框
         * 渲染html的性能比`QTextEdit`好. 
             * `appendHtml(sth)`: 不会换行
-            * 
+    * `QtFileDialog`: 文件选择对话框
+        * 
+    * `QLable`
+        * 设置图标: 
+            * `QMovie`: 可在`QLable`组件中设动图
+                ```cpp
+                QMovie *m = new QMovie(":/image/loading.gif");
+                ui->myLable->setMoive(m);
+                movie->setScaledSize(ui->myLabel->size()); // 设置和label一样大小
+                movie->start();
+                ```
 * 事件
     * 一个 Qt 界面程序要想接收事件, main() 函数中就必须调用 exec() 函数, 它的功能就是使程序能够持续不断地接收各种事件. 
 
@@ -93,11 +103,14 @@
         * 对信号作出响应的函数
         * 如, "窗口关闭"这个槽可以用`close`函数表示
         * 用 `public slots`, `protected slots` 或者 `private slots` 修饰
-        * 需声明和定义
+        * 需声明和定义. 若命名为`on_<子对象名>_<事件名>`, 则无需再写一行`connect`, 因为构建的时候会自己生成. 
     * `connect(&But, SIGNAL(clicked()), &widget, SLOT(close()));` 将But按钮的信号函数clicked和widget窗口的槽函数close关联起来. 
         * 现在(QT5以后)不用SIGNAL和SLOT宏, 改成如`&QButton::clicked`这样的. 
+        * 指定第5参数为`Qt::Direction`, 
     * 在程序中触发信号: `emit mySignalFunc();` `mySignalFunc`是本类中一个信号成员函数. 
-
+    * `Cannot send events to objects owned by a different thread`: 在Qt中, ui的操作不能在别的线程里. 
+* 定时器
+    * 
 * 线程
     * 使用事件循环
         1. 子类化QThread

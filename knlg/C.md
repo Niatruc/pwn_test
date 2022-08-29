@@ -619,18 +619,20 @@
         int *p1 = new(buf) int[10];
         ```
 ## 字符串
-    ```cpp
-    #include <string>
-    
-    std::string s = "s";
-    
-    // 数字转字符串
-    std::to_string(1234); 
+```cpp
+#include <string>
 
-    // stringstream
-    #include <sstream>
+std::string s = "s";
 
-    ```
+// 数字转字符串
+std::to_string(1234); 
+
+// stringstream
+#include <sstream>
+
+```
+
+* `string`类型参数: 最好传引用, 因为传值会拷贝内存. 写法是`void func(string& s) { s.c_str(); }`
 
 ## 文件和流
 * `close`函数是fstream, ifstream 和 ofstream 对象的一个成员. 
@@ -846,6 +848,8 @@
             };
 
             myMap2["key1"] = 123;
+
+            if (myMap2.find("key2") == myMap2.end()) ; // 成立则表示元素不存在
             ```
     * `std::unordered_map`
         * 内部是哈希表
