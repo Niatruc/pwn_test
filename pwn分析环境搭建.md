@@ -26,7 +26,7 @@ ida debugger配置:
 
 <img alt="ida debugger config" src="./pic/ida_debugger_config.jpg" width="50%" height="50%">
 
-2. 在ida中运行程序(快捷键f9). 可先按f5得到反编译的伪代码并设置断点. 全局变量的值需要在程序中断挂起时才能看到. 这时也可在hex_view窗口中按f2修改内存中的数据.
+2. 在ida中运行程序(快捷键f9). 可先按`f5`得到反编译的伪代码并设置断点. 全局变量的值需要在程序中断挂起时才能看到. 这时也可在hex_view窗口中按`f2`修改内存中的数据.
 
 <img alt="ida modify memory" src="./pic/modify_memory.jpg" width="50%" height="50%">
 
@@ -56,15 +56,26 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 
 # 用vscode调试C++源码
 ## 配置
-需要配置launch.json和tasks.json. 在tasks.json中配置`label`项, 填写task名；在launch.json中配置`preLaunchTask`项, 填写task名, 这样才能**在调试时命中断点**.
+* 需要配置`launch.json`和`tasks.json`. 在`tasks.json`中配置`label`项, 填写task名；在`launch.json`中配置`preLaunchTask`项, 填写task名, 这样才能**在调试时命中断点**.
 
-<img alt="xxd" src="./pic/launch_json.jpg" width="50%" height="50%">
+  <img alt="xxd" src="./pic/launch_json.jpg" width="50%" height="50%">
 
-<img alt="xxd" src="./pic/tasks_json.jpg" width="50%" height="50%">
+  <img alt="xxd" src="./pic/tasks_json.jpg" width="50%" height="50%">
+
+* 以`sudo`调试程序
+  * 创建一个sh脚本, 其中加上这行: `pkexec /ust/bin/gdb "$@"`
+  * 修改`launch.json`, 加上`miDebuggerPath`配置项, 填sh脚本**绝对路径**. 
+  * 调试程序时, 会弹框要求输入用户密码, 然后就会`sudo`运行程序. 
+* 想在调试时停在入口处, 则把`stopAtEntry`设为true. 
 
 ## 调试
-按f5开始调试, f10单步执行.
-在debug console窗口中, 若要执行gdb的命令, 需要先加上`-exec`
+* 按f5开始调试, f10单步执行.
+* 在debug console窗口中, 若要执行gdb的命令, 需要先加上`-exec`. 
+* 调试无源码可执行程序: 
+  * 将`launch.json`中`stopAtEntry`设为true, `program`设为可执行程序路径. 
+  * 点开可执行程序, F5运行. 
+  * 来到`launch.json`文件, 按`ctrl+shift+p`, 输入`Open Disassembly View`, 回车, 即可进入反汇编界面并逐指令运行. 
+
 
 ## 远程调试docker容器中的程序
 * vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用ssh-keygen生成密钥文件, 并把pub文件改名为authorized_keys, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
@@ -78,7 +89,7 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
 * VM中安装ssh服务, 之后执行`/etc/init.d/ssh start`
 * VM中编译gdb及gdbserver(都在gdb源码目录中)
 * 在VM中启动gdbserver: `gdbserver 172.17.0.2:12345 ./test`
-* 在vscode中通过ssh打开docker容器中的目标程序目录, 之后`run->start debugging`, 会先在目标目录下新建一个`.vscode`目录, 并新增一个`launch.json`文件. 手动设置`program`和`miDebuggerServerAddress`项. 最后打开VM中的程序源代码, 打上断点, 即可开始调试.
+* 在vscode中通过ssh打开docker容器中的目标程序目录, 之后`run->start debugging`, 会先在目标目录下新建一个`.vscode`目录, 并新增一个``launch.json``文件. 手动设置`program`和`miDebuggerServerAddress`项. 最后打开VM中的程序源代码, 打上断点, 即可开始调试.
 * 出现找不到源文件的问题(如`../sysdeps/unix/sysv/linux/raise.c: No such file or directory.`):
   * 先确保`/etc/apt/sources.list`文件中有`deb-src`行, 没有的话添加并执行`apt update`. 确保已经安装`dpkg-dev`. 之后cd到要保存源代码的目录并执行`apt source libc6`.
   * 若是在gdb中调试, 先`info source`查看源码路径, 如下图中提示`Compilation directory is ./signal`, 则`set substitute-path . /src/glibc-2.31/`设置libc的源码路径 
@@ -113,7 +124,7 @@ python ./update_list
 若题目给定了单独的.so文件(如libc), 则要让程序加载之(而不是使用系统库文件).
 参考: https://www.cnblogs.com/ar-cheng/p/13225342.html
 
-* 方法一: 设置环境变量LD_LIBRARY_PATH. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
+* 方法一: 设置环境变量`LD_LIBRARY_PATH`. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
 * 方法二: 用patchelf给程序添加rpath:
 ```bash
 patchelf --set-rpath '$ORIGIN/' <程序>

@@ -124,7 +124,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
     <img alt="" src="./pic/win_drv_frm.jpg" width="50%" height="50%">
 
-* 驱动运行流程<a id="驱动运行流程"></a>
+* 驱动运行流程<a id="driverProgress"></a>
     * (在R3层)创建一个服务
         * 注册表项: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`
         * 启动的GROUP与`StartType`决定了驱动启动方式. `StartType`值越小越早启动. `StartType`值相同则按GroupOrder顺序启动(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GroupOrderList`). `StartType`值如下:
@@ -405,6 +405,8 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 查看shadowSsdt表: 先切换到进程上下文, 然后`x nt!kes*des*table`, 拿第一行的地址, 对其用`dd`, 打印出来的第二行的前4个字节即是该表地址.
     * `u`: 查看当前汇编
         * `uf <addr>`: 反汇编
+            * `/c`: 只显示出现的call指令. **可用于看一个函数调用了哪些api**. 
+            * `/D`: 结合上面的`/c`参数, 显示调用的api的链接. 
     * `.open -a <函数名>+<偏移>`: 调出源文件
     * `!pte <虚拟地址>`: 将虚拟地址转为物理地址
     * `!vtop <进程基地址> <虚拟地址>`: 将虚拟地址转为物理地址
@@ -2640,110 +2642,103 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
 # 错误记录
 * vs构建wdm项目时出现`Device driver does not install on any devices, use primitive driver if this is intended`
-    
-        把项目的`inf`文件中`[Manufacture]`节下面的内容删了(`[Manufacture]`得保留)
+    > 把项目的`inf`文件中`[Manufacture]`节下面的内容删了(`[Manufacture]`得保留)
 
 * 编译报错: `LNK2019 无法解析的外部符号 DriverEntry, 该符号在函数 FxDriverEntryWorker 中被引用`
-
-        1. 驱动函数一般采用__stdcall约定: 函数定义前加extern "C"
-        2. 把cpp文件改为c文件(即改文件后缀名)
+    > 1. 驱动函数一般采用__stdcall约定: 函数定义前加`extern "C"` <br>
+    > 2. 把cpp文件改为c文件(即改文件后缀名)
 
 * WinDbg中, `!process`时出现`NT symbols are incorrect, please fix symbols`
-
-        .symfix D:\win_symbols
-        .reload /o
+    > .symfix D:\win_symbols <br>
+    > .reload /o
 
 * `DriverEntry`中执行`IoCreateSymbolicLink`时出现错误码`C000003A`: 
 
-        注意字符串格式:
-        DosDevicename 格式为 L"\\DosDevices\\暴露的符号名"
-        DeviceName 格式为 L"\\Device\\内部驱动名"
+    > 注意字符串格式: <br>
+    > DosDevicename格式为 `L"\\DosDevices\\暴露的符号名"` <br>
+    > DeviceName格式为 `L"\\Device\\内部驱动名"` <br>
 
 * vs中代码出错`"const char *" 类型的实参与 "char *" 类型的形参不兼容`
 
-        项目属性-> C/C++ ->语言 -> 符合模式, 选否
+    > `项目属性` -> `C/C++` -> `语言` -> `符合模式`, 选`否` <br>
 
 * vs中代码出错`无法从“char*转换为“LPCWSTR”`
 
-        工程属性->高级->字符集, 改为未设置
+    > `工程属性` -> `高级` -> `字符集`, 改为`未设置` <br>
 
 * vscode 中 warning C4819: 该文件包含不能在当前代码页(936)中表示的字符
-
-        在task.json中给cl.exe添加参数: "/source-charset:utf-8" (该方法不行)
+    > 在`task.json`中给`cl.exe`添加参数: `"/source-charset:utf-8"` (该方法不行)
 
 * error LNK2001: 无法解析的外部符号 __imp__RegEnumKeyExA@32
-
-        代码中添加依赖库: #pragma comment (lib,"Advapi32.lib")
+    > 代码中添加依赖库: `#pragma comment (lib,"Advapi32.lib")`
 
 * windbg不能在源文件设置断点
 
-        先lm看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用.reload载入符号文件. (在驱动已载入(即已存在于image list)后, 可 .reload Xxx.sys 来载入驱动的符号(前提是符号路径已经正确设置)). 可以运行 !sym noisy 打印详细信息, 看看reload时寻找的路径是否正确. 
-
-        对于用户层文件, 要先把程序跑起来, 然后中断, 在windbg通过 .process /p 进入进程上下文, 再执行 .reload /f /user 来把用户层程序的pdb加载进来.
+    > 先`lm`看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用`.reloa`d载入符号文件. (在驱动已载入(即已存在于image list)后, 可 `.reload Xxx.sys` 来载入驱动的符号(前提是符号路径已经正确设置)). 可以运行 `!sym noisy` 打印详细信息, 看看reload时寻找的路径是否正确. <br><br>
+    > 对于用户层文件, 要先把程序跑起来, 然后中断, 在windbg通过 `.process /p` 进入进程上下文, 再执行 `.reload /f /user` 来把用户层程序的pdb加载进来.
 
 * windbg内核模式下, 能在用户层设断点, 但进去不
 
-        经过反复尝试, 需严格执行以下每个步骤:
-        1. !prcess <pid> 0, (进程id可用process hacker查看, 比较方便. 记得转成16进制) 列出要调试的进程的信息, 得到其eprocess的地址
-        2. .process /p /i <eprocess地址>, 切换进程上下文. 记得执行g命令完成切换.
-        3. 设置好应用层程序的符号路径, 然后 .reload /f /user
-        4. 用lm命令看应用层程序符号加载了没有
+    > 经过反复尝试, 需严格执行以下每个步骤: <br>
+    > 1. `!prcess <pid> 0`, (进程id可用process hacker查看, 比较方便. 记得转成 16进制) 列出要调试的进程的信息, 得到其eprocess的地址. <br>
+    > 2. `.process /p /i <eprocess地址>`, 切换进程上下文. 记得执行`g`命令完成切换. <br>
+    > 3. 设置好应用层程序的符号路径, 然后 `.reload /f /user` <br>
+    > 4. 用`lm`命令看应用层程序符号加载了没有 <br>
 
 * vs2019编译的程序无法运行, 报0xc000007b的错
 
-        配置属性 -> 高级 -> 使用调试库 -> 否
+    > `配置属性` -> `高级` -> `使用调试库` -> `否`
 
 * 在windbg中, 无法对vs2019编译的程序的源代码设置断点
 
-        配置属性 -> C/C++ -> 常规 -> 调试信息格式 -> 程序数据库(/Zi)
+    > `配置属性` -> `C/C++` -> `常规` -> `调试信息格式` -> `程序数据库(/Zi)`
 
-* 运行程序时提示缺少某dll文件(如ucrtbased.dll, vcruntime140d.dll等)
+* 运行程序时提示缺少某dll文件(如`ucrtbased.dll`, `vcruntime140d.dll`等)
 
-        到网上下载相应dll文件, 并放到 C:\\Windows\\System32 目录. 如果放到这个目录后还是找不到文件, 就先在控制台 echo %PATH% 打印出系统搜索库的路径, 找一个合适的用户目录(或者自己建一个, 然后加到PATH变量中), 把dll文件放里面.
+    > 到网上下载相应dll文件, 并放到 `C:\\Windows\\System32 `目录. 如果放到这个目录后还是找不到文件, 就先在控制台 echo %PATH% 打印出系统搜索库的路径, 找一个合适的用户目录(或者自己建一个, 然后加到PATH变量中), 把dll文件放里面.
 
 * windbg执行 `~` 相关命令出现"语法错误"的提示
 
-        这个是R3调试时用线程命令, 在调试内核时用不了.
+    > 这个是R3调试时用线程命令, 在调试内核时用不了.
 
 * windbg中`.reload`时出现`Unable to enumerate user-mode unloaded modules`
 
-        要用 .process /p <进程id> 转入进程上下文, 再 .reload /f /user 加载用户层符号.
+    > 要用 `.process /p <进程id>` 转入进程上下文, 再 `.reload /f /user` 加载用户层符号.
 
 * DbgPrint没有打印出来(DbgView)
 
-        字符串末尾要有"\n"换行符.
+    > 字符串末尾要有"\n"换行符.
 
 * vs工具编译的exe无法在winxp中运行(提示"不是有效的win32程序")
 
-    vs是2022. 用exescope可看到编译得到的exe文件的主版本号是6:
+    > vs是2022. 用exescope可看到编译得到的exe文件的主版本号是6:
         
     <img alt="" src="./pic/exescope.jpg" width="100%" height="100%">
     
-    需要安装对xp的开发支持: 
+    > 需要安装对xp的开发支持: 
 
     <img alt="" src="./pic/vs_installer_xp_toolsets.jpg" width="100%" height="100%">
 
-    但是官网说vs2019及以后的版本已经不支持构建winxp程序. 所以以上方法无用. 
+    > 但是官网说vs2019及以后的版本已经不支持构建winxp程序. 所以以上方法无用. 
 
 * 用vmware时windbg连不上虚拟机
 
-        按网上的说法, 将虚拟机中启动项的高级选项中的调试端口改为 COM2: .
+    > 按网上的说法, 将虚拟机中启动项的高级选项中的调试端口改为 COM2: .
 
 * 安装驱动后启动时蓝屏(发生位置是`_IMPORT_DESCRIPTOR_ntoskrnl`, 报Access violation异常)
 
-        在编译驱动前, 检查一下工程属性中, Driver Settings -> Target OS Version, 确保目标操作系统选对了. 
+    > 在编译驱动前, 检查一下工程属性中, `Driver Settings` -> `Target OS Version`, 确保目标操作系统选对了. 
 
 * vs使用git时报错: `未能正确加载"SccProviderPackage"包`
-    * 可能要用`visual studio installer`修复vs
-    * 网上的另一种方法, 曾经有效: 
-        * 找到`C:\Users\<用户名>\AppData\Local\Microsoft\VisualStudio\14.0\ComponentModelCache`, 删除`Microsoft.VisualStudio.Default.cache`文件. 
+    > * 可能要用`visual studio installer`修复vs
+    > * 网上的另一种方法, 曾经有效: 
+    >   * 找到`C:\Users\<用户名>\AppData\Local\Microsoft\VisualStudio\14.0\ComponentModelCache`, 删除`Microsoft.VisualStudio.Default.cache`文件. 
 
 * vs中某些常量或头文件无法跳转(`在当前源文件的目录或生成系统路径中未找到文件xxx`)
-        
-        配置属性 -> 常规 -> windows sdk版本, 如果有 $(LatestTargetPlatformVersion), 而实际上又没安装最新版本, 就会找不到文件. 点击选择已安装版本号. 
+    > `配置属性` -> `常规` -> `windows sdk版本`, 如果有 `$(LatestTargetPlatformVersion)`, 而实际上又没安装最新版本, 就会找不到文件. 点击选择已安装版本号. 
 
 * 调用`StartService`失败, 使用`GetLastError`得到错误码为2(表示文件不存在), 但驱动文件已存在相应路径中. 
-    * 在vs中调试时出现这个问题. 是路径问题, 要先看vs用调试程序时`CreateService`在注册表保存驱动的路径(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`, 找到`ImagePath`键), 然后把编译得到的驱动文件放到这个路径. 
+    > 在vs中调试时出现这个问题. 是路径问题, 要先看vs用调试程序时`CreateService`在注册表保存驱动的路径(`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Sevices\<服务名>`, 找到`ImagePath`键), 然后把编译得到的驱动文件放到这个路径. 
 
 
 # DDK开发安全事项 
@@ -2756,26 +2751,26 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 6. 一定不要在 IRQL >= `DISPATCH_LEVEL` 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
 7. 在 IRQL >= `DISPATCH_LEVEL` 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
 8. 一定不要把中断请求级别 (IRQL) 降低到低于您的顶级例程被调用的级别.  
-9. 如果没有调用过 KeRaiseIrql(), 则一定不要调用 KeLowerIrql().  
-10. 一定不要使处理器 (KeStallExecutionProcessor) 停止运转的时间超过 50 微秒.  
-11. 一定不要使旋转锁 (Spin Lock) 保持锁定状态的时间超过您的需要.  要使系统获得更好的总体性能, 请不要使任何系统范围内有效的旋转锁的锁定时间超过 25 微秒.  
-12. 当 IRQL 大于 `DISPATCH_LEVEL` 时, 一定不要调用 KeAcquireSpinLock 和 KeReleaseSpinLock, 或 KeAcquireSpinLockAtDpcLevel 和 KeReleaseSpinLockFromDpcLevel.  
-13. 一定不要通过调用 KeReleaseSpinLockFromDpcLevel 来释放 KeAcquireSpinLock 所获取的旋转锁, 因为这会使原始 IRQL 无法被还原.  
-14. 一定不要在 ISR 或 SynchCritSection 例程中调用 KeAcquireSpinLock 和 KeReleaseSpinLock 或者其它任何使用可执行旋转锁的例程.  
-15. 当您在例程中而不是在 DriverEntry 中创建设备对象时, 一定不要忘记清除 DO_DEVICE_INITIALIZING 标记.  
-16. 一定不要同时在不同处理器的多个线程中将延时过程调用 (DPC) 对象添加到队列中(使用 KeInsertQueueDpc).  这会导致致命错误.  
-17. 一定不要通过 CutomerTimerDPC 例程释放周期定时器.  您可以通过 DPC 例程释放非周期定时器.  
-18. 一定不要将相同的 DPC 指针传递给 KeSetTimer, 或者 KeSetTimerEx (CustomTimerDpc) 和 KeInsertQueueDpc (CustomDpc), 因为这将导致竞争.  
-19. 旋转锁锁定时, 一定不要调用 IoStartNextPacket.  这将使系统死锁.  
-20. 旋转锁锁定时, 一定不要调用 IoCompleteRequest.  这将使系统死锁.  
-21. 如果您的驱动程序设置了完成例程, 那么一定不要在没有把完成例程设置为 NULL 的情况下调用 IoCompleteRequest.  
-22. 调用 IoCompleteRequest 之前, 一定不要忘记设置 IRP 中的 I/O 状态区.  
-23. 在将 IRP 添加到队列中或将它发送到另一个驱动程序 (IoCallDriver) 之后, 一定不要调用 IoMarkPending.  在驱动程序调用 IoMarkPending 之前, IRP 可能已经完成, 由此可能发生故障检测.  对于包含完成例程的驱动程序, 如 果设置了 Irp->PendingReturned, 则完成例程必须调用 IoMarkPending.  
-24. 一定不要在已经对某个 IRP 调用 IoCompleteRequest 之后再去访问该 IRP.  
-25. 一定不要对不属于您的驱动程序的 IRP 调用 IoCancelIrp, 除非您知道该 IRP 还没有完成.  
-26. 在您的调度例程返回到调用者之前, 一定不要对您的调度例程正在处理的 IRP 调用 IoCancelIrp.  
-27. 一定不要从中间驱动程序调用 IoMakeAssociatedIrp 来为较低的驱动程序创建 IRP.  在中间驱动程序中所获得的 IRP 可能是已被关联的 IRP, 而您不能将其它 IRP 关联到已经被关联的 IRP.  
-28. 一定不要对使用缓冲 I/O 而设置的 IRP 调用 IoMakeAssociatedIrp.  
+9. 如果没有调用过 `KeRaiseIrql()`, 则一定不要调用 `KeLowerIrql()`.  
+10. 一定不要使处理器 (`KeStallExecutionProcessor`) 停止运转的时间超过 50 微秒.  
+11. 一定不要使旋转锁 (`Spin Lock`) 保持锁定状态的时间超过您的需要.  要使系统获得更好的总体性能, 请不要使任何系统范围内有效的旋转锁的锁定时间超过 25 微秒.  
+12. 当 IRQL 大于 `DISPATCH_LEVEL` 时, 一定不要调用 `KeAcquireSpinLock` 和 `KeReleaseSpinLock`, 或 `KeAcquireSpinLockAtDpcLevel` 和 `KeReleaseSpinLockFromDpcLevel`.  
+13. 一定不要通过调用 `KeReleaseSpinLockFromDpcLevel` 来释放 `KeAcquireSpinLock` 所获取的旋转锁, 因为这会使原始 IRQL 无法被还原.  
+14. 一定不要在 `ISR` 或 `SynchCritSection` 例程中调用 `KeAcquireSpinLock` 和 `KeReleaseSpinLock` 或者其它任何使用可执行旋转锁的例程.  
+15. 当您在例程中而不是在 `DriverEntry` 中创建设备对象时, 一定不要忘记清除 `DO_DEVICE_INITIALIZING` 标记.  
+16. 一定不要同时在不同处理器的多个线程中将延时过程调用 (DPC) 对象添加到队列中(使用 `KeInsertQueueDpc`).  这会导致致命错误.  
+17. 一定不要通过 `CutomerTimerDPC` 例程释放周期定时器.  您可以通过 DPC 例程释放非周期定时器.  
+18. 一定不要将相同的 DPC 指针传递给 `KeSetTimer`, 或者 `KeSetTimerEx` (CustomTimerDpc) 和 `KeInsertQueueDpc` (CustomDpc), 因为这将导致竞争.  
+19. 旋转锁锁定时, 一定不要调用 `IoStartNextPacket`.  这将使系统死锁.  
+20. 旋转锁锁定时, 一定不要调用 `IoCompleteRequest`.  这将使系统死锁.  
+21. 如果您的驱动程序设置了完成例程, 那么一定不要在没有把完成例程设置为 NULL 的情况下调用 `IoCompleteRequest`.  
+22. 调用 `IoCompleteRequest` 之前, 一定不要忘记设置 IRP 中的 I/O 状态区.  
+23. 在将 IRP 添加到队列中或将它发送到另一个驱动程序 (`IoCallDriver`) 之后, 一定不要调用 `IoMarkPending`.  在驱动程序调用 `IoMarkPending` 之前, IRP 可能已经完成, 由此可能发生故障检测.  对于包含完成例程的驱动程序, 如果设置了 `Irp->PendingReturned`, 则完成例程必须调用 `IoMarkPending`.  
+24. 一定不要在已经对某个 IRP 调用 `IoCompleteRequest` 之后再去访问该 IRP.  
+25. 一定不要对不属于您的驱动程序的 IRP 调用 `IoCancelIrp`, 除非您知道该 IRP 还没有完成.  
+26. 在您的调度例程返回到调用者之前, 一定不要对您的调度例程正在处理的 IRP 调用 `IoCancelIrp`.  
+27. 一定不要从中间驱动程序调用 `IoMakeAssociatedIrp` 来为较低的驱动程序创建 IRP.  在中间驱动程序中所获得的 IRP 可能是已被关联的 IRP, 而您不能将其它 IRP 关联到已经被关联的 IRP.  
+28. 一定不要对使用缓冲 I/O 而设置的 IRP 调用 `IoMakeAssociatedIrp`.  
 29. 一定不要简单地将指向设备 I/O 寄存器的虚拟指针解除引用并访问这些指针.  始终使用正确的硬件抽象层 (HAL) 函数来访问设备.  
 30. 如果 IRP 或设备对象可能在 DISPATCH 级别被修改, 那么一定不要通过 ISR 来访问 它.  在对称多处理器系统中, 这会造成数据损坏.  
 31. 正在高级 IRQL 中运行时, 如果数据可能被低级 IROL 代码写入, 那么一定不要修改该数据.  应当使用 KeSynchronizeExecution 例程.  

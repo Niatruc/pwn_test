@@ -9,12 +9,12 @@
 ```
 
 * 格式字符串
-    * %Z: ANSI
-    * %wZ: Unicode
-    * %zx: 64位16进制
-    * %zd或%I64d: 64位10进制
-    * %ls: 宽字符串
-    * %hs: 窄字符串
+    * `%Z`: ANSI
+    * `%wZ`: Unicode
+    * `%zx`: 64位16进制
+    * `%zd`或`%I64d`: 64位10进制
+    * `%ls`: 宽字符串
+    * `%hs`: 窄字符串
 
 * 执行程序
     * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
@@ -125,7 +125,7 @@
             char s1[] = "123"; // 栈, main函数, main函数执行期间(栈上存了"123\0")
             char *p2; // 栈, main函数, main函数执行期间
             char *s2 = "123"; // 栈, main函数, main函数执行期间("123\0"存于.rdata节, s2指向之)
-            static int c =10; // .data节, main函数, 程序执行期间
+            static int c = 10; // .data节, main函数, 程序执行期间
             p1 = (char *)malloc(128); 
             p2 = (char *)malloc(256); 
             free(p1); 
@@ -307,7 +307,7 @@
     ```
         
     * 问题
-        * `GetMemory`是传值, 因而str的值不会改变, 因而`strcpy`会把值拷贝给NULL地址, 会崩溃. 
+        * `GetMemory`是传值, 因而`Test`函数中`str`的值不会改变, 因而`strcpy`会把值拷贝给NULL地址, 导致崩溃. 
         * `GetMemory`还是会malloc一段内存, 之后没有free, 有内存泄漏. 
         * `strcpy`会有堆溢出.
         * `printf(str)`有格式化字符串漏洞.
@@ -469,6 +469,10 @@
             C operator+(const C &c2) {
                 return this->a + c2.a;
             }
+
+            // C++11特性: 函数删除声明
+            C(const C &) = delete;
+            C &operator=(const C &) = delete;
         
         protected: // 受保护成员在派生类中可以访问
         
@@ -566,6 +570,23 @@
 * C++接口(抽象类)
     * 如果**类中至少有一个函数被声明为纯虚函数**, 则这个类就是抽象类. 
     * 不能用于实例化. 需要继承并实现纯虚函数. 
+
+* 单例类
+    ```cpp
+    class C {
+        public: 
+            static C* getInst() {
+                if (_inst == nullptr) {
+                    _inst = new C();
+                }
+                return _inst;
+            }
+        private: 
+            C() {}
+        static C _inst; // 单例
+    }
+    C* C::_inst = nullptr; // 注意要在类声明外再定义这个单例变量
+    ```
 
 * 动态内存
     * new运算符
@@ -883,6 +904,9 @@ std::to_string(1234);
         f();
 
         ```
+    * 注
+        * 调试发现, 对非对象变量(如int变量), 要以值传递的形式捕获. 
+        * 要将lambda转为C语言的函数指针, 则不能捕获表达式外变量. 
 
 # 问题
 * 编译时报错: 

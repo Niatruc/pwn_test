@@ -1,70 +1,51 @@
 # 内核开发
-## 内核源代码
-* 目录树
-    * init: 初始化
-    * arch: 架构
-        * `<arch>/include/asm`
-    * drivers: 驱动程序
-    * fs: 文件系统
-    * net: 网络
-    * mm: 内存管理模块
-    * ipc: 通讯
-    * kernel: 内核运行时库(字符串操作等)
-    * include: 内核开发需要的头文件
-
-* 汇编
-    |Intel|AT&T|
-    |-|-|
-    |`mov al, bl`|`movb %bl, %al`|
-    |`mov ax, bx`|`movw %bx, %ax`|
-    |`mov eax, ebx`|`movl %ebx, %eax`|
-    |`mov eax, dword ptr [ebx]`|`movl (%ebx), %eax`|
-    |`mov eax, [ebx + 20h]`|`movl 0x20(%ebx), %eax`|
-    |`add eax, [ebx + ecx * 2h]`|`addl (%ebx, %ecx, 0x2), %eax`|
-    |`lea eax, [ebx + ecx]`|`leal (%ebx, %ecx), %eax`|
-    |`sub eax, [ebx + ecx * 4h - 20h]`|`subl -0x20(%ebx, %ecx, 0x4), %eax`|
-    |立即数: 8|立即数: $8|
-
-    * linux内核嵌入式汇编
-        * `__asm__ __volatile__("<asm routine>", : output : input : modify);`
-        
-            ```cpp
-            void f(long seg) {
-                long __lm;
-                __asm__ __volatile__("lsll %1, %0" : "=r" (__lm) : "r" (seg));
-            }
-
-            // 对应的汇编代码如下
-            // movl seg, %ebx
-            // lsll %ebx, %eax
-            // movl %eax, __lm
-            ```
-        
-        * 分析汇编
-            * '='表示输出; '&'表示寄存器不能重复; 字母含义如下表. 
-            * 寄存器%0, %1依次从output, input中用到的寄存器开始编码(如上面的代码, 则是将__lm变量值存到%0寄存器, 将%1寄存器的值存到seg变量)
-            * `jne 2f`中, 2是汇编代码段的编号(作为跳转目标), 'f'表示向前(在它下面的代码), 'b'表示向后(在它上面的代码). 每行汇编指令后面有'\n\t', '\n'换行, '\t'为了gcc吧嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
-
-            |字母|含义|
-            |-|-|
-            | m, v, o | 表示内存单元 |
-            | R | 表示任何通用寄存器 |
-            | Q | 表示寄存器eax, ebx, ecx,edx之一 |
-            | I, h | 表示直接操作数 |
-            | E, F | 表示浮点数 |
-            | G | 表示“任意” |
-            | a, b, c, d | 表示要求使用寄存器eax/ax/al, ebx/bx/bl,  ecx/cx/cl或edx/dx/dl |
-            | S, D | 表示要求使用寄存器esi或edi |
+* 要点
+    * 不能访问C库和标准C头文件
+    * 必须使用GNU C
+    * 内核编程缺乏像用户空间那样的内存保护机制
+    * 难以进行浮点运算
+        * 用户空间中做浮点运算时, 内核会捕获陷入, 并完成从整数操作到浮点数操作的模式转换. 但内核本身不能陷入. 在内核中使用浮点数时, 除了要人工保存和恢复浮点寄存器, 还有其他琐碎的事情要做. 
+    * `没有内存保护机制`, `内存不分页`. 
+    * 内核给每个进程只有很小一个定长堆栈. 
+        * 在x86上, 在编译时设置栈大小, 可以是4K或8K. 
+        * 在历史上, 内核栈大小是两页(32位是8K, 64位是16K)
+    * 由于内核支持异步中断, 抢占和SMP(多处理), 因此要时刻注意同步和并发, 保证不出现竞争条件(常用到自旋锁和信号量). 
+* 内核源代码
+    * 目录树
+        * init: 初始化
+        * arch: 架构
+            * `<arch>/include/asm`
+        * drivers: 驱动程序
+        * fs: 文件系统
+        * net: 网络
+        * mm: 内存管理模块
+        * ipc: 通讯
+        * kernel: 内核运行时库(字符串操作等)
+        * include: 内核开发需要的头文件
 
 ## 内核基础理论
+* 进程
+    * 写时拷贝: `fork`的时候, 只复制父进程的页表
+    * 在内核中获取当前用户进程PID: 
+        * `pid = current->pid;`
+        * `pid = task_pid_nr(current);`
+
 * 中断机制
     * 中断向量表(256项)
-        * `异常`: cpu内部的中断, IF标志保持不变, 不关
-            * `故障`(fault): `除零`, `缺页`, `越界`, `堆栈段错误`
-            * `陷阱`(trap): int 3, 溢出等(有意为之)
-        * `中断`: cpu外的其它硬件中出现, `IF标志清零, 关中断`. `要求中断处理要快`, 不然性能低. 
-            * `非屏蔽中断`: 计算机内部硬件出错引起异常
-            * `屏蔽中断`
+        * `异常`: 
+            * 要点
+                * cpu内部的中断, IF标志保持不变, 不关. 
+                * 在产生时必须考虑与处理器的时钟同步. (因此异常也被称为`同步中断`)
+            * 类型
+                * `故障`(fault): `除零`, `缺页`, `越界`, `堆栈段错误`. 
+                * `陷阱`(trap): int 3, 溢出等(有意为之). 用于系统调用. 
+        * `中断`: 
+            * 要点
+                * cpu外的其它硬件中出现, `IF标志清零, 关中断`. `要求中断处理要快`, 不然性能低. 
+                * 不用与处理器的时钟同步, 随时都可以产生. 
+            * 类型
+                * `非屏蔽中断`: 计算机内部硬件出错引起异常
+                * `屏蔽中断`
         * 中断向量编号
             * 0-31: 异常和非屏蔽中断
             * 32-47: 由i/o设备引起的中断, 分配给屏蔽中断
@@ -135,48 +116,90 @@
 
         <img alt="" src="./pic/linux_interrupt.jpg" width="30%" height="30%">
     
-    * 进程上下文和中断上下文
-        * 上下文context: 包括寄存器变量, 进程打开的文件, 内存信息等. 
-            * 用户级上下文: 正文, 数据, 用户堆栈, 共享存储区
-            * 寄存器上下文: 通用寄存器, 程序寄存器, 处理器状态寄存器, 栈指针
-            * 系统级上下文: 进程控制块(`task_struct`), 内存管理信息(`mm_struct, vm_area_struct, pgd, pte`), 内核栈
-        * 中断上下文
-            * 硬件传递过来的参数和内核需要保存的一些其它环境(主要是当前被中断的进程环境)
-            * 中断上下文无关特定进程
-            * 运行在中断上下文的代码不能做以下事情: 
-                * 睡眠或放弃cpu. 内核在进入中断前会关闭进程调度, 一旦睡眠或放弃cpu, 系统会死机. 
-                * 尝试获得信号量, 因为若没有获取信号量, 代码会睡眠, 结果同上. 
-                * 执行耗时任务, 因为内核要响应大量服务和请求, 占用cpu太久会严重影响系统性能. 
-                * 访问用户空间的虚拟地址. 
-    * 内核启动过程
-        * 加电, 复位. 
-        * bios启动: 上电自检, 然后对系统内的硬件设备进行检测和连接, 把测试所得数据存放到bios数据区. 从磁盘读入boot loader, 将控制权交给它. 
-        * boot loader
-        * os初始化
-        
-        <img alt="" src="./pic/linux_boot.jpg" width="30%" height="30%">
+* 进程上下文和中断上下文
+    * 上下文context: 包括寄存器变量, 进程打开的文件, 内存信息等. 
+        * 用户级上下文: 正文, 数据, 用户堆栈, 共享存储区
+        * 寄存器上下文: 通用寄存器, 程序寄存器, 处理器状态寄存器, 栈指针
+        * 系统级上下文: 进程控制块(`task_struct`), 内存管理信息(`mm_struct, vm_area_struct, pgd, pte`), 内核栈
+    * 中断上下文
+        * 硬件传递过来的参数和内核需要保存的一些其它环境(主要是当前被中断的进程环境)
+        * 中断上下文无关特定进程
+        * 运行在中断上下文的代码不能做以下事情: 
+            * 睡眠或放弃cpu. 内核在进入中断前会关闭进程调度, 一旦睡眠或放弃cpu, 系统会死机. 
+            * 尝试获得信号量, 因为若没有获取信号量, 代码会睡眠, 结果同上. 
+            * 执行耗时任务, 因为内核要响应大量服务和请求, 占用cpu太久会严重影响系统性能. 
+            * 访问用户空间的虚拟地址. 
+* 内核启动过程
+    * 加电, 复位. 
+    * bios启动: 上电自检, 然后对系统内的硬件设备进行检测和连接, 把测试所得数据存放到bios数据区. 从磁盘读入boot loader, 将控制权交给它. 
+    * boot loader
+    * os初始化
+    
+    <img alt="" src="./pic/linux_boot.jpg" width="30%" height="30%">
 
-    * linux文件系统
-        * vfs提供一个统一接口(`file_operation`)
+* linux文件系统
+    * vfs提供一个统一接口(`file_operation`)
 
-        <img alt="" src="./pic/linux_vfs.jpg" width="30%" height="30%">
+    <img alt="" src="./pic/linux_vfs.jpg" width="30%" height="30%">
 
-    * 微内核与宏内核(单一内核)
-        * 微内核系统
-            * windows nt, minix, mach
-            * 每个模块对应一个进程, **模块之间通过消息传递机制进行通信**. 系统启动后, kernel, mm, fs系统进程在各自空间运行main函数循环等待消息. 
-        * 宏内核系统
-            * unix, linux
-            * 内部也分模块, **模块间通信方式是一个模块调用另一个模块的导出函数**. 
+* 微内核与宏内核(单一内核)
+    * 微内核系统
+        * windows nt, minix, mach
+        * 每个模块对应一个进程, **模块之间通过消息传递机制进行通信**. 系统启动后, kernel, mm, fs系统进程在各自空间运行main函数循环等待消息. 
+    * 宏内核系统
+        * unix, linux
+        * 内部也分模块, **模块间通信方式是一个模块调用另一个模块的导出函数**. 
 
 ## 开发
-* 要点
-    * 不能访问C库和标准C头文件
-    * 必须使用GNU C
-    * 内核编程缺乏像用户空间那样的内存保护机制
-    * 难以进行浮点运算
-    * 内核给每个进程只有很小一个定长堆栈
-    * 由于内核支持异步中断, 抢占和SMP(多处理), 因此要时刻注意同步和并发. 
+
+* 内联函数
+    * 消除函数调用和返回带来的开销, 但会增加内存开销
+    * 用于对时间要求较高的代码
+    * 用`static`加`inline`限定
+* 汇编
+    |Intel|AT&T|
+    |-|-|
+    |`mov al, bl`|`movb %bl, %al`|
+    |`mov ax, bx`|`movw %bx, %ax`|
+    |`mov eax, ebx`|`movl %ebx, %eax`|
+    |`mov eax, dword ptr [ebx]`|`movl (%ebx), %eax`|
+    |`mov eax, [ebx + 20h]`|`movl 0x20(%ebx), %eax`|
+    |`add eax, [ebx + ecx * 2h]`|`addl (%ebx, %ecx, 0x2), %eax`|
+    |`lea eax, [ebx + ecx]`|`leal (%ebx, %ecx), %eax`|
+    |`sub eax, [ebx + ecx * 4h - 20h]`|`subl -0x20(%ebx, %ecx, 0x4), %eax`|
+    |立即数: 8|立即数: $8|
+
+    * linux内核嵌入式汇编
+        * `__asm__ __volatile__("<asm routine>", : output : input : modify);`
+        
+            ```cpp
+            void f(long seg) {
+                long __lm;
+                __asm__ __volatile__("lsll %1, %0" : "=r" (__lm) : "r" (seg));
+            }
+
+            // 对应的汇编代码如下
+            // movl seg, %ebx
+            // lsll %ebx, %eax
+            // movl %eax, __lm
+            ```
+        
+        * 分析汇编
+            * '='表示输出; '&'表示寄存器不能重复; 字母含义如下表. 
+            * 寄存器%0, %1依次从output, input中用到的寄存器开始编码(如上面的代码, 则是将__lm变量值存到%0寄存器, 将%1寄存器的值存到seg变量)
+            * `jne 2f`中, 2是汇编代码段的编号(作为跳转目标), 'f'表示向前(在它下面的代码), 'b'表示向后(在它上面的代码). 每行汇编指令后面有'\n\t', '\n'换行, '\t'为了gcc吧嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
+
+            |字母|含义|
+            |-|-|
+            | m, v, o | 表示内存单元 |
+            | R | 表示任何通用寄存器 |
+            | Q | 表示寄存器eax, ebx, ecx,edx之一 |
+            | I, h | 表示直接操作数 |
+            | E, F | 表示浮点数 |
+            | G | 表示“任意” |
+            | a, b, c, d | 表示要求使用寄存器eax/ax/al, ebx/bx/bl,  ecx/cx/cl或edx/dx/dl |
+            | S, D | 表示要求使用寄存器esi或edi |
+        * `asm volatile("rdtsc": "=a" (low), "=d" (high));` // 调用rdtsc指令, 返回64位时间戳(`tsc`寄存器), 低32位和高32位分别存于low和high变量
 
 * hello world
 
@@ -225,7 +248,7 @@
     {
         int fd, i;
         int data;
-        fd = open("/dev/hello",O_RDONLY);
+        fd = open("/dev/hello", O_RDONLY);
         if (fd < 0)
         {
             printf("open /dev/hello error\n");
@@ -319,6 +342,58 @@
     * kgdb
     * strace
 
+* linux内核数据结构
+    * 链表
+        * `<linux/list.h>`
+            ```c
+            struct list_head {
+                struct list_head *next;
+                struct list_head *prev;
+            };
+
+            // 在自定义结构体重加上list_head结构体成员
+            struct myStruct {
+                int i;
+                struct list_head list;
+            };
+
+            // 初始化方法1
+            struct myStruct s = {
+                .i = 0,
+                .list = LIST_HEAD_INIT(s.list)
+            }
+            // 初始化方法2
+            INIT_LIST_HEAD(&s.list)
+
+            // 遍历
+            struct list_head *p;
+            struct myStruct *pS;
+            list_for_each(p, &s.list) {
+                pS = container_of(p, struct list_head, list);
+            }
+            // 或者: 
+            list_for_each_entry(pS, &s.list, list) {
+                ... 
+            }
+            // list_for_each_entry_reverse, 反向遍历
+
+            // 需要在遍历的时候删除: 
+            list_for_each_entry_safe(pS, next, &s.list, list) {
+                // 删除节点
+            }
+            ```
+        * `container_of(ptr, type, member)`: 获取`ptr`指向的`type`型结构体中的`member`成员. (相当于windows内核中的`CONTAINING_RECORD`宏)
+        * `list_add(struct list_head *new, struct list_head *head)`: 在head节点后插入new节点. 
+        * `list_add_tail(struct list_head *new, struct list_head *head)`: 在head节点前插入new节点. 
+        * `list_del(struct list_head *entry)`: 删除entry节点. 
+        * `list_del_init(struct list_head *entry)`: 删除entry节点. 如果还需要继续使用entry, 则可以用这个函数将entry从链表中移除. 
+        * `list_move(struct list_head *list, struct list_head *head)`: 将list节点移到head节点后面. 
+        * `list_move_tail(struct list_head *list, struct list_head *head)`: 将list节点移到head节点前面. 
+        * `list_empty(struct list_head *head)`: 若链表为空, 返回非零值. 
+        * `list_splice(struct list_head *list, struct list_head *head)`: 将list节点指向的链表插入到head节点后面. 
+        * `list_splice_init(struct list_head *list, struct list_head *head)`: 同上, 不过list指向的链表要被重新初始化. 
+    * 队列`kfifo`
+        * 
 * linux内核内存
     * 分类
         * DMA-capable: 在x86, 是内存的前16M空间, 给ISA设备用. 新的PCI设备没有此限制. 
@@ -328,7 +403,7 @@
 
         ```cpp
         #include <linux/slab.h>
-        char *ptr = (char *) kmalloc(1024, GDP_KERNEL);
+        char *ptr = (char *) kmalloc(1024, GFP_KERNEL);
         memset(pre, 0, 1024);
         kfree(ptr);
         ```
