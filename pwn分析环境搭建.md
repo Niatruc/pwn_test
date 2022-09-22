@@ -126,13 +126,14 @@ python ./update_list
 
 * 方法一: 设置环境变量`LD_LIBRARY_PATH`. 由于linux_server运行可能因新加载的so文件不兼容而无法运行, 故不用此法. 
 * 方法二: 用patchelf给程序添加rpath:
-```bash
-patchelf --set-rpath '$ORIGIN/' <程序>
-```
+  
+  ```bash
+  patchelf --set-rpath '$ORIGIN/' <程序>
+  ```
 * 方法三: 在编译时指定rpath:
-```bash
-gcc heap.c -o heap_libc_2_23 -Wl,--rpath=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64 -Wl,--dynamic-linker=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64/ld-linux-x86-64.so.2
-```
+  ```bash
+  gcc heap.c -o heap_libc_2_23 -Wl,--rpath=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64 -Wl,--dynamic-linker=/home/bohan/res/ubuntu_share/tools/glibc-all-in-one/libs/2.23-0ubuntu3_amd64/ld-linux-x86-64.so.2
+  ```
 
 ## fcntl
 https://blog.csdn.net/martin_liang/article/details/8363251

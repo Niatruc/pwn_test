@@ -19,7 +19,7 @@
         * 在进入gdb后, 可以`set args <程序参数>`
 * coredump: 
     * 设置coredump文件限制大小为无限大: `ulimit -c unlimited`
-    * 设置coredump文件生成路径(以root身份): `secho "/my_dir/core-%e-%t-%s-%p" > proc/sys/kernel/core_pattern`, 其中: 
+    * 设置coredump文件生成路径(以root身份): `echo "/my_dir/core-%e-%t-%s-%p" > proc/sys/kernel/core_pattern`, 其中: 
         * `%e`: 进程名
         * `%t`: 时间戳
         * `%s`: 引起coredump的signal号
