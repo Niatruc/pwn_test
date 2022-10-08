@@ -38,24 +38,47 @@
 
     <img alt="" src="./pic/qt_window.png" width="80%" height="80%">
 
-
-    * 父类: `QWidget`
+    * `QWidget`: 所有控件的父类
         * 窗口关闭处理
             * 须在子窗口的构造函数中加一句`setAttribute(Qt::WA_DeleteOnClose)`, 这样关闭子窗口时才会执行析构函数. 
             * `void closeEvent(QCloseEvent *event)`: 实现该虚函数, 以捕获窗口关闭事件
                 * `event->ignore()`: 执行该句, 则窗口不会关闭. 
-    * 接口
-        * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
-        * 在组件中绑定数据
-            * `Q_DECLARE_METATYPE`: 
-            * `setData`: 
-            * `data`: 
+        * 接口
+            * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
+            * `setVisible(bool)`: 设置组件是否可见. 
+            * 在组件中绑定数据
+                * `Q_DECLARE_METATYPE`: 
+                * `setData(int role, const QVariant &value)`: 绑定数据
+                * `setData(int column, int role, const QVariant &value)`: 绑定数据(`QTableWidgetItem`和`QTreeWidgetItem`)
+                * `data(int role)`: 获取数据
+                * `data(int column, int role)`: 获取数据(`QTableWidgetItem`和`QTreeWidgetItem`)
+    * `QLayout`: 
+        * `QSplitter`: 分割器
+            ```cpp
+            // 设置初始化时两侧窗口占比
+            ui->mySplitter->setStretchFactor(0, 1); // 0表示第0个格子. 占比为1
+            ui->mySplitter->setStretchFactor(1, 2); // 1表示第1个格子. 占比为2
+            ```
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * QT Creator生成的MainWindow主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
+        * `QDialog::show()`: 非模态, 非阻塞的. 
+        * `QDialog::exec()`: 模态, 阻塞, 整个系统阻塞掉. 
+        * `QDialog::open()`: 窗口模态, 只会阻塞一个窗口. 
     * 右键菜单: 
         ```cpp
         this->setContextMenuPolicy(Qt::CustomContextMenu);
+        tabMenu = new QMenu(ui->myTable); // 指定在ui->myTable右键时弹出菜单
+
+            QAction *act1 = new QAction("do sth", this);
+            tabMenu->addAction(act1);
+            connect(act1, SIGNAL(triggered(bool)), this, SLOT(handel_act1)); // 绑定slot
+
+        connect(ui->myTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(my_show_tabMenu(QPoint))); // 绑定slot, 以在点击位置弹出菜单
+
+        void MyWidget::my_show_tabMenu(QPoint) {
+            tabMenu->exec(QCursor::pos());
+        }
         ``` 
     * `QButton`: 
         * 示例: 
@@ -66,15 +89,32 @@
             ```
     * `QTableWidget`: 表格组件
         * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
+        * 属性
+            * `sortingEnabled`: 设置是否可按列排序.  
+            * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
         * 示例: 
             ```cpp
-            QTableWidget qTableWidget; 
-            int rowNum = qTableWidget.rowCount(); // 获取当前行数
-            qTableWidget.clearContents(); // 清空表格内容
-            qTableWidget.setRowCount(0); // 清空表格行
+            // QTableWidget ui->myTableWidget; 
+            int rowNum = ui->myTableWidget.rowCount(); // 获取当前行数
+            ui->myTableWidget.clearContents(); // 清空表格内容
+            ui->myTableWidget.setRowCount(0); // 清空表格行
 
-            qTableWidget.insertRow(rowNum); // 在第rowNum行前插入新行. 若参数大于当前表格最大行号, 则在表格末尾插入. 这里的写法就是末尾插入. 
-            QTableWidgetItem* pQTableWidgetItem = new QTableWidgetItem(); 
+            // 设置列宽
+            ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
+            ui->myTableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents); // 设置列宽按内容变化. 
+
+            ui->myTableWidget->insertRow(rowNum); // 在第rowNum行前插入新行. 若参数大于当前表格最大行号, 则在表格末尾插入. 这里的写法就是末尾插入. 
+
+            // 在行中插入新的单元格
+            QTableWidgetItem* pQTableWidgetItem1 = new QTableWidgetItem(); 
+            ui->myTableWidget->setItem(rowNum, 0, pQTableWidgetItem1); // 在第0列插入
+
+            // 在列中插入控件(比如按钮)
+            ui->myTableWidget->setCellWidget(row, 0, myButton); 
+
+            // 清空表格
+            ui->myTableWidget->clearContents(); // 不会去除表头
+            ui->myTableWidget->setRowCount(0 );
             ```
     * `QTreeWidget`: 树组件
         * 示例: 
@@ -202,13 +242,15 @@
 
         // 取回数据
         MyStruct ms2 = pMyWidget->data(0, QT::UserRole).value<MyStruct>();
-            ```
+        ```
     
     * `QVariantList`: 该列表类型可以保存`QVariant`类型
         ```cpp
         QVariantList qvList;
         qvList.append();
         ```
-
+* 其他
+    * 时间
+        * `QDateTime::currentDateTime().toString()`: 获取当前日期
 * 问题
     * 在另一个线程中动态添加新建的控件时, 新控件要以new的形式创建, 不能是局部作用域中的变量. 

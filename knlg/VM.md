@@ -66,7 +66,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     RUN yum install vim -y
     ```
     之后运行`docker build -t <镜像名> .`
-* save, load, import, export
+* `save`, `load`, `import`, `export`
     ```sh
         docker save -o my_image.tar <镜像名>
 

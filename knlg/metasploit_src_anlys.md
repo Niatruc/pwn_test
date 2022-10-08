@@ -16,15 +16,15 @@
     * `next`: 执行下一行代码
     * `finish`: 运行至函数返回
     * `break`: 列出所有断点
-        `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
-        `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.
-        `break app/models/user.rb:15`: 在`user.rb`的15行设置断点.
-        `break 14`: 在当前文件的第14行设置断点
-        `break --condition 4 x > 2`: 给断点4设置条件.
-        `break --condition 3`: 移除断点3处的条件.
-        `break --delete 5`: 删除断点5.
-        `break --disable-all`: 禁用所有断点
-        `break --show 2`: 打印断点2的详情         
+        * `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
+        * `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.
+        * `break app/models/user.rb:15`: 在`user.rb`的15行设置断点.
+        * `break 14`: 在当前文件的第14行设置断点
+        * `break --condition 4 x > 2`: 给断点4设置条件.
+        * `break --condition 3`: 移除断点3处的条件.
+        * `break --delete 5`: 删除断点5.
+        * `break --disable-all`: 禁用所有断点
+        * `break --show 2`: 打印断点2的详情         
 
 # 自定义exploit中的`exploit`函数的调用栈
 * `Msf::ExploitDriver.job_run_proc(ctx#Array)`  (`lib/msf/core/exploit_driver.rb`): 其中执行了`exploit.exploit`. 变量`exploit, payload`分别是编码后和编码前的payload对象. (执行`payload.generate`可得到原始payload的字符串)
@@ -32,11 +32,11 @@
 
 # 载荷的生成过程分析
 * 编码器: 用于消除载荷中的坏字节(如'\x00'), 以及为载荷编码(去除坏字节的方式即是进行编码)
-* `lib/msf/core/encoded_payload.rb`文件: `Msf::EncodedPayload#generate` -> `generate_raw` => `encode` => `generate_sled` => {`self.encoded = (self.nop_sled || '') + self.encoded`}, 最终载荷的组成是**nop雪橇 + 解码器存根(除去最后的0-4个字节, 这些拼到payload中来对齐) + 编码后的payload**
+* `lib/msf/core/encoded_payload.rb`文件: `Msf::EncodedPayload#generate` -> [`generate_raw` => `encode` => `generate_sled` => {`self.encoded = (self.nop_sled || '') + self.encoded`}], 最终载荷的组成是**nop雪橇 + 解码器存根(除去最后的0-4个字节, 这些拼到payload中来对齐) + 编码后的payload**
     * `Msf::EncodedPayload#generate_raw` -> `generate_complete` -> `Msf::Payload::Windows::ReverseTcp.generate` -> `generate_reverse_tcp`: 产生汇编代码, 并通过`Metasm::Shellcode.assemble(Metasm::X86.new, combined_asm).encode_string`进行汇编得到字节码. 
     * `Msf::EncodedPayload#encode`: 如果没有指定encoder, 这个方法会依次尝试符合指定的cpu架构和平台架构的各个编码器. 每个编码器都可能对载荷进行反复编码(用户可指定迭代次数). 如果编码成功了(载荷中没有坏字节, 且载荷的大小(包含nop滑板)大于要求的最小字节数), 则停止编码. 
-        * `Msf::Encoder#encode` -> `do_encode` -> `MetasploitModule#decoder_stub` => `MetasploitModule#encode_block`. 后面这两个方法产生的字符串拼接起来得到编码后的payload. 各个编码器都会覆写这两个方法. 不同编码器会实现一个`MetasploitModule`类. 下面以`x86/shikata_ga_nai`编码器为例: 
-            * `decoder_stub`: 生成解码器存根. 各个编码器会独立实现该方法. 在该方法的上下文中, `state.orig_buf`为未编码payload, `state.buf`最后会保存编码后的payload. 
+        * `Msf::Encoder#encode` -> `do_encode` -> [`MetasploitModule#decoder_stub` => `MetasploitModule#encode_block`]. 后面这两个方法产生的字符串拼接起来得到编码后的payload. 各个编码器都会覆写这两个方法. 不同编码器会实现一个`MetasploitModule`类. 下面以`x86/shikata_ga_nai`编码器为例: 
+            * `decoder_stub`: 生成**解码器存根**. 各个编码器会独立实现该方法. 在该方法的上下文中, `state.orig_buf`为未编码payload, `state.buf`最后会保存编码后的payload. 
                 * `generate_shikata_block`: 
                     * 创建了大量`Rex::Poly::LogicalBlock`实例: 
                         * 每个这类实例中有`@perms`列表(实例初始化的时候, 二参及以后的参数形成的列表转为`@perms`), 列表中的每一项代表一条可选的指令. 

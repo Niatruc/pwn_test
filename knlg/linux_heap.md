@@ -1,52 +1,48 @@
-**堆溢出基础**: 
-参考:
-* [堆溢出-Glibc堆结构](https://kabeor.cn/堆溢出-Glibc堆结构)
-* https://azeria-labs.com/heap-exploitation-part-2-glibc-heap-free-bins/
-* [堆漏洞基础](https://heap-exploitation.dhavalkapil.com/)
-* [Nightmare](https://guyinatuxedo.github.io/): 一个CTF二进制安全和逆向工程的教学.
+* 堆溢出基础
+    * 参考:
+        * [堆溢出-Glibc堆结构](https://kabeor.cn/堆溢出-Glibc堆结构)
+        * https://azeria-labs.com/heap-exploitation-part-2-glibc-heap-free-bins/
+        * [堆漏洞基础](https://heap-exploitation.dhavalkapil.com/)
+        * [Nightmare](https://guyinatuxedo.github.io/): 一个CTF二进制安全和逆向工程的教学.
 
 # 堆中的元数据
-**heap_info**: 
-```c
-struct _heap_info
-{
-  mstate ar_ptr;           // Arena for this heap. <--- Malloc State pointer
-  struct _heap_info *prev; // Previous heap.
-  size_t size;            // Current size in bytes.
-  size_t mprotect_size;   // Size in bytes that has been mprotected
-  char pad[-6 * SIZE_SZ & MALLOC_ALIGN_MASK]; // Proper alignment
-} heap_info; 
-```
+* heap_info: 
+    ```cpp
+    struct _heap_info
+    {
+        mstate ar_ptr;           // Arena for this heap. <--- Malloc State pointer
+        struct _heap_info *prev; // Previous heap.
+        size_t size;            // Current size in bytes.
+        size_t mprotect_size;   // Size in bytes that has been mprotected
+        char pad[-6 * SIZE_SZ & MALLOC_ALIGN_MASK]; // Proper alignment
+    } heap_info; 
+    ```
 
-**arena**
+* arena
+    * 指每个线程独自拥有的一块内存区域. `main arena`则代表程序的初始堆. 每个arena有一个`mutex`来控制访问权限. 操作arena前线程需要获得锁(某些操作如`访问fastbins`除外).
+    * 每个chunk的size字段的倒数第三位(N)如果被设置为1, 则表示该块属于非主arena, 否则就是在主arena.
+    * 非主arena的堆的底部是heap_info, 其中的第一个字段`ar_ptr`指向arena.
 
-指每个线程独自拥有的一块内存区域. `main arena`则代表程序的初始堆. 每个arena有一个`mutex`来控制访问权限. 操作arena前线程需要获得锁(某些操作如`访问fastbins`除外).
+    <img alt="get_non_main_arena_from_chunk" src="./pic/get_non_main_arena_from_chunk.png" width="30%" height="30%">
 
-每个chunk的size字段的倒数第三位(N)如果被设置为1, 则表示该块属于非主arena, 否则就是在主arena.
+* 块chunk
 
-非主arena的堆的底部是heap_info, 其中的第一个字段`ar_ptr`指向arena.
-
-<img alt="get_non_main_arena_from_chunk" src="./pic/get_non_main_arena_from_chunk.png" width="30%" height="30%">
-
-**块chunk**
-
-<img alt="chunk_freed_CS" src="./pic/chunk_freed_CS.png" width="60%" height="60%">
+    <img alt="chunk_freed_CS" src="./pic/chunk_freed_CS.png" width="60%" height="60%">
 
 * 当前块是否为"使用中", 取决于紧邻的下一块的prev_inuse位是否为1.
 
-
-**常量**
-|Parameter|32 bit|i386|64 bit|
-|--|--|--|--|
-|MALLOC_ALIGNMENT | 8 | 16 | 16
-|MIN_CHUNK_SIZE | 16 | 16 | 32
-|MAX_FAST_SIZE | 80 | 80 | 160
-|MAX_TCACHE_SIZE | 516 | 1,020 | 1,032
-|MIN_LARGE_SIZE | 512 | 1,008 | 1,024
-|DEFAULT_MMAP_THRESHOLD | 131,072 | 131,072 | 131,072
-|DEFAULT_MMAP_THRESHOLD_MAX | 524,288 | 524,288 | 33,554,432
-|HEAP_MIN_SIZE | 32,768 | 32,768 | 32,768
-|HEAP_MAX_SIZE | 1,048,576 | 1,048,576 | 67,108,864(0x4000000)
+* 常量
+    |Parameter|32 bit|i386|64 bit|
+    |--|--|--|--|
+    |MALLOC_ALIGNMENT | 8 | 16 | 16
+    |MIN_CHUNK_SIZE | 16 | 16 | 32
+    |MAX_FAST_SIZE | 80 | 80 | 160
+    |MAX_TCACHE_SIZE | 516 | 1,020 | 1,032
+    |MIN_LARGE_SIZE | 512 | 1,008 | 1,024
+    |DEFAULT_MMAP_THRESHOLD | 131,072 | 131,072 | 131,072
+    |DEFAULT_MMAP_THRESHOLD_MAX | 524,288 | 524,288 | 33,554,432
+    |HEAP_MIN_SIZE | 32,768 | 32,768 | 32,768
+    |HEAP_MAX_SIZE | 1,048,576 | 1,048,576 | 67,108,864(0x4000000)
 
 # libc堆管理中的'向前'和'向后'
 libc的块(chunk)头部中, 有两个字段fd和bk, 意思分别是**向前forward和向后backward**.
@@ -114,8 +110,7 @@ libc的块(chunk)头部中, 有两个字段fd和bk, 意思分别是**向前forwa
 
 
 ## fastbinsY数组存储fastbins的规则
-https://blog.csdn.net/qq_41453285/article/details/96865321
-
+* https://blog.csdn.net/qq_41453285/article/details/96865321
 * 每个fast bin链表都是单链表(**`使用fd指针`**). 因此，fast bin中无论是添加还是移除fast chunk，都是对“链表尾”进行操作，而不会对某个中间的fast chunk进行操作. 
 * 单个fastbin链表中的chunk大小都是相同的，各个fastbin链表中的chunk大小是不同的. 
 * fastbinY数组中的每个bin链表的排序，是按照链表元素的大小进行排序的. 数组的第一个元素的fast bin链表中的每个chunk的大小是32字节，数组的第二个元素的fast bin链表中的每个chunk的大小是48字节......每个元素都比前面的fast bin链大`16字节`，以此类推进行排序. 
@@ -175,3 +170,42 @@ chunk中使用了两个新指针:
     2. 暴力破解canary. 这种方法利用起来有限制，就是一般要程序中有fork函数创造出子进程，因为子进程是父进程复制出来的，所以canary也就跟父进程相同，在子进程中覆盖canary后报错就会退回到父进程，此时canary的值是不会改变的. 
     3. 劫持stack_chk_fail. 因为canary被覆盖的时候会调用这个函数，所以如果我们可以利用程序中的漏洞(比如格式化字符串)改got表中stack_chk_fail的地址为one_gadget的地址就能getshell. 
     4. 利用stack_chk_fail的报错信息. 在报错信息中，会将你发生栈溢出的程序名调用输出，其位置位于argv[0]，我们可以将argv[0]的地址改写为我们想要获取的内容的地址，使它随着错误提示一起输出. 
+
+
+# 堆实验记录
+* bk指针指向新入链的块, 即沿着bk的方向, 越往后的块是更晚进bins的块. 如下图, 数字表示free的顺序.
+
+    <img alt="bins2" src="./pic/bins2.jpg" width="50%" height="50%">
+
+    <img alt="bins3" src="./pic/bins3.jpg" width="50%" height="50%">
+
+* 新分配块没能在unsorted链中找到时, unsorted链中的空闲块都会根据其大小放到small或large链中
+
+    <img alt="unsorted2large1" src="./pic/unsorted2large1.jpg" width="50%" height="50%">
+
+    <img alt="unsorted2large2" src="./pic/unsorted2large2.jpg" width="50%" height="50%">
+
+* 新free一块, 它的相邻freed块在large链中, 进行合并, 得到新的空闲块如下红框所示. 新的块还是在unsorted链中
+
+    <img alt="unsorted2large3" src="./pic/unsorted2large3.jpg" width="50%" height="50%">
+
+* 在有peda插件的gdb中, 显示bins链时, 箭头所指方向都是更早free的块, **箭头也即fd方向**.
+* malloc如果从bins链中取空闲块时, 取的是fd方向的最前端, 如下图.
+
+    <img alt="after_malloc" src="./pic/after_malloc.jpg" width="50%" height="50%">
+
+
+
+## fastbin
+* 单链表, 以fd指针相连, 沿着fd的指向往后的块越早进链, 最新进链的块是链表的头部.
+
+<img alt="fastbin_free" src="./pic/fastbin_free.jpg" width="70%" height="70%">
+
+* 出链时, 最新进链的块先出. 所以这是LIFO结构.
+
+<img alt="fastbin_calloc" src="./pic/fastbin_calloc.jpg" width="70%" height="70%">
+
+## 其他
+* 放入tcache中的相邻的空闲块没有合并(?). 
+
+<img alt="why1" src="./pic/why1.jpg" width="70%" height="70%">

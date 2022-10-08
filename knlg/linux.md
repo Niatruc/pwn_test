@@ -6,8 +6,15 @@
     3. `sudo apt install codeblocks-contrib`: 安装codeblocks常用插件
 * gcc
     * `-static`: 静态编译
+    * `-I <头文件目录>`
+    * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
+        * `-Map=<map文件路径>`: 生成map文件
+        * `-Bstatic -l<库名>`: 指定静态链接库
+        * `-Bdynamic -l<库名>`: 指定动态链接库
+        * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
 * make
     * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
+    * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
 
 # 调试
 ## GDB
@@ -19,7 +26,7 @@
         * 在进入gdb后, 可以`set args <程序参数>`
 * coredump: 
     * 设置coredump文件限制大小为无限大: `ulimit -c unlimited`
-    * 设置coredump文件生成路径(以root身份): `echo "/my_dir/core-%e-%t-%s-%p" > proc/sys/kernel/core_pattern`, 其中: 
+    * 设置coredump文件生成路径(以root身份): `echo "/my_dir/core-%e-%t-%s-%p" > /proc/sys/kernel/core_pattern`, 其中: 
         * `%e`: 进程名
         * `%t`: 时间戳
         * `%s`: 引起coredump的signal号
@@ -224,8 +231,23 @@
 # ELF文件
 * 工具
     * [XELFViewer](https://github.com/csky6688/xelfviewer)
-* DT_DEBUG
-    * https://blog.csdn.net/weixin_30416493/article/details/116879798 通过got表第一项_DYNAMIC指向的地方的DT_DEBUG的值指向的结构体(其中的第二项r_map指向的结构体的第一项的值是ELF文件载入内存的偏移值), 在linux下获取模块基址. 实验发现, 开启了RELRO时got表的第一项是无效的, 该方法也没用了.
+* `DT_DEBUG`
+    * https://blog.csdn.net/weixin_30416493/article/details/116879798 
+    * 通过got表第一项`_DYNAMIC`指向的地方的`DT_DEBUG`的值指向的结构体(其中的第二项`r_map`指向的结构体的第一项的值是ELF文件载入内存的偏移值), 在linux下获取模块基址. 实验发现, 开启了RELRO时got表的第一项是无效的, 该方法也没用了.
+* 显式链接和隐式链接
+    * 指定加载动态库的方式. 
+    * 隐式: 
+        * 编译后, ELF文件中只保存链接库名字, 不带路径. 
+        * 库的搜索顺序: `/lib` -> `ld.so.conf` -> `LD_LIBRARY_PATH`
+    * 显式: 
+        * `gcc`编译时指定: 
+            * `-Wl,--dynamic-link=<ld库路径>`: 会将elf文件的`Sections`中`.interp`节的`Interpreter`值改成`<ld库路径>`
+            * `-Wl,--rpath=<glibc目录路径>`: 指定优先搜索路径. 
+        * 例: 
+            * `gcc -Wl,--dynamlic-link=./my_lib/ld-2.31.so -Wl,--rpath=./my_lib/`
+            * 注意`./my_lib/`必须是目标运行环境中的合法路径. 所以这里需把程序依赖的libc库拷到目标机, 和目标可执行文件放到同一目录下, 并命名为`mylib`. 
+            
+
 * 问题
     * 运行elf文件时提示"无此文件"
         * 运行`readelf -a <文件>` 查看文件头, 发现如下信息, 提示缺少musl库(一个轻量级标准C库, 类似于glibc, 多见于嵌入式系统). 执行`sudo apt-get install musl`.
@@ -236,7 +258,11 @@
 
 # bash
 
-## 系统指令
+* 常量
+    * `BASH_SOURCE`: 当前文件路径
+        * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径
+
+## 系统指令, 工具
 * 权限
     * `chmod`: 修改文件的rwx权限. 
         * `u+s`: 赋予(可执行)文件s权限, 文件在执行时具有文件所有者的权限(免了sudo). 
@@ -250,6 +276,19 @@
 * 进程
     * `fuser`: 找出正在使用某个文件或目录的进程. 
         * `fuser -v <文件名>`
+    * `pkexec --user <用户名> <可执行文件>`: 允许以其他用户身份执行程序. 未指定用户, 则以root运行. 
+    * `strace`: 跟踪进程的调用和信号. 
+        * `-f -p <pid> -o <输出文件>`
+        * `-s <长度>`: 对于字符串参数, 最大打印长度. 默认为32. 
+        * `-e trace=<调用类型>`: 跟踪特定类型的接口, 这些类型有: 
+            * `%file`: 文件相关调用
+            * `%process`: 进程管理相关调用, 如`fork`, `exec`, `exit_group`
+            * `%network`: 网络通信相关调用, 如`socket`, `sendto`, `connect`
+            * `%signal`: 信号相关调用, 如`kill`, `sigaction`
+            * `%desc`: 文件描述符相关调用, 如`write`, `read`, `select`, `epoll`
+            * `%ipc`: 进程通信相关调用, 如`shmget`等. 
+        * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
+    
 * 文件和目录
     * `ls`
         * `-F`: 后缀表示文件类型
@@ -258,18 +297,53 @@
             * `@`: 符号链接
             * `=>`: 目录
             * `|`: 目录
+* 网络 
+    * `ss`: 类似`netstat`
+        * `-t`: 打印TCP连接
+        * `-u`: 打印UDP连接
+* 系统信息
+    * `uname`
+        * `-r`: 查看内核版本. 
+* 文本
+    * `grep`
+        * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
 * ELF工具
     * `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
     * `ldd`
         * `--version`: 可得到glibc版本
         * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
+    * `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 
+        * `-D`: 反汇编
+        * `-d`: 只反汇编代码部分
+        * `-tT`: 打印所有符号
+    * `objcopy`: 
+        * `–only-section=.data <infile> <outfile>`: 将`.data`节从一个ELF文件复制到另一个文件中. 
+    * `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
+        * `<elf文件> -o <输出文件>`
+    * `ftrace`: https://github.com/elfmaster/ftrace
+
+* git
+    * 去除某个文件的历史提交记录: 
+        1. `git filter-branch -f  --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
+        2. `git push origin --force --all`
+* 库管理
+    * `dpkg`
+        * `-i`: 安装deb包. 
+        * `--instdir=<安装路径>`: 
+        * `dpkg-query -l`: 列出已安装包. 
+        * `-P`: 卸载包. 
+
 * 其他
     * `truncate`: 用于将文件缩小或扩展到指定的大小. 
         * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
         * 扩展文件: `truncate -s +200k file.txt`
     * 打印ansi彩色字体
         * `echo -e "\033[33m彩色\033[0m"`
+    * 设置UTC时间
+        * `sudo cp /usr/share/zoneinfo/UTC /etc/localtime`, 之后执行`date`命令可看到效果. 
+
 
 # 设置
 * 设置sudo无需密码
 > `sudo gedit /etc/sudoers`, 找到`%admin ALL=(ALL) ALL`和`%sudo ALL=(ALL) ALL`, 改为`%admin ALL=(ALL) NOPASSWD: ALL`和`%sudo ALL=(ALL) NOPASSWD: ALL`. 
+

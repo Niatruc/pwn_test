@@ -303,8 +303,8 @@
 
 * linux内核调试
     * oops
-        * 两种可能: killed, panic
-        * 设置panic
+        * 两种可能: `killed`, `panic`
+        * 设置`panic`
             * `etc/sysctl.conf`(改完后用`sudo sysctl -p`或`sudo echo 1 > /proc/sys/kernel/panic_on_oops`使之生效)
                 * `kernel.panic_on_oops=1`
                 * `kernel.panic=20`: panic error中自动重启, 等待20秒
@@ -314,7 +314,7 @@
             |0|内核|读|没有找到页|
             |1|用户模式|写|保护错误|
         * 将oops保存为文件
-            * 用apt安装kexec-tools和linux-crashdump
+            * 用apt安装`kexec-tools`和`linux-crashdump`
             * 编辑`/etc/default/kexec`: `LOAD_KEXEC=true`, 重启
             * `sudo /etc/init.d/kdump start`
             * `sudo echo "c" > /peoc/sysrq-trigger`
@@ -411,12 +411,12 @@
         * 二参
             * `GFP_KERNEL`: 空闲内存较少时, 可能进入睡眠, 等待一个页面. 使用它来分配内存的函数必须可重入, 且不能在原子上下文(即中断上下文)中运行. 
             * `GFP_ATOMIC`: 在中断上下文或其它非进程上下文中分配内存时使用之. 
-            * `GFP_USER`: 为用户空间分配内存, 可能睡眠
-            * `GFP_HIGHUSER`: 类似`GFP_USER`, 若有高端内存, 就从高端内存分配
-            * `__GFP_DMA`: 若指定之, 则只在DMA中分配内存
-            * `__GFP_HIGHMEM`: 三个内存区域都用来分配内存
+            * `GFP_USER`: 为用户空间分配内存, 可能睡眠. 
+            * `GFP_HIGHUSER`: 类似`GFP_USER`, 若有高端内存, 就从高端内存分配. 
+            * `__GFP_DMA`: 若指定之, 则只在DMA中分配内存. 
+            * `__GFP_HIGHMEM`: 三个内存区域都用来分配内存. 
 
-    * `vmalloc`: 在虚拟空间分配
+    * `vmalloc`: 在虚拟空间分配. q
 
         ```cpp
         #include <linux/vmalloc.h>
