@@ -29,7 +29,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * 运行容器
 
     `docker run --name <容器名> -it -v <宿主机目录>:<容器目录> <镜像名>`
-
+ 
     `-i`表示交互式操作, `-t`表示终端, `-v`指定挂载目录. 
     
     `-d`可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入.

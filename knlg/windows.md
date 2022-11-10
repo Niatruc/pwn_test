@@ -10,21 +10,21 @@
     * 右键控件 -> 添加变量, 类别可选"值". 完成之后会在对话框类中添加一个成员变量, 空间的值存于其中.
     * `UpdataData(TRUE);`: 调用该函数后, 控件中的值才同步到成员变量中. `FALSE`则从程序更新到界面.
 * 控件
-    * CLabel
-    * CEdit
+    * `CLabel`
+    * `CEdit`
         * 若要文本能换行:
             * 换行符是"\r\n"
             * `Mutilines`, `Want return`, `Vertical Scroll`设为true
-    * CCheckbox
-    * CRadiobox
-    * CListctrl
-    * CTabctrl
-    * CRadioButton
-        * Group属性设为true
-        * 最后一个选项的下一个控件的Group属性也要设为true
+    * `CCheckbox`
+    * `CRadiobox`
+    * `CListctrl6`
+    * `CTabctrl`
+    * `CRadioButton`
+        * `Group`属性设为true
+        * 最后一个选项的下一个控件的`Group`属性也要设为true
         * 变量类型设为int, 后面设置最小值和最大值
-    * CCombobox
-        * 在data属性初始化下拉框数据, 每一项用分号隔开
+    * `CCombobox`
+        * 在`data`属性初始化下拉框数据, 每一项用分号隔开
         * 代码
             ```cpp
             CComboBox *pCombo = (CComboBox *)GetDlgItem(IDC_COMBO_TEST1); // 拿到控件指针
@@ -33,8 +33,8 @@
             Ctring szProvince;
             pCombo->GetLBText(pCombo->GetCurSel(), szProvince); // 获取当前选中的项的文本
             ```
-    * CListControl: 表格
-        * view属性改为report
+    * `CListControl`: 表格
+        * `view`属性改为report
         * 代码
             ```cpp
             // 插入列
@@ -86,7 +86,7 @@
             }
             m_listCtrl.SortItems((PFNLVCOMPARE)SortByColumn, (LPARAM) &m_listCtrl);
             ```
-    * CMenu
+    * `CMenu`
         * 可作为右键弹出的菜单. 在资源视图中新增
         * 代码
             ```cpp
@@ -240,6 +240,14 @@ BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttribu
 
 ## 进程操作
 ```cpp
+
+// 枚举所有进程
+BOOL EnumProcesses(
+    _Out_ DWORD * pProcessIds, // 一个数组, 接收所有进程id
+    _In_ DWORD CB, // 数组长度
+    _Out_ DWORD * pBytesReturned // 用于接收返回数据的长度
+);
+
 // 枚举进程中的模块
 BOOL EnumProcessModules(
   IN  HANDLE  hProcess, // 进程句柄
@@ -250,6 +258,7 @@ BOOL EnumProcessModules(
 
 // 根据模块的内存基址, 获取模块文件名称
 GetModuleBaseName
+
 // 根据模块的内存基址, 获取模块文件完整路径
 DWORD GetModuleFileNameExW(
     HANDLE  hProcess,
@@ -322,3 +331,6 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 * 点击开始菜单时出现错误: `您的“开始菜单”出现了问题。我们将尝试在你下一次登录时修复它。`
     * 以管理员权限启动powershell: `Start-Process powershell -Verb runAs`
     * 执行`Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register “$（$_.InstallLocation）\AppXManifest.xml”}`, 然后重启电脑. 
+
+* 打开事件管理器
+    * `eventvwr`

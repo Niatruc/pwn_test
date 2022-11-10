@@ -13,12 +13,16 @@
     * `%wZ`: Unicode
     * `%zx`: 64位16进制
     * `%zd`或`%I64d`: 64位10进制
+    * `%u`: 无符号整数
+    * `%lu`: unsigned long, DWORD
     * `%ls`: 宽字符串
     * `%hs`: 窄字符串
     * `scanf("%[^\n]%*c", str);`
         * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空格就中断)
         * `%[^\n]`: 
         * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
+* 拷贝函数
+    * `strcpy_s(dst, len, src)`: `len`的长度需为`strlen(src) + 1`. 如果用`strlen(src)`, 则`src`的第一个字符拷贝不到(对应位置是0)
 
 * 执行程序
     * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
@@ -269,16 +273,21 @@
     #define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
 
     // 可变参数宏(把...原封不动转到__VA_ARGS__位置)
+    // 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
     #define DEBUG(...) printf(__VA_ARGS__)
     ```
 
     * 预定义宏
         |宏|描述|
         |-|-|
-        |__LINE__|	这会在程序编译时包含当前行号. |
         |__FILE__|	这会在程序编译时包含当前文件名. |
+        |__LINE__|	这会在程序编译时包含当前行号. |
+        |__FUNCTION__|	这会在程序编译时包含当前函数名. |
         |__DATE__|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
         |__TIME__|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
+
+* 预编译选项
+    * `#pragma execution_character_set("utf-8")`: 告诉msvc编译器, 当前文件以utf8编码编译. 
 
 * 问题代码
 
@@ -483,7 +492,7 @@
         private: // 私有成员只有类和友元函数可以访问私有成员
     }
 
-    int C::s; // 对于静态成员, 必须在类的声明外再定义一次. 
+    int C::s; // 对于静态成员, 必须在类的声明外再定义一次. 否则在编译时可能出现`Undefined Reference`的错误
 
     void C::sFunc() {
         s; // 静态成员函数可以直接访问静态成员
@@ -652,6 +661,8 @@ std::string s = "s";
 
 // 数字转字符串
 std::to_string(1234); 
+
+s = s.erase(1, 3); // 从第一个字符开始, 删除3个字符
 
 // stringstream
 #include <sstream>
@@ -907,6 +918,9 @@ std::to_string(1234);
             a++;
         };
         f();
+
+        // lambda表达式作为参数
+        void f(std::function<int<void>>& do_func);
 
         ```
     * 注

@@ -1,8 +1,57 @@
 # QT
 ## 信息
-* 要素
+* 要素/特点
     * 跨平台: Linux, Windows
     * QML: 类似HTML, 可用JS交互, 用CSS操纵样式. 
+    * 元对象编译器(MOC)
+        * 一个预处理器, 程序编译前会先将带有Qt特性的程序转为标准C++兼容的格式. 
+        * QtCore模块是QT类库的核心. 
+        * 比如, 使用了信号机制的类, 都会有一个`Q_OBJECT`宏. 
+    * 元对象系统
+        * 三个基础
+            * `QObject`类是所有使用元对象系统的类的基类. 
+            * 在类的private部分声明`Q_OBJECT`, 则类可以使用元对象的特性, 包括动态属性, 信号和槽. 
+            * MOC为每个`QObject`的子类提供必要的代码来实现元对象系统的特性. 
+        * API
+            * `QObject::metaObject()`: 返回类关联的元对象(即`QMetaObject`对象)
+            * `QMetaObject::className()`: 返回类名. 
+            * `QMetaObject::newInstance()`: 创建类的一个新实例. 
+            * `QObject::inherits(const char* className)`: 判断一个实例是否是名为`className`的类的实例. 
+            * `QObject::tr()`, `QObject::trUtf8()`: 可翻译字符串, 用于多语言界面设计. 
+            * `QObject::setProperty()`, `QObject::property()`: 可通过属性名称动态设置属性和获取属性. 
+            * `qobject_cast`: 动态映射, 类似于C++的`dynamic_cast`, 只是其不需要RTTI的支持, 而且可以跨越动态链接库的边界. 
+                ```cpp
+                QObject *obj = new QMyWidget;
+                QWidget *widget = qobject_cast<QWidget *>(obj); // obj原先是指向QMyWidget类的, 将其投射为QWidget
+                ```
+    * 属性系统
+        * 基于元对象系统实现
+        * 
+        ```cpp
+        Q_PROPERTY(type name // 分别指明返回值类型和属性名称
+            (READ getFunc [WRITE setFunc] | MEMBER memberName [(READ getFunc | WRITE setFunc)]) // MEMBER指定一个成员变量与属性关联
+            [RESET resetFunc] // 指定函数, 用于设置缺省值
+            [NOTIFY notifyFunc] // 设置一个信号, 属性值发生变化时, 包含该属性的对象会发送发射此信号(要设置MEMBER)
+            [REVISION int]
+            [DESIGNABLE bool] // 表示属性是否能在Qt Designer中可见. 默认为true
+            [SCRIPTABLE bool]
+            [STORED bool]
+            [USER bool]
+            [CONSTANT] // 表示属性值是一个常数(不能有WRITE和NOTIFY)
+            [FINAL] // 表示所定义的属性不能被子类重载
+        )
+
+        // 例
+        Q_PROPERTY(bool enabled READ isEnabled WRITE setEnabled)
+
+        bool enabled;
+        ```
+
+        * 注: 
+            * `NOTIFY`指定的信号只在`setProperty`时触发, 直接用等号赋值不会触发. 
+    * `Q_CLASSINFO`: 
+        * 可为类的元对象添加`名称-值`的附加信息, 如`Q_CLASSINFO("author", "Tom")`. 
+        * 获取元信息: `QMetaObject::classInfo(int index)`, 返回`QMetaClassInfo`对象, 其中有`name()`和`value()`两个函数可用. 
 
 * .pro文件
     * `LIBS += -L路径 -l库名`: 添加库. 对于系统库, 在QT已设好环境变量的情形中, 则不需要`-L路径`
@@ -45,6 +94,11 @@
                 * `event->ignore()`: 执行该句, 则窗口不会关闭. 
         * 接口
             * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
+            * `setWindowModality(type)`: 设置模态, 以禁止其他界面响应. 
+                * `type`: 
+                    * `Qt::NonModal`
+                    * `Qt::WindowModal`: 阻塞父窗口, 父窗口的父窗口, 兄弟窗口. 
+                    * `Qt::ApplicationModal`
             * `setVisible(bool)`: 设置组件是否可见. 
             * 在组件中绑定数据
                 * `Q_DECLARE_METATYPE`: 
@@ -140,7 +194,8 @@
             * 渲染html的性能比`QTextEdit`好. 
                 * `appendHtml(sth)`: 不会换行
     * `QtFileDialog`: 文件选择对话框
-        * 
+        * `QString d = QFileDialog::getExistingDirectory();`
+        * `QString d = QFileDialog::getOpenFileName();`
     * `QLable`
         * 设置图标: 
             * `QMovie`: 可在`QLable`组件中设动图
@@ -195,6 +250,7 @@
             * `quit`: 在`run`函数中调用之, 可主动结束线程. 
             * `exit`: 
             * `wait`: 
+            * `terminate`: (暴力)结束线程
     * `QtConcurrent`: 可以以lambda的形式启动新线程. 
         ```cpp
         #include <QtConcurrent/QtConcurrent>
@@ -208,8 +264,33 @@
         });
         future.waitForFinished(); // 阻塞当前线程, 等待子线程返回结果
         ```
+    * `QThreadPool`
+        * `::globalInstance()`: 全局`QThreadPool`对象. 
+    * `QRunnable`
+        * 需要借助`QThreadPool`启动. 
+    * 线程同步
+        * 使用`QWaitCondition`和`QMutex`
+            ```cpp
+            // 主线程
+            mutex.lock();
+            Send(&packet);
+            condition.wait(&mutex); // 会阻塞
+            if (m_receivedPacket) {
+                HandlePacket(m_receivedPacket); // 另一线程传来回包
+            }
+            mutex.unlock();
+
+            // 通信线程
+            m_receivedPacket = ParsePacket(buffer);  // 将接收的数据解析成包
+            mutex.lock();
+            condition.wakeAll();
+            mutex.unlock();
+            ```
+
+            * `QWaitCondition::wait(QMutex* mutex)`: 会阻塞线程, 直到调用`wakeAll`或`wakeOne`. 官方说法, `wait`会释放`mutex`并作等待. 此外, `mutex`会"返回到相同的锁定状态"(可能是指又返回到lock状态). 这个函数做的工作是从锁定状态到等待状态的原子转换. 
     * 注意
         * 启动一个QThread子线程, 并在子线程中调用主线程生成的组件的渲染函数(如, 对`QTextEdit`组件调用`append`函数), 会导致程序崩溃退出(`0xC0000005`)
+
 * 数据
     * `QString`
         ```cpp
@@ -225,7 +306,9 @@
 
         QString::number(1);
 
-        QString::fromWCharArray(宽字符数组);
+        QString::fromWCharArray(L"宽字符串");
+        QString::fromStdString;
+        QString::fromStdWString;
         ```
 
     * `QVariant`: 在组件上保存数据和传输数据时用该类
@@ -249,8 +332,67 @@
         QVariantList qvList;
         qvList.append();
         ```
+
+* 文件和目录
+    * 获取程序工作目录: `QDir::currentPath()`
+    * 获取程序文件所在目录: `QCoreApplication::applicationDirPath()`
+    * `QDir`
+        ```cpp
+        QDir dir("./mydir");
+        (dir.removeRecursively())
+        ```
+    * `QFile`
+        * 打开方式
+            |||
+            |-|-|
+            |QIODevice::ReadOnly|以只读方式打开文件|
+            |QIODevice::WriteOnly|只写方式|
+            |QIODevice::ReadWrite|读写方式|
+            |QIODevice::Append|追加模式打开，新写入文件的数据添加到文件尾部|
+            |QIODevice::Truncate|截取方式打开文件，文件原有的内容全部被删除|
+            |QIODevice::Text|文本方式打开文件，读取时“\n”被自动翻译为换行符|
+        * 例
+            ```cpp
+            // 参考: https://blog.csdn.net/ligare/article/details/124494533
+            QFile file("./f1");
+            if(!file.open(QIODevice::Append)) {
+                return 0;
+            }
+
+            // 读文件
+            while(!file.atEnd()) {
+                //方式1
+                QByteArray array2 = file.readLine();
+                qDebug() << array2;
+
+                //方式2
+                char buf[1024];
+                qint64 lineLength = file.readLine(buf, sizeof(buf));
+                if (lineLength != -1)
+                {
+                    // the line is available in buf
+                    qDebug() << "行" << buf;
+                }
+            }
+            // 方式3
+            QTextStream in(&file);
+                while (!in.atEnd()) {
+                QString line = in.readLine();        
+            }
+
+            // 写文件
+            //方式1
+            QByteArray ba1 = "1236546";
+            file.write(ba1);//叠加调用并不会换行
+            //方式2
+            QTextStream aStream(&file); //用文本流读取文件
+            QString str="xsx";//叠加调用并不会换行
+            aStream<< endl << str; //写入文本流,在字符的前面会换行
+
+            ```
 * 其他
     * 时间
         * `QDateTime::currentDateTime().toString()`: 获取当前日期
 * 问题
     * 在另一个线程中动态添加新建的控件时, 新控件要以new的形式创建, 不能是局部作用域中的变量. 
+    * `Cannot send events to objects owned by a different thread. `

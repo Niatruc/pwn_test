@@ -224,22 +224,22 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `pDeviceObject->MajorFunction[...] = ...`, 注册分发函数.
     * `pDeviceObject->DriverUnload = ...`
 
-* 内核漏洞产生原因
+* 防范内核漏洞
     * 不要使用 `MmIsAddressValid` 函数, 这个函数对于校验内存结果是不可靠的. 
         * 攻击者只需要传递第一个字节在有效页, 而第二个字节在无效页的内存就会导致系统崩溃, 例如 0x7000 是有效页, 0x8000 是无效页, 攻击者传入 0x7fff. 
         * 分页中的异常
-            * page in: 从磁盘读回物理内存
-            * page out: 从物理内存写到磁盘
+            * `page in`: 从磁盘读回物理内存
+            * `page out`: 从物理内存写到磁盘
             * 导致分页异常的几种情况: 
                 * 访问没有锁定在内存中的分页池
                 * 调用可分页(pageable)的例程
                 * 在用户线程的上下文中访问没有被锁定的(unlocked)用户缓存
             * 几种分页异常:
-                * hard page fault: 
+                * `hard page fault`: 
                     * 访问的内存不在虚拟地址空间, 也不在物理内存中.
                     * 需要从swap分区写回物理内存也是此异常.
-                * minor page fault(soft page fault): 访问的内存不在虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
-                * invalid fault(segment fault): 访问的内存地址不再虚拟空间内, 属于越界访问.
+                * `minor page fault`(`soft page fault`): 访问的内存不在虚拟地址空间, 但在物理内存中, 只需MMU建立物理内存和虚拟地址空间的映射关系. 比如多个进程访问同一共享内存, 某些进程还没建立映射关系.
+                * `invalid fault`(`segment fault`): 访问的内存地址不在虚拟空间内, 属于越界访问.
     * 在 `try_except` 内完成对于用户态内存的任何操作(包括`ProbeForRead`, `ProbeForWrite`等函数, 检查用户模式缓冲区是否实际驻留在地址空间的用户部分,并正确对齐)
     * 留心长度为 0 的缓存, 为 NULL 的缓存指针和缓存对齐
         * `ProbeForRead`, `ProbeForWrite`等函数的二参`Length`参数为0时, 它们不工作, 可导致绕过. 
@@ -645,6 +645,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     uStr.Buffer = sz;
     uStr.Length = wcslen(L"Hello");
     uStr.MaximumLength = sizeof(sz);
+
+    // 打印
+    DbgPrint("%wZ\n", &uStr);
     ```
 
 * 常用API
@@ -676,7 +679,13 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     RtlUnicodeStringCopy(&uStr1, &str1);
     RtlUnicodeStringCat(&uStr1, &str1);
 
-    // 将char字符串转为w_char字符串
+    // 将char字符数组转为w_char字符数组
+    NTSTRSAFEDDI RtlStringCbPrintfW( // 用于替代swprintf_s函数
+        [out] NTSTRSAFE_PWSTR  pszDest,
+        [in]  size_t           cbDest,
+        [in]  NTSTRSAFE_PCWSTR pszFormat,
+        ...              
+    );
     ```
 
 * UNICODE_STRING常见问题
@@ -690,7 +699,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 内核: `L"\\??\\c:\\a.txt"` -> `"\\device\\harddiskvolume3\\a.txt"`, 前面问号是卷设备对象的符号链接名.
         * 注意: 实验发现, **反斜杠不能多!**
     * R3: 设备名: `L"\\\\.\\xxDrv"`
-    * R0: 设备名: `L"\\device\\xxDrv"`; 符号链接名: `"\\dosdevices\\xxDrv"` -> `"\\??\\xxDrv"`
+    * R0: 
+        * 设备名: `L"\\device\\xxDrv"`; 
+        * 符号链接名: `"\\dosdevices\\xxDrv"` -> `"\\??\\xxDrv"`
 * 内核文件操作API
     * 参考: 
         * 异步读写文件: https://blog.actorsfit.com/a?ID=01250-c1a81826-93fe-49ff-8f3a-3c95f78ca582
@@ -775,14 +786,15 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `ZwReadFile`
     * `ZwQueryInformationFile`读取文件属性, `ZwSetInformationFile`: 可用于删文件
         * 第五参
-            * FileBasicInformation
-            * FileStandardInformation
-            * FileRenameInformation: 重命名文件时用
-            * FileDispositionInformation: 删文件时用
+            * `FileBasicInformation`
+            * `FileStandardInformation`
+            * `FileRenameInformation`: 重命名文件时用
+            * `FileDispositionInformation`: 删文件时用
     * `ZwQueryFullAttributesFile`: (irp_mj_set_information). 可删除和重命名文件
     * `ZwClose`
     * `ZwQueryDirectoryFile`: 遍历文件夹
     * `RtlVolumnDeviceToDosName(fileObject->DeviceObject, &DosDeviceName)`: 得到文件所属设备的名称(如`C:`)
+    * `IoQueryFullDriverPath(drvObj, &fullPath)`: 获取驱动程序文件完整路径. 
 * 其他知识点
     * 8个扇区 == 1个簇
 
@@ -924,15 +936,15 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 * BIOS和MBR
     * 流程
         * 启动电源, 硬件初始化检查.
-        * 根据CMPS的设置, BIOS加载启动盘, 将MBR的引导代码载入内存, 然后启动过程由MBR来执行.
-        * 搜索MBR中的分区表DPT, 找到活动分区, 将其VBR中的引导代码载入内存`0x07c00`处.
-        * 引导代码检测当前使用的文件系统, 查找ntldr文件, 启动之.
-        * BIOS将控制权转交给ntldr, 由它完成操作系统的启动. (Win7是BootMgr)
-    * MBR: 物理硬盘第一扇区0柱面0磁头.
-    * VBR: 卷引导记录, 为每个非扩展分区及逻辑分区的第一个扇区.
-    * DBR(DOS Boot Record): 操作系统进入文件系统后可以访问的第一个扇区. 包括一个引导程序和一个被称为BPB(BIOS Parameter Block)的本分区参数记录表.
-    * EBR(Extended Boot Record): 扩展分区的每个逻辑驱动器的类似MBR的引导记录.
-    * LBA(logical block address 32位): 一个扇区512字节(2^9), 最大支持分区: 2^32 * 2^9 = 2T
+        * 根据`CMPS`的设置, BIOS加载启动盘, 将`MBR`的引导代码载入内存, 然后启动过程由`MBR`来执行.
+        * 搜索`MBR`中的分区表DPT, 找到活动分区, 将其`VBR`中的引导代码载入内存`0x07c00`处.
+        * 引导代码检测当前使用的文件系统, 查找`ntldr`文件, 启动之.
+        * BIOS将控制权转交给`ntldr`, 由它完成操作系统的启动. (Win7是BootMgr)
+    * `MBR`: 物理硬盘第一扇区0柱面0磁头.
+    * `VBR`: 卷引导记录, 为每个非扩展分区及逻辑分区的第一个扇区.
+    * `DBR`(DOS Boot Record): 操作系统进入文件系统后可以访问的第一个扇区. 包括一个引导程序和一个被称为`BPB`(BIOS Parameter Block)的本分区参数记录表.
+    * `EBR`(Extended Boot Record): 扩展分区的每个逻辑驱动器的类似MBR的引导记录.
+    * `LBA`(logical block address 32位): 一个扇区512字节(2^9), 最大支持分区: 2^32 * 2^9 = 2T
 
         <img alt="" src="./pic/mbr.jpg" width="40%" height="40%">
 
@@ -2095,19 +2107,19 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             ```
             * 返回状态
                 * 在PreXxx函数中的返回值:
-                    * FLT_PREOP_SUCCESS_WITH_CALLBACK: 后续要调用PostXxx函数 
-                    * FLT_PREOP_SUCCESS_NO_CALLBACK: 
-                    * FLT_PREOP_COMPLETE: 完成后不下发
-                    * FLT_PREOP_PENDING: 挂起
-                    * FLT_PREOP_DISALLOW_FASTIO: 禁用fastio
-                    * FLT_PREOP_SYNCHRONIZE: 同步
+                    * `FLT_PREOP_SUCCESS_WITH_CALLBACK`: 后续要调用PostXxx函数 
+                    * `FLT_PREOP_SUCCESS_NO_CALLBACK`: 
+                    * `FLT_PREOP_COMPLETE`: 完成后不下发
+                    * `FLT_PREOP_PENDING`: 挂起
+                    * `FLT_PREOP_DISALLOW_FASTIO`: 禁用fastio
+                    * `FLT_PREOP_SYNCHRONIZE`: 同步
                 * 在PostXxx函数中的返回值:
-                    * FLT_POSTOP_FINISHED_PROCESSING
-                    * FLT_POSTOP_MORE_PROCESSING_REQUIRED: 一般发生在post操作的irql比较高时(如dispatch级别), 这时要开一个工作者线程
+                    * `FLT_POSTOP_FINISHED_PROCESSING`
+                    * `FLT_POSTOP_MORE_PROCESSING_REQUIRED`: 一般发生在post操作的irql比较高时(如dispatch级别), 这时要开一个工作者线程
             * 判断Data是什么操作的宏
-                * FLT_IS_IRP_OPERATION: 
-                * FLT_IS_FASTIO_OPERATION: 
-                * FLT_IS_FS_FILTER_OPERATION: 
+                * `FLT_IS_IRP_OPERATION`: 
+                * `FLT_IS_FASTIO_OPERATION`: 
+                * `FLT_IS_FS_FILTER_OPERATION`: 
             * API
                 * FltXxx: 如FltCreateFile
                 * `FltGetFileNameInformation`: 获取文件或目录的名称信息

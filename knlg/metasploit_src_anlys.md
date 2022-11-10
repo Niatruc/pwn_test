@@ -6,7 +6,14 @@
     * M1::C1#f1: 表示模块M1下的C1类的实例方法f1
     * M1::C1.f1: 表示模块M1下的C1类的类方法f1
 
-# pry调试方法
+# MSF的开发者命令
+* `edit`: 编辑当前模块或文件
+* `irb`: 打开交互式shell
+* `log`: 显示`framework.log`文件内容
+* `pry`: 在当前模块或框架中打开调试器. 
+* `reload_lib`: 在当前模块或框架中打开调试器. 
+* `time`: 
+## pry调试方法
 * 在要分析的地方加一行`binding.pry`, 即加上一个断点
 * 指令
     * `backtrace`: 栈跟踪
@@ -90,3 +97,4 @@
             * 从一堆无用指令中取一定数量指令, 比如: `nop`; `xchg eax,edi`; `cdq`; `dec ebp`; `inc edi`; `aaa`; `daa`; `das`; `cld`; `std`; `clc`; `stc`; `cmc`; `cwde`; `lahf`; `wait`; `salc`等
 
 # nop雪橇生成器
+

@@ -1,3 +1,10 @@
+# 文件
+* `proc`: 其下每个目录对应一个进程; 各个进程目录下有如下文件: 
+    * `map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
+    * `kcore`: Linux 内核的动态核心文件. 
+    * `kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
+* `boot`:
+    * `System.map`: 内核符号. 
 # 开发
 * code blocks
     1. `sudo apt install codeblocks`: 
@@ -12,6 +19,7 @@
         * `-Bstatic -l<库名>`: 指定静态链接库
         * `-Bdynamic -l<库名>`: 指定动态链接库
         * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
+    * `-xc xxx`: 以编译C语言代码的方式编译xxx文件
 * make
     * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
     * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
@@ -39,13 +47,33 @@
     * `c`: 继续运行. 
     * `n`: 单步跳过
     * `s`: 步入
+        * `si`: 执行单条指令
     * `finish`: 跳出函数
     * `bt`: 调用栈
     * `l`: 查看源代码
-        * `行号`: 
-        * `函数名`: 
+        * `<行号>`: 列出第`<行号>`行代码
+        * `<函数名>`: 
+    * 打印数值
+        * `display a`: 显示变量a的值
+        * `x/<FMT> <addr>`
+            * 例: `x/10xw &a`: 以16进制的格式, 打印变量a的地址开始后的10个四字节数据. 
+            * 格式可选: o(8进制), x(16进制), d(十进制), u(无符号十进制), t(二进制), f, a(地址), i(指令), c(字符), s(字符串), z(左侧零填充的16进制)
+            * 大小可选: b(1字节), h(2), w(4), g(8)
+        * `i`: 
+            * `breakpoints`: 显示所有断点
+            * `locals`: 显示所有局部变量
+            * `registers`: 显示所有寄存器
     * 断点
         * `b <filename>:<function name>`
+        * `delete n`: 删除第n个断点
+    * `layout`: 界面
+        * `src`: 源程序
+        * `asm`: 汇编
+        * `split`: 源程序和汇编各一个窗口
+    * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
+    * 设置
+        * `set follow-fork-mode child`: 设置gdb在fork之后跟踪子进程. 
+        * `set var a = 1`: 设置变量a的值为1
 
 # 字符串
 * api
@@ -76,11 +104,13 @@
             |SIGINT|	(Signal Interrupt) 中断信号, 如 ctrl-C, 通常由用户生成. |
             |SIGSEGV|	(Signal Segmentation Violation) 非法访问存储器, 如访问不存在的内存单元. |
             |SIGTERM|	(Signal Terminate) 发送给本程序的终止请求信号. |
+            |SIGPIPE|	网络异常时, 使用socket相关函数如`send`等会触发此信号(提示`Broken Pipe`). |
     * `int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);`
         * 参数
             * `signum`: 不可以是`SIGKILL`或`SIGSTOP`. 
             * `act`: 
                 ```cpp
+                // #include <signal.h>
                 struct sigaction {
                     union {
                         void (*sa_handler)(int); 
@@ -190,6 +220,11 @@
     * `int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);`
         * 设置套接字选项. `recv`函数默认为阻塞模式, 没有数据来就会一直阻塞. 这时就可以用`setsockopt`设置超时. 
         * 参数
+            * `optname`
+                * `SO_RCVTIMEO`: 设置接收超时时间. 
+                * `SO_SNDTIMEO`: 设置发送超时时间. 
+                * `SO_RCVBUF`: 为接收确定缓冲区大小. 
+                * `SO_SNDBUF`: 指定发送缓冲区大小. 
             * `optval`: 可设为一个`struct timeval*`值, 以指定超时时间. 
                 * `setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv_out, sizeof(tv_out))`
     * `int bind(int sockfd, const struct sockaddr *addr,socklen_t addrlen);` 将网络地址和端口与套接字绑定. 
@@ -261,6 +296,10 @@
 * 常量
     * `BASH_SOURCE`: 当前文件路径
         * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径
+    * `$@`: 表示目标文件
+    * `$^`: 表示所有依赖文件
+    * `$<`: 表示第一个依赖文件
+    * `$?`: 表示比目标还新的依赖文件列表
 
 ## 系统指令, 工具
 * 权限
@@ -297,6 +336,10 @@
             * `@`: 符号链接
             * `=>`: 目录
             * `|`: 目录
+    * `find <目录>`: 在目录下寻找符合条件的文件
+        * `-name <通配符表达式>`: 查找符合名称的文件
+        * `-type l`: 列出所有符号链接
+        * `-xtype l`: 列出指向不存在的文件的符号链接
 * 网络 
     * `ss`: 类似`netstat`
         * `-t`: 打印TCP连接
@@ -307,11 +350,20 @@
 * 文本
     * `grep`
         * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
+    * `watch`
+        * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
+    * `tail <文件>`: 默认显示文件后10行. 
+        * `<> | tail -20`
 * ELF工具
     * `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
+    * `dress`
+    * `readelf`: 显示elf文件的信息
+        * `-s`: 列出符号表
     * `ldd`
         * `--version`: 可得到glibc版本
         * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
+    * `xdd`
+        * 查看16进制
     * `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 
         * `-D`: 反汇编
         * `-d`: 只反汇编代码部分
@@ -321,7 +373,21 @@
     * `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
         * `<elf文件> -o <输出文件>`
     * `ftrace`: https://github.com/elfmaster/ftrace
+    * `nm xx.so`: 列出object文件的符号
+        * `-c`: 查看导出函数表
+* 编译工具
+    * `make`
+        * Makefile
+            ```sh
+            all: haha.text target1
 
+            target1: $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+            ```
+
+            * 默认执行第一个目标(在上面的文件中, 指`all`). 
+            * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
+            * `M=<工作目录>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. 
+            * 注意上述选项后面接的路径都**必须是完整路径**. 
 * git
     * 去除某个文件的历史提交记录: 
         1. `git filter-branch -f  --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
@@ -344,6 +410,9 @@
 
 
 # 设置
-* 设置sudo无需密码
-> `sudo gedit /etc/sudoers`, 找到`%admin ALL=(ALL) ALL`和`%sudo ALL=(ALL) ALL`, 改为`%admin ALL=(ALL) NOPASSWD: ALL`和`%sudo ALL=(ALL) NOPASSWD: ALL`. 
-
+* sudo
+    * 运行`visudo`(将会编辑`/etc/sudoers`)
+    * 设置sudo无需密码
+    > 找到`%admin ALL=(ALL) ALL`和`%sudo ALL=(ALL) ALL`, 改为`%admin ALL=(ALL) NOPASSWD: ALL`和`%sudo ALL=(ALL) NOPASSWD: ALL`. 
+    * 添加sudo用户
+    > 添加一行: `test ALL=(ALL) ALL`, `test`为用户名

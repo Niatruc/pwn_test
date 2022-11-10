@@ -257,9 +257,10 @@
     * 任意地址写固定数据
 
 * linux下的竞争条件漏洞(race condition)
+    * 由于多个对象(线程/进程等)同时操作同一资源, 导致系统执行违背原有逻辑设定的行为. 
+        * 写多线程程序时, 忘了对共享资源加锁. 
+        * 刻舟求剑: 检查某个对象时, 其它线程可能正在改它, 但程序假设这些对象保持不变
     * 属于TOCTTOU(time-of-check-to-time-of-use)
-    * 写多线程程序时, 忘了对共享资源加锁. 
-    * 刻舟求剑: 检查某个对象时, 其它线程可能正在改它, 但程序假设这些对象保持不变
     * 条件
         * 有两个或以上事件, 两个事件间有一定间隔, 且有一定关系(第二个依赖于第一个). 
         * 攻击者能够改变第一个事件所产生的, 为第二个条件所依赖的假设
@@ -457,6 +458,21 @@
 * 参考资料
     * [参考文档offensive-security.com](https://www.offensive-security.com/metasploit-unleashed/)
     * ["exploit completed but no session was created"问题](https://www.infosecmatter.com/why-your-exploit-completed-but-no-session-was-created-try-these-fixes/)
+* Armitage
+    * msf的GUI工具, 使用Java开发. 
+    * 启动前需先执行: 
+        * 启用postgresql服务
+            > service postgresql start
+        * 初始化msfdb
+            > msfdb init
+        * 启动msfconsole并查看数据库连接状态
+            > msfconsole
+            > db_status
+* msf模块
+    * `auxiliary`: 
+    * `exploits`: 
+    * `payload`: 
+    * `post`: 
 * 自定义exploit示例
     ```rb
     require 'msf/core'
