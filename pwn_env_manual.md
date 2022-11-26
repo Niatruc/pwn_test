@@ -67,6 +67,8 @@ linux_server64 -i192.168.0.104 < ./p1 |xxd
   * 修改`launch.json`, 加上`miDebuggerPath`配置项, 填sh脚本**绝对路径**. 
   * 调试程序时, 会弹框要求输入用户密码, 然后就会`sudo`运行程序. 
 * 想在调试时停在入口处, 则把`stopAtEntry`设为true. 
+* C/C++代码跳转: 
+  * 需要配置`c_cpp_properties`. `ctrl + shift + p`, 输入`C/C++: Edit Configurations (UI)`. 在`Include Path`添加头文件路径, 比如`/usr/include/**`
 
 ## 调试
 * 按f5开始调试, f10单步执行.

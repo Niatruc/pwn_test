@@ -21,6 +21,7 @@
         * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空格就中断)
         * `%[^\n]`: 
         * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
+
 * 拷贝函数
     * `strcpy_s(dst, len, src)`: `len`的长度需为`strlen(src) + 1`. 如果用`strlen(src)`, 则`src`的第一个字符拷贝不到(对应位置是0)
 
@@ -653,23 +654,6 @@
         char *buf[128];
         int *p1 = new(buf) int[10];
         ```
-## 字符串
-```cpp
-#include <string>
-
-std::string s = "s";
-
-// 数字转字符串
-std::to_string(1234); 
-
-s = s.erase(1, 3); // 从第一个字符开始, 删除3个字符
-
-// stringstream
-#include <sstream>
-
-```
-
-* `string`类型参数: 最好传引用, 因为传值会拷贝内存. 写法是`void func(string& s) { s.c_str(); }`
 
 ## 文件和流
 * `close`函数是fstream, ifstream 和 ofstream 对象的一个成员. 
@@ -799,133 +783,153 @@ s = s.erase(1, 3); // 从第一个字符开始, 删除3个字符
         elems.push_back(elem);    
     } 
     ```
-* STL(标准模板库)
-    * 实现多种流行和常用的算法和数据结构, 如向量, 链表, 队列, 栈. 
-        * 容器(Containers): 容器是用来管理某一类对象的集合. C++ 提供了各种不同类型的容器, 比如 deque, list, vector, map 等. 
-            * 序列式容器
-            * 关联式容器
-                * 树形结构: 底层为平衡搜索树(红黑树). set, map, multiset, multimap. 
-                * 哈希结构: 底层为哈希表, 哈希桶. unsorted_set, unsorted_map, unsorted_multiset, unsorted_multimap. 
-        * 算法(Algorithms): 算法作用于容器. 它们提供了执行各种操作的方式, 包括对容器内容执行初始化, 排序, 搜索和转换等操作. 
-        * 迭代器(iterators): 迭代器用于遍历对象集合的元素. 这些集合可能是容器, 也可能是容器的子集. 
-    * `std::vector`: 
-        * 堆上分配. 内存连续, 可随机存取. 是对动态数组的封装. 
-        * 示例: 
-            ```cpp
-            #include <vector>
+### STL(标准模板库)
+* 实现多种流行和常用的算法和数据结构, 如向量, 链表, 队列, 栈. 
+    * 容器(Containers): 容器是用来管理某一类对象的集合. C++ 提供了各种不同类型的容器, 比如 deque, list, vector, map 等. 
+        * 序列式容器
+        * 关联式容器
+            * 树形结构: 底层为平衡搜索树(红黑树). set, map, multiset, multimap. 
+            * 哈希结构: 底层为哈希表, 哈希桶. unsorted_set, unsorted_map, unsorted_multiset, unsorted_multimap. 
+    * 算法(Algorithms): 算法作用于容器. 它们提供了执行各种操作的方式, 包括对容器内容执行初始化, 排序, 搜索和转换等操作. 
+    * 迭代器(iterators): 迭代器用于遍历对象集合的元素. 这些集合可能是容器, 也可能是容器的子集. 
+* `std::vector`: 
+    * 堆上分配. 内存连续, 可随机存取. 是对动态数组的封装. 
+    * 示例: 
+        ```cpp
+        #include <vector>
 
-            std::vector<int> vec; 
-            std::vector<int> vec1(10, 0); // 10个元素都为0
+        std::vector<int> vec; 
+        std::vector<int> vec1(10, 0); // 10个元素都为0
 
-            // 推入 5 个值到向量中
-            for(int i = 0; i < 5; i++){
-                vec.push_back(i);
-            }
+        // 推入 5 个值到向量中
+        for(int i = 0; i < 5; i++){
+            vec.push_back(i);
+        }
 
-            vec.size();
+        vec.size();
 
-            vec[i];
+        vec[i];
 
-            // 使用迭代器 iterator 访问值
-            std::vector<int>::iterator v = vec.begin();
-            while( v != vec.end()) {
-                cout << "value of v = " << *v << endl;
-                v++;
-            }
+        // 使用迭代器 iterator 访问值
+        std::vector<int>::iterator v = vec.begin();
+        while( v != vec.end()) {
+            cout << "value of v = " << *v << endl;
+            v++;
+        }
 
-            // 排序
-            #include <algorithm>
-            sort(vec.begin(), vec.end(), [=](auto a, auto b) {
-                return a < b;
-            });
-            ```
-    * `std::array`: 
-        * 栈上分配. 
-        * 是一个类模板, 其定义为: 
-            ```cpp
-            template <class T, size_t N>
-            class array;
-            ```
-        * 示例: 定义和初始化, 操作. 
-            ```cpp
-            std::array <int, 10> arr = {1, 2};
+        // 排序
+        #include <algorithm>
+        sort(vec.begin(), vec.end(), [=](auto a, auto b) {
+            return a < b;
+        });
+        ```
+* `std::array`: 
+    * 栈上分配. 
+    * 是一个类模板, 其定义为: 
+        ```cpp
+        template <class T, size_t N>
+        class array;
+        ```
+    * 示例: 定义和初始化, 操作. 
+        ```cpp
+        std::array <int, 10> arr = {1, 2};
 
-            arr.fill(4); // 全部填充为4
-            arr.size();
-            arr[2];
-            arr.at(2); // 超范围时抛出out_of_range异常
-            ```
+        arr.fill(4); // 全部填充为4
+        arr.size();
+        arr[2];
+        arr.at(2); // 超范围时抛出out_of_range异常
+        ```
 
-            * 注意: 定义数组时, 大小只能是常量. 
-    * `std::list`: 
-        * 堆上分配. 
-        * 其中每个元素都要包含一个指向下个元素的指针. 
-    * `std::map`
-        * 内部是平衡二叉树
-        * 默认值: 看元素类型
-            * 整型: 0
-            * `std::string`: ""
-            * 结构体: 每个成员都赋予默认值(0或""等)
-
-            ```cpp
-            #include <map>
-
-            struct myComp {
-                bool operator() (const char *a, const char *b) {
-                    return std::strcmp(a, b) < 0;
-                }
-            }
-
-            // 初始化
-            std::map <std::string, int> myMap1;
-            std::map <const char *, int, myComp> myMap2;
-            std::map <int, std::string> myMap3 = {
-                {1, "one"},
-                {2, "two"},
-            };
-
-            myMap2["key1"] = 123;
-
-            if (myMap2.find("key2") == myMap2.end()) ; // 成立则表示元素不存在
-            ```
-    * `std::unordered_map`
-        * 内部是哈希表
-            ```cpp
-            std::unordered_map <const char *, int, myHashKey, myComp> myMap;
-            ```
-    * `std::string`
-        * 
-
-* lambda表达式
-    * 参考: https://blog.csdn.net/u014711890/article/details/123441799
-    * `[]`标识一个Lambda表达式的开始, 这一部分是不可以忽略的. 函数对象参数只能使用到定义该Lambda表达式为止定义过的局部变量, 包括Lambda表达式所在类的成员变量. 函数参数有以下几种形式: 
-        * 空: 代表不捕获Lambda表达式外的变量；
-        * `&`: 代表以引用传递的方式捕获Lambda表达式外的变量；
-        * `=`: 代表以值传递的方式捕获Lambda表达式外的变量, 即以const引用的方式传值；
-        * `this`: 表示Lambda表达式可以使用Lambda表达式所在类的成员变量；
-        * `a`或`=a`: 表示以值传递的方式传递变量a, 即`const int a`,在函数体内不可改变a的值；但是可以对Lambda表达式使用`mutable`修饰符修饰, 使得函数对象参数可以进行赋值, 但是该函数对象参数不是被修改为引用传递方式, 下面进行细说；
-        * `&a`: 表示以引用传递的方式传递变量a, 在函数体内可以改变a的值；
-        * `x, &y`: x为值传递方式, y为引用传值方式；
-        * `=, &x, &y`: 除x, y为引用传递方式以外, 其他参数都为值传递方式进行传递；
-        * `&, x, y`: 除x, y为值传递方式以外, 其他参数都为引用传递方式进行传递;
-    * lambda表达式会自动推断返回值类型. 
-    * 代码
+        * 注意: 定义数组时, 大小只能是常量. 
+* `std::list`: 
+    * 堆上分配. 
+    * 其中每个元素都要包含一个指向下个元素的指针. 
+* `std::map`
+    * 内部是平衡二叉树
+    * 默认值: 看元素类型
+        * 整型: 0
+        * `std::string`: ""
+        * 结构体: 每个成员都赋予默认值(0或""等)
 
         ```cpp
-        int a = 0;
-        auto f = [&] (string s) {
-            cout << "Hello " << s << '\n';
-            a++;
+        #include <map>
+
+        struct myComp {
+            bool operator() (const char *a, const char *b) {
+                return std::strcmp(a, b) < 0;
+            }
+        }
+
+        // 初始化
+        std::map <std::string, int> myMap1;
+        std::map <const char *, int, myComp> myMap2;
+        std::map <int, std::string> myMap3 = {
+            {1, "one"},
+            {2, "two"},
         };
-        f();
 
-        // lambda表达式作为参数
-        void f(std::function<int<void>>& do_func);
+        myMap2["key1"] = 123;
 
+        if (myMap2.find("key2") == myMap2.end()) ; // 成立则表示元素不存在
+        if (myMap2.count("key2") == 0); // count函数返回1则键存在, 0则不存在
         ```
-    * 注
-        * 调试发现, 对非对象变量(如int变量), 要以值传递的形式捕获. 
-        * 要将lambda转为C语言的函数指针, 则不能捕获表达式外变量. 
+* `std::unordered_map`
+    * 内部是哈希表. 
+        ```cpp
+        std::unordered_map <const char *, int, myHashKey, myComp> myMap;
+        ```
+* `std::string`
+    * `string`类型参数: 最好传引用, 因为传值会拷贝内存. 写法是`void func(string& s) { s.c_str(); }`
+    
+    ```cpp
+    #include <string>
+
+    std::string s = "s";
+
+    // 数字转字符串
+    std::to_string(1234); 
+
+    s = s.erase(1, 3); // 从第一个字符开始, 删除3个字符
+    
+    // 查找
+    s.find(s1, 3); // 查找子串s1, 开始位置为3
+
+    // stringstream
+    #include <sstream>
+
+    ```
+
+
+## lambda表达式
+* 参考: https://blog.csdn.net/u014711890/article/details/123441799
+* `[]`标识一个Lambda表达式的开始, 这一部分是不可以忽略的. 函数对象参数只能使用到定义该Lambda表达式为止定义过的局部变量, 包括Lambda表达式所在类的成员变量. 函数参数有以下几种形式: 
+    * 空: 代表不捕获Lambda表达式外的变量；
+    * `&`: 代表以引用传递的方式捕获Lambda表达式外的变量；
+    * `=`: 代表以值传递的方式捕获Lambda表达式外的变量, 即以const引用的方式传值；
+    * `this`: 表示Lambda表达式可以使用Lambda表达式所在类的成员变量；
+    * `a`或`=a`: 表示以值传递的方式传递变量a, 即`const int a`,在函数体内不可改变a的值；但是可以对Lambda表达式使用`mutable`修饰符修饰, 使得函数对象参数可以进行赋值, 但是该函数对象参数不是被修改为引用传递方式, 下面进行细说；
+    * `&a`: 表示以引用传递的方式传递变量a, 在函数体内可以改变a的值；
+    * `x, &y`: x为值传递方式, y为引用传值方式；
+    * `=, &x, &y`: 除x, y为引用传递方式以外, 其他参数都为值传递方式进行传递；
+    * `&, x, y`: 除x, y为值传递方式以外, 其他参数都为引用传递方式进行传递;
+* lambda表达式会自动推断返回值类型. 
+* 代码
+
+    ```cpp
+    int a = 0;
+    auto f = [&] (string s) {
+        cout << "Hello " << s << '\n';
+        a++;
+    };
+    f();
+
+    // lambda表达式作为参数
+    void f(std::function<int<void>>& do_func);
+
+    ```
+* 注
+    * 调试发现, 对非对象变量(如int变量), 要以值传递的形式捕获. 
+    * 要将lambda转为C语言的函数指针, 则不能捕获表达式外变量. 
 
 # 问题
 * 编译时报错: 

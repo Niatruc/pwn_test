@@ -1,6 +1,6 @@
 # Linux程序的堆漏洞利用方法
 1. 利用堆管理系统中的一些赋值操作, 实现对任意地址的改写.
-    * 利用堆合并时的赋值操作(BK->fd = FD)改变任意地址值(如, 保存堆块地址的地址).
+    * 利用堆合并时的赋值操作(`BK->fd = FD`)改变任意地址值(如, 保存堆块地址的地址).
         * [unsafe unlink 图解](./unsafe_unlink/笔记.md)
         * [double free 图解](./double_free/笔记.md)
     * 利用从bins链取块或将块插入bins链后的链接操作改变任意地址值.
@@ -24,7 +24,7 @@
 - [格式化字符串漏洞](./tips.md#格式化字符串漏洞)
 
 # 经验-技巧
-- [用ida调试pwn题](./pwn分析环境搭建.md#ctf-pwn题目程序调试)
+- [用ida调试pwn题](./pwn_env_manual.md#ctf-pwn题目程序调试)
 - [可导致栈溢出的代码](./tips.md#可导致栈溢出的代码)
 - [用gdb找字符串](./tips.md#用gdb找字符串)
 - [为一个二进制程序开启一个服务](./tips.md#为一个二进制程序开启一个服务)
@@ -41,23 +41,23 @@
 - [Ropgadgets用途及工具](./tips.md#Ropgadgets)
 
 # ctf pwn题预备工作
-- [ctf pwn题目程序调试](./pwn分析环境搭建.md#ctf-pwn题目程序调试)
-    - [使用python的subprocess模块发送和接收数据](./pwn分析环境搭建.md#方法一:-使用python的subprocess模块)
-    - [通过管道发送和接收数据](./pwn分析环境搭建.md#方法二:-使用管道)
+- [ctf pwn题目程序调试](./pwn_env_manual.md#ctf-pwn题目程序调试)
+    - [使用python的subprocess模块发送和接收数据](./pwn_env_manual.md#方法一:-使用python的subprocess模块)
+    - [通过管道发送和接收数据](./pwn_env_manual.md#方法二:-使用管道)
 
 - [ida](./ida笔记.md)
     - [用pycharm调试ida插件](./ida笔记.md#用pycharm调试ida插件)
 
-- [用vscode调试C++源码](./pwn分析环境搭建.md#用vscode调试C++源码)
-    - [配置](./pwn分析环境搭建.md#配置)
-    - [调试](./pwn分析环境搭建.md#调试)
-    - [搭建远程调试环境(vscode+gdbserver)](./pwn分析环境搭建.md#远程调试虚拟机中的程序)
-- [其他](./pwn分析环境搭建.md#其他)
-    - [下载不同版本的libc等库文件](./pwn分析环境搭建.md#下载不同版本的libc等库文件)
-    - [指定.so文件路径](./pwn分析环境搭建.md#so文件路径)
-    - [fcntl](./pwn分析环境搭建.md#fcntl)
+- [用vscode调试C++源码](./pwn_env_manual.md#用vscode调试C++源码)
+    - [配置](./pwn_env_manual.md#配置)
+    - [调试](./pwn_env_manual.md#调试)
+    - [搭建远程调试环境(vscode+gdbserver)](./pwn_env_manual.md#远程调试虚拟机中的程序)
+- [其他](./pwn_env_manual.md#其他)
+    - [下载不同版本的libc等库文件](./pwn_env_manual.md#下载不同版本的libc等库文件)
+    - [指定.so文件路径](./pwn_env_manual.md#so文件路径)
+    - [fcntl](./pwn_env_manual.md#fcntl)
 
-# 一些预备知识
+# 预备知识
 - [堆中的元数据](./knlg/linux_heap.md#堆中的元数据)
 - [libc堆管理中的'向前'和'向后'](./knlg/linux_heap.md#libc堆管理中的'向前'和'向后')
     - [向后合并](./knlg/linux_heap.md#向后合并)

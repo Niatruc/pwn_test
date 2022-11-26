@@ -1,10 +1,20 @@
-# 文件
-* `proc`: 其下每个目录对应一个进程; 各个进程目录下有如下文件: 
-    * `map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
-    * `kcore`: Linux 内核的动态核心文件. 
-    * `kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
-* `boot`:
-    * `System.map`: 内核符号. 
+# Linux系统目录及文件
+* `/proc`: 每个进程在此目录下都有一个文件. 
+    * `/<进程id>`
+        * `/map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
+        * `/kcore`: Linux 内核的动态核心文件. 
+        * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
+    * `/sys`
+        * `/kernel`
+            * `/random`
+                * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
+* `/boot`:
+    * `/System.map`: 内核符号. 
+* `/dev`
+    * `/input`
+        * `/event<数字>`: 键盘等输入设备的实时数据可从这些文件读取. 
+* `/lib`
+    * `/udev`: 
 # 开发
 * code blocks
     1. `sudo apt install codeblocks`: 
@@ -12,14 +22,17 @@
     3. `sudo apt install valgrind`: 用于探测内存泄露的调试组件
     3. `sudo apt install codeblocks-contrib`: 安装codeblocks常用插件
 * gcc
-    * `-static`: 静态编译
-    * `-I <头文件目录>`
+    * `-o <输出文件名>`
+    * `-g`: 带上调试符号. 
+    * `-static`: 静态编译. 
+    * `-I<头文件目录>`
+    * `-L<库文件目录绝对路径>`
     * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
-        * `-Map=<map文件路径>`: 生成map文件
-        * `-Bstatic -l<库名>`: 指定静态链接库
-        * `-Bdynamic -l<库名>`: 指定动态链接库
+        * `-Map=<map文件路径>`: 生成map文件. 
+        * `-Bstatic -l<库名>`: 指定静态链接库. 
+        * `-Bdynamic -l<库名>`: 指定动态链接库. 
         * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
-    * `-xc xxx`: 以编译C语言代码的方式编译xxx文件
+    * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
 * make
     * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
     * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
@@ -105,7 +118,7 @@
             |SIGSEGV|	(Signal Segmentation Violation) 非法访问存储器, 如访问不存在的内存单元. |
             |SIGTERM|	(Signal Terminate) 发送给本程序的终止请求信号. |
             |SIGPIPE|	网络异常时, 使用socket相关函数如`send`等会触发此信号(提示`Broken Pipe`). |
-    * `int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);`
+    * `int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);` 
         * 参数
             * `signum`: 不可以是`SIGKILL`或`SIGSTOP`. 
             * `act`: 
@@ -149,20 +162,47 @@
         * `int execvp(const char *file ,char * const argv [])`: 执行可执行文件. 
     * `system`: 执行bash命令. 如果不是运行为后台进程, 则要等进程结束该函数才返回. 返回退出码(错误返回-1)
 
+# 线程
+* 头文件: `<pthread.h>`
+* gcc编译时需加上: `-lpthread`
+* 示例
+    ```cpp
+    void* func(void* params) {
+
+    }
+
+    void main() {
+        int pid;
+        void *params;
+        ...
+        if (pthread_create(&tid, NULL, func, params) != 0) { // 二参是线程属性
+            printf("error\n");
+        }
+    }
+    ```
+
 # 文件
+* 头文件
+    * `<sys/types.h>`
+    * `<sys/stat.h>`
+    * `<fcntl.h>`
 * api
-    * `int fd = open(const char *pathname,int flags,mode_t mode);` 
-        * `flags`
-            * 主类: 
-                * `O_RDONLY`: 只读   
-                * `O_WRONLY`: 只写   
-                * `O_RDWR`: 读写
-            * 副类: 
-                * `O_CREAT`: 文件不存在则创建文件
-                * `O_EXCL`: 用了`O_CREAT`但文件存在, 则返回错误消息
-                * `O_NOCTTY`: 若文件为终端设备, 则不会将该终端机当成进程控制终端机
-                * `O_TRUNC`: 若文件已存在, 删除文件中原有数据
-                * `O_APPEND`: 以追加的方式打开    
+    * `int fd = open(const char *pathname,int flags, mode_t mode);` 
+        * 参数
+            * `flags`
+                * 主类: 
+                    * `O_RDONLY`: 只读   
+                    * `O_WRONLY`: 只写   
+                    * `O_RDWR`: 读写
+                * 副类: 
+                    * `O_CREAT`: 文件不存在则创建文件
+                    * `O_EXCL`: 用了`O_CREAT`但文件存在, 则返回错误消息
+                    * `O_NOCTTY`: 若文件为终端设备, 则不会将该终端机当成进程控制终端机
+                    * `O_TRUNC`: 若文件已存在, 删除文件中原有数据
+                    * `O_APPEND`: 以追加的方式打开 
+            * `mode`: 文件访问权限的初始值. 
+        * 返回值: 大于0则打开文件成功. 
+            * -1: 失败
     * `ssize_t write(int fd,const void * buf,size_t count);` 
         * `buf`: 存放要写入的内容
         * `count`: 要写入的字节数
@@ -181,7 +221,7 @@
             * 用于监视文件描述符的变化情况(读写或异常). 比如检查套接字是否有数据可读了. 这个函数会将未准备好的描述符位清零. 
             * 参数: 
                 * `maxfdp`: 最大fd值加一
-                * `readfds`: 用于检查可读性
+                * `readfds`: 用于检查可读性. 如果想检查一个套接字集合`fd_set`是否有可读套接字, 就将这个参数设为`fd_set`
                 * `writefds`: 用于检查可写性
                 * `errorfds`: 用于检查异常
                 * `timeout`: 用于决定select等待I/O的最长时间, 在此期间select函数会阻塞. 为NULL则无限等待. 
@@ -193,10 +233,11 @@
         
         * 示例: 读一个socket
             ```cpp
-            while(1) {     
+            while(1) {
+                fd_set set; 
                 FD_ZERO(&set); // 将set清空 
                 FD_SET(s, &set); // 将套接字s加入set
-                select(0, &set, NULL, NULL, NULL); //检查set集合中的套接字是否可读
+                select(0, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读
                 if(FD_ISSET(s, &set) { // 检查s是否在set中
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
                 } 
@@ -206,7 +247,15 @@
 
 
 # 网络
+* 知识点
+    * `recv`只是从网卡缓冲区读取数据. 
+    * `send`只是向网卡缓冲区写入数据, 就算它成功了, 数据也不一定就从网卡发送出去了. 
 * api
+    * 大小端顺序转换
+        * `htons`: 短整型转端口值
+        * `ntohs`: 端口值转短整型
+        * `htonl`: 整型(4字节)转IPv4值
+        * `ntohs`: IPv4值转整型(4字节)
     * `int socket(int domain, int type, int protocol);`
         * 头文件: `<sys/socket.h>`
         * 参数
@@ -252,8 +301,18 @@
                 `MSG_MORE`: 调用者有更多的数据需要发送. 
                 `MSG_NOSIGNAL`: 当另一端终止连接时, 请求在基于流的错误套接字上不要发送SIGPIPE信号. 
                 `MSG_OOB`: 发送out-of-band数据(需要优先处理的数据), 同时现行协议必须支持此种操作. 
+        * 返回值: 发送的字节数. -1则表示发送失败. 
 
     * `int sendto ( int s , const void * msg, int len, unsigned int flags, const struct sockaddr * to , int tolen ) ;`
+    * `int recv(int sockfd, void *buf, int len, int flags)`: 
+        * 返回值: 
+            * 大于0: 接收的数据的字节数. 
+            * 0: 远端关闭连接. 
+            * -1: 失败. 
+
+        <img alt="require_musl" src="./pic/linux_socket.jpg" width="30%" height="30%">
+    
+    * `int getpeername(int s, struct sockaddr *name, socklen_t *namelen)`: 获取socket的对方地址. 
 
     * 例子: 
         ```cpp
@@ -291,20 +350,92 @@
 
 
 
-# bash
+# Bash
 
-* 常量
-    * `BASH_SOURCE`: 当前文件路径
-        * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径
-    * `$@`: 表示目标文件
-    * `$^`: 表示所有依赖文件
-    * `$<`: 表示第一个依赖文件
-    * `$?`: 表示比目标还新的依赖文件列表
+## Bash编程
+* 参数
+    * `$0, $1, $2, ...`: 获取传给脚本的参数. 
+    * `$*`: 参数列表, 即`$0, $1, $2, ...`. 
+    * `$@`: 类似`$*`.
+        * 区别: 在加上双引号的时候两者的区别便显现出来, `"$@"`仍是数组. `"$*"`更像空格隔开的字符串. 
+    * `$#`: 参数个数. 
+    * `$?`: 若上一条指令执行成功, 则此值为0. 
+    * `$$`: 脚本运行的当前进程的id号. 
+    * `$!`: 后台运行的最后一个进程的id号. 
+* `$(cmd)`: 表示执行`cmd`后输出的字符串. 
+* `$[a+1]`: 获取算术运算结果. 
+* `${a}`: 得到变量a的值(作为字符串)
+* `>`是直接覆盖文件, `>>`是追加到文件尾. 
+* 赋值
+    ```sh
+    a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
+    a=$a+1 # 结果是a被赋值为"1+1"
+
+    a=1
+    a=$[a+1] # 结果是a被赋值为2
+    ```
+* `test <文件>`: 对文件进行测试
+    * `-d`: 是否目录
+    * `-f`: 是否文件
+    * `-e`: 是否存在
+    * `-x`: 是否可执行
+* `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
+    * `[ -z "$HOME" ]`: 字符串为空则true. 
+* 追踪和调试
+    * `sh`
+        * `-n`: 仅检查语法
+        * `-v`: 每运行一个语句, 打印这个语句, 然后打印结果(有`echo`的话)
+        * `-x`: 运行时, 将使用到的部分显示. 
+* 示例
+    ```sh
+    # 判断语句
+    if [ 条件表达式 ]; then
+        ...
+    fi
+
+    # while循环
+    a=1 # 等号两边不能有空格
+    while [ $a -gt 0]; do
+        a=$[$a-1]
+        echo $a
+    done
+
+    # until循环, 格式同while循环
+
+    # 遍历数组
+    # for var in ${arr[*]}
+    for var in con1 con2 con3; do 
+        echo $var
+    done
+
+    # for循环
+    for ((i=0; i<5; i=i+1)); do
+        echo $i
+    done
+    ```
+
 
 ## 系统指令, 工具
+* 快捷键
+    * `ctrl+u`: 删除光标到行首内容. 
+    * `ctrl+k`: 删除光标到行尾内容. 
+    * `ctrl+w`: 删除光标前一个单词. 
+    * `alt+d`: 删除光标后一个单词. 
+
+* 用户
+    * `id`: 查看当前用户信息(uid, gid, 所属组). 
+    * `groups`: 查看当前用户所属组. 
 * 权限
     * `chmod`: 修改文件的rwx权限. 
-        * `u+s`: 赋予(可执行)文件s权限, 文件在执行时具有文件所有者的权限(免了sudo). 
+        * 权限数字: <特殊权限位>rwx
+        * 特殊权限: 
+            * `s`: 
+                * 数字为4. 意为在运行时设置用户或组id. 
+                * 赋予(可执行)文件s权限, 文件在执行时具有文件所有者的权限(免了sudo). 
+            * `t`: 
+                * 数字为1. 意为限制删除位或黏着位. 
+                * 常用于共享文件夹. 
+                * 如果一个目录的权限为777, 并赋予了t权限, 则用户可以在这个目录下创建和删除自己创建的文件, 不能删除其他人创建的文件. 
     * `setcap`
         * 
     * 修改登录口令策略
@@ -312,7 +443,20 @@
         2. 打开`/etc/pam.d/common-password`
         3. 把有`pam_cracklib.so`那一行注释掉
         4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
+
 * 进程
+    * `ps`: 查看进程信息. 
+        * `ps aux`
+        * `ps elf`
+    * `top`
+    * `jobs`: 查看后台进程的工作状态. 
+        * `-l`: 同时列出pid
+        * `-r`: 列出run的
+        * `-s`: 列出stop的
+    * `kill -<信号码> %<工作号>或pid`
+        * `-l`: 列出所有信号码. 
+        * `-9`: 强制退出. 
+    * `killall <命令>`: 将系统中以某个命令启动的进程全杀. 
     * `fuser`: 找出正在使用某个文件或目录的进程. 
         * `fuser -v <文件名>`
     * `pkexec --user <用户名> <可执行文件>`: 允许以其他用户身份执行程序. 未指定用户, 则以root运行. 
@@ -327,8 +471,10 @@
             * `%desc`: 文件描述符相关调用, 如`write`, `read`, `select`, `epoll`
             * `%ipc`: 进程通信相关调用, 如`shmget`等. 
         * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
+    * `pidof <程序名>`: 列出正在运行的该程序的进程号. 
     
 * 文件和目录
+    * `nautilus`: 打开文件管理器(gnome)
     * `ls`
         * `-F`: 后缀表示文件类型
             * `/`: 目录
@@ -336,14 +482,27 @@
             * `@`: 符号链接
             * `=>`: 目录
             * `|`: 目录
+    * `lsof <文件路径>`: list open files, 可以查看打开该文件的进程. 
+        * 在查找`fork`产生的孤儿进程时有用. 
     * `find <目录>`: 在目录下寻找符合条件的文件
         * `-name <通配符表达式>`: 查找符合名称的文件
         * `-type l`: 列出所有符号链接
         * `-xtype l`: 列出指向不存在的文件的符号链接
+    * `truncate`: 用于将文件缩小或扩展到指定的大小. 
+        * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
+        * 扩展文件: `truncate -s +200k file.txt`
 * 网络 
+    * 重启网络
+        * `service network-manager restart`
     * `ss`: 类似`netstat`
         * `-t`: 打印TCP连接
         * `-u`: 打印UDP连接
+    * `nc`: netcat
+        * `-lpk 80`: 监听本机的80端口
+            * `-p`: 表示源端口
+            * `-l`: 表示监听
+            * `-k`: 表示保持开启(可接收)
+        * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
 * 系统信息
     * `uname`
         * `-r`: 查看内核版本. 
@@ -375,23 +534,83 @@
     * `ftrace`: https://github.com/elfmaster/ftrace
     * `nm xx.so`: 列出object文件的符号
         * `-c`: 查看导出函数表
+
 * 编译工具
     * `make`
         * Makefile
             ```sh
+            MAKE=make
+
+            include ../.config # 可使用其他.config文件中的配置
+
             all: haha.text target1
 
-            target1: $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+            # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
+            target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
+
+            # 目标: 依赖文件集
+            #   命令1
+            #   命令2
+            target1: 
+                $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+            
+            # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
+            target2: 
+            ifdef DEBUG
+                ...
+            else
+                ...
+            endif
             ```
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
             * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
             * `M=<工作目录>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. 
             * 注意上述选项后面接的路径都**必须是完整路径**. 
+        * 常量
+            * `BASH_SOURCE`: 当前文件路径. 
+                * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
+            * `$@`: 表示目标文件. 
+            * `$^`: 表示所有依赖文件. 
+            * `$<`: 表示第一个依赖文件. 
+            * `$?`: 表示比目标还新的依赖文件列表. 
 * git
+    * 工作流: 
+        
+        <img alt="require_musl" src="./pic/git_workflow_diagram.jpg" width="30%" height="30%">
+
+    * 释义: 
+        * `origin`: 远程服务器. 
+        * `master`: 主分支. 
+    * 基本指令
+        * `git add .`: 将所有修改放入暂存区即index. 
+        * `git log`: 查看提交历史. 
+            * `--online`: 
+            * `--graph`: 
+            * `--reverse`: 
+            * `--author=<用户名>`: 
+            * `(--before|--since|--until|--after)=({1.weeks.ago}|{2022|11|22})`: 
     * 去除某个文件的历史提交记录: 
         1. `git filter-branch -f  --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
         2. `git push origin --force --all`
+    * 放弃修改及回滚:
+        * `checkout`
+            * 会导致`HEAD detached`
+            * 放弃本地所有修改: `git checkout .`
+            * 放弃对某个文件的修改: `git checkout <file>`
+        * `reset <某次提交的hash>`: 回退到某次提交. 
+            * `--mixed`: 默认选项, 重置暂存区到某次提交. 
+            * `--soft`: 用于回退至某个版本. 
+            * `--hard`: 重置暂存区和工作区到某次提交, 并删除之前所有提交. 
+                * `--hard origin/master`: 回退至和服务器保持一致. 
+        * `revert`: 放弃某些提交. 
+    * 分支
+        * `branch` 
+            * `<分支名>`: 创建新分支. 
+            * `-d <分支名>`: 删除分支. 
+            * `-D <分支名>`: 强制删除分支. 当开发者希望删除所有提交记录时可用该选项. 
+            * `<分支名> -m <新分支名>`: 重命名分支. 
+            * `-a`: 列出所有远程分支. 
 * 库管理
     * `dpkg`
         * `-i`: 安装deb包. 
@@ -400,9 +619,7 @@
         * `-P`: 卸载包. 
 
 * 其他
-    * `truncate`: 用于将文件缩小或扩展到指定的大小. 
-        * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
-        * 扩展文件: `truncate -s +200k file.txt`
+    
     * 打印ansi彩色字体
         * `echo -e "\033[33m彩色\033[0m"`
     * 设置UTC时间

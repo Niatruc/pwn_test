@@ -6,32 +6,7 @@
     * M1::C1#f1: 表示模块M1下的C1类的实例方法f1
     * M1::C1.f1: 表示模块M1下的C1类的类方法f1
 
-# MSF的开发者命令
-* `edit`: 编辑当前模块或文件
-* `irb`: 打开交互式shell
-* `log`: 显示`framework.log`文件内容
-* `pry`: 在当前模块或框架中打开调试器. 
-* `reload_lib`: 在当前模块或框架中打开调试器. 
-* `time`: 
-## pry调试方法
-* 在要分析的地方加一行`binding.pry`, 即加上一个断点
-* 指令
-    * `backtrace`: 栈跟踪
-    * `whereami`: 显示当前执行行
-    * `up`: 沿着调用栈回溯到上一个调用的上下文
-    * `down`: 反之
-    * `next`: 执行下一行代码
-    * `finish`: 运行至函数返回
-    * `break`: 列出所有断点
-        * `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
-        * `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.
-        * `break app/models/user.rb:15`: 在`user.rb`的15行设置断点.
-        * `break 14`: 在当前文件的第14行设置断点
-        * `break --condition 4 x > 2`: 给断点4设置条件.
-        * `break --condition 3`: 移除断点3处的条件.
-        * `break --delete 5`: 删除断点5.
-        * `break --disable-all`: 禁用所有断点
-        * `break --show 2`: 打印断点2的详情         
+
 
 # 自定义exploit中的`exploit`函数的调用栈
 * `Msf::ExploitDriver.job_run_proc(ctx#Array)`  (`lib/msf/core/exploit_driver.rb`): 其中执行了`exploit.exploit`. 变量`exploit, payload`分别是编码后和编码前的payload对象. (执行`payload.generate`可得到原始payload的字符串)

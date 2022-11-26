@@ -148,10 +148,13 @@
             * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
         * 示例: 
             ```cpp
+            // 解决点击表格时表头变粗的问题
+            ui->myTableWidget->setHighlightSections(false);
+
             // QTableWidget ui->myTableWidget; 
-            int rowNum = ui->myTableWidget.rowCount(); // 获取当前行数
-            ui->myTableWidget.clearContents(); // 清空表格内容
-            ui->myTableWidget.setRowCount(0); // 清空表格行
+            int rowNum = ui->myTableWidget->rowCount(); // 获取当前行数
+            ui->myTableWidget->clearContents(); // 清空表格内容
+            ui->myTableWidget->setRowCount(0); // 清空表格行
 
             // 设置列宽
             ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
@@ -168,7 +171,15 @@
 
             // 清空表格
             ui->myTableWidget->clearContents(); // 不会去除表头
-            ui->myTableWidget->setRowCount(0 );
+            ui->myTableWidget->setRowCount(0);
+            ```
+        * 问题
+            * 排序后, 对item获取的行号可能不正确. 
+                * 解决方法: 每次`setItem`前先关闭排序功能. 
+                ```cpp
+                ui->myTableWidget->setSortingEnabled(false);
+                ... // 调用setItem插入单元
+                ui->myTableWidget->setSortingEnabled(false);
             ```
     * `QTreeWidget`: 树组件
         * 示例: 
@@ -296,6 +307,8 @@
         ```cpp
         QString str;
         str.sprintf("%d", 1); // 格式化字符
+        str.simplified(); // 去除首尾空格
+        str.mid(pos, len); // 截取字符串, 从pos位置开始, 截取出len个字符
 
         QString s = "hello";
 
