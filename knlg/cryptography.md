@@ -10,11 +10,11 @@
     * 以除数和余数反复做除法运算, 当余数为 0 时, 取当前算式除数为最大公约数. 
     * 定理: 对于任意两个整数 $a, b$ 必存在整数 $x, y$ 使得 $ax + by = gcd(a,b)$ 成立. 
         * 推理过程: 如下, 辗转相除法得到余数为 $r_n$ . 用 $r_0, r_1$ 代替 $a, b$. 
-        $$ r_2 = r_0 - r_1x_1$$
-        $$ r_3 = r_1 - r_2x_2 $$
-        $$ ... $$
-        $$ r_{n} = r_{n-2} - r_{n-1}x_{n-1} $$
-        $$ 0 = r_{n-1} - r_{n}x_{n} $$
+        $$r_2 = r_0 - r_1x_1$$
+        $$r_3 = r_1 - r_2x_2 $$
+        $$... $$
+        $$r_{n} = r_{n-2} - r_{n-1}x_{n-1} $$
+        $$0 = r_{n-1} - r_{n}x_{n} $$
         * 由上有 $r_{n-1} = r_{n}x_{n}, r_{n-2} = r_{n} + r_{n}x_{n}x_{n-1}$, 于是最终 $a, b$ 都可用 $r_0$ 表示, 所以 $r_0$ 是 $a$ 和 $b$ 的线性组合. 
         * 引理: 对于任意两个互质整数 $a, b$ 必存在整数 $x, y$ 使得 $ax + by = 1$ 成立.
     * 裴蜀定理: 设两个正整数 $a, b$ , 则关于 $x, y$ 的方程 $ax + by = c$ 有解, 当且仅当 $c$ 是 $gcd(a, b)$ 的倍数. 
@@ -50,18 +50,18 @@
     * 乘积性定理: $m$ 与 $n$ 互质, 则 $F(m * n) = F(m) * F(n)$
         * 证明
             * 把1到 $mn$ 排成 $m$ 列 $n$ 行的矩阵. 
-                $$ 1,              2, .............................................., m $$
-                $$ m+1,         m+2, ................................, m*2 $$
-                $$ 2m+1, 2m+2,  ..........................., m*3 $$
-                $$ . $$
-                $$ . $$
-                $$ . $$
-                $$ (n-1)m+1, (n-1)m+2,  .............., m*n $$
+                $$1,              2, .............................................., m $$
+                $$m+1,         m+2, ................................, m*2 $$
+                $$2m+1, 2m+2,  ..........................., m*3 $$
+                $$. $$
+                $$. $$
+                $$. $$
+                $$(n-1)m+1, (n-1)m+2,  .............., m*n $$
             * 每一行都是 $m$ 的一个完系; **根据定理4, 每一列也是n的一个完系, 因此每一列中有 $F(n)$ 个数与 $n$ 互质**. 
             * 设第一行中与 $m$ 互质的数集为 $A$ , $A$ 中的每个数记为 $a$ . 可知 $A$ 中的数字个数为 $F(m)$ . 则每个 $a$ 对应的那一列 $k * m + a$ 都是与 $m$ 互质的数. 
             * 最后得到与 $mn$ 互质的数为 $F(m) * F(n)$. 
 * 欧拉定理: 互质且大于1的两个正整数 $a$ 和 $n$ 存在如下关系: 
-    $$ (a^{F(n)}) \% n = 1 $$
+    $$(a^{F(n)}) \% n = 1 $$
     * 证明(参考: https://bzc.idealand.xyz:8443/w/20727)
         * 把左式记为 $R$ . 要证 $R=1$. 设 $[1, n]$ 内与 $n$ 互质的数集为 $X$, 其中每个数用 $x$ 记. 
         * 根据定理2, 可知 $(a*x) \% n$ 是 $[1, n)$ 范围内 $f$ 个两两不同且均与 $n$ 互质的数, 故得: $$((a*x_1) \% n)  *  .....   * ((a*x_f) \% n) = x_1* ....  *x_f$$
@@ -199,70 +199,70 @@
         > $m = D(c) = c^d \mod n$
 * 加解密证明: 
     * 若$m$与$n$互质: 
-        $$ (m^e \mod n)^d \mod n $$
-        $$ \Downarrow $$ 
-        $$ m^{ed} \mod n $$
-        $$ \Downarrow $$ 
-        $$ m^{k\varphi(n) + 1} \mod n $$
-        $$ \Downarrow $$ 
-        $$ (m^{\varphi(n)}...m^{\varphi(n)}m) \mod n $$
-        $$ \Downarrow $$ 
-        $$ ((m^{\varphi(n)} \mod n)...(m^{\varphi(n)} \mod n)(m \mod n)) \mod n $$
-        $$ \Downarrow $$ 
-        $$ 由欧拉定理得 m^{\varphi(n)} \mod n \equiv 1$$
-        $$ \Downarrow $$ 
-        $$ m \mod n$$
-        $$ \Downarrow $$ 
-        $$ m $$
+        $$(m^e \mod n)^d \mod n $$
+        $$\Downarrow $$
+        $$m^{ed} \mod n $$
+        $$\Downarrow $$
+        $$m^{k\varphi(n) + 1} \mod n $$
+        $$\Downarrow $$
+        $$(m^{\varphi(n)}...m^{\varphi(n)}m) \mod n $$
+        $$\Downarrow $$
+        $$((m^{\varphi(n)} \mod n)...(m^{\varphi(n)} \mod n)(m \mod n)) \mod n $$
+        $$\Downarrow $$
+        $$由欧拉定理得 m^{\varphi(n)} \mod n \equiv 1$$
+        $$\Downarrow $$
+        $$m \mod n$$
+        $$\Downarrow $$
+        $$m $$
     * 若$m$与$n$不互质: 
         * 则 $m = jp$ 或 $m = jq$. 假设为前者. 显然$j < q$, 故有$j$与$q$互质. 
-        $$ m^{k\varphi(n) + 1} \mod n $$
-        $$ \Downarrow $$ 
-        $$ (jp)^{k\varphi(n) + 1} \mod pq $$
-        $$ \Downarrow $$ 
-        $$ (j^{k\varphi(n) + 1} p^{k\varphi(n)}) \mod q $$
-        $$ \Downarrow $$ 
-        $$ ((j^{k(p-1)(q-1) + 1} \mod q) ((p^{k(p-1)})^{(q-1)} \mod q)) \mod q $$
+        $$m^{k\varphi(n) + 1} \mod n $$
+        $$\Downarrow $$
+        $$(jp)^{k\varphi(n) + 1} \mod pq $$
+        $$\Downarrow $$
+        $$(j^{k\varphi(n) + 1} p^{k\varphi(n)}) \mod q $$
+        $$\Downarrow $$
+        $$((j^{k(p-1)(q-1) + 1} \mod q) ((p^{k(p-1)})^{(q-1)} \mod q)) \mod q $$
         由欧拉定理: 
-        $$ \Downarrow $$ 
-        $$ (((j^{k(p-1)})^{(q-1)}j \mod q) * 1) \mod q $$
-        $$ 由欧拉定理: $$
-        $$ \Downarrow $$ 
-        $$ j \mod q $$
-        $$ \Downarrow $$ 
-        $$ jp \mod pq $$
-        $$ \Downarrow $$ 
-        $$ m \mod n $$
-        $$ \Downarrow $$ 
-        $$ m $$
+        $$\Downarrow $$
+        $$(((j^{k(p-1)})^{(q-1)}j \mod q) * 1) \mod q $$
+        $$由欧拉定理: $$
+        $$\Downarrow $$
+        $$j \mod q $$
+        $$\Downarrow $$
+        $$jp \mod pq $$
+        $$\Downarrow $$
+        $$m \mod n $$
+        $$\Downarrow $$
+        $$m $$
 
         * https://zhuanlan.zhihu.com/p/561733119 的证法: 
             * 首先: 
-            $$ m^{k(p-1)(q-1) + 1} \mod q $$
-            $$ \Downarrow $$ 
-            $$ (m^{k(p-1)})^{q-1} * m \mod q $$
-            $$ \Downarrow $$ 
-            $$ 显然m^{k(p-1) + 1}与q互质, 由欧拉定理得: (m^{k(p-1)})^{q-1} \mod q = 1 $$
-            $$ \Downarrow $$ 
-            $$ m \mod q $$
+            $$m^{k(p-1)(q-1) + 1} \mod q $$
+            $$\Downarrow $$
+            $$(m^{k(p-1)})^{q-1} * m \mod q $$
+            $$\Downarrow $$
+            $$显然m^{k(p-1) + 1}与q互质, 由欧拉定理得: (m^{k(p-1)})^{q-1} \mod q = 1 $$
+            $$\Downarrow $$
+            $$m \mod q $$
             
             * 所以 $m^{k(p-1)(q-1) + 1} - t_1q  = m - t_2q$, 所以 $m^{ed} = m + tq, t \in N^*$
             * 又有: 
-            $$ m^{ed} \mod p = 0 $$
-            $$ \Downarrow $$ 
-            $$ (m + tq) \mod p = 0 $$
-            $$ \Downarrow $$ 
-            $$ m + tq \mod p = 0 $$
-            $$ \Downarrow $$ 
-            $$ t = rp, r \in N^* $$
+            $$m^{ed} \mod p = 0 $$
+            $$\Downarrow $$
+            $$(m + tq) \mod p = 0 $$
+            $$\Downarrow $$
+            $$m + tq \mod p = 0 $$
+            $$\Downarrow $$
+            $$t = rp, r \in N^* $$
             * 所以: 
-            $$ m^{ed} \mod n $$
-            $$ \Downarrow $$ 
-            $$ (m + rpq) \mod n $$
-            $$ \Downarrow $$
-            $$ m \mod n $$
-            $$ \Downarrow $$
-            $$ m $$
+            $$m^{ed} \mod n $$
+            $$\Downarrow $$
+            $$(m + rpq) \mod n $$
+            $$\Downarrow $$
+            $$m \mod n $$
+            $$\Downarrow $$
+            $$m $$
 * 安全性: 
     * 需要计算私钥$d$, 则要将$n$分解为$p$和$q$, 从而求得$\varphi(n)$, 再通过扩展欧几里得算法算出$d$. RSA的安全性依赖于大数因子分解的困难性, 至今还没有一个多项式时间的方法来实现大数因子分解. 
 * RSA数字签名
