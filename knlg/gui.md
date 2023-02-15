@@ -70,17 +70,21 @@
         * 需要先下载qt源码, 然后构建, 并在qtcreator的kits集中新增新构建的静态版qmake
 
 ## 环境配置
-* QTCreator远程调试
-    * windows
-        * 调试机
-            * 把`Tools\QTCreator\lib\qtcreatorcdbext64`文件夹拷贝到调试机, 将环境变量`_NT_DEBUGGER_EXTENSION_PATH`设为该文件路径. 
-            * 环境变量`_NT_SYMBOL_PATH`也可以设一下, 这个是cdb的符号查找路径. cdb命令行的用法同windbg. 
-            * 把项目生成的exe和pdb文件都拷贝到调试机
-        * 启动调试
-            * 在调试机中运行cdb启动调试服务器: `cdb.exe -server tcp:port=999 myTest.exe`
-            * 在开发机的QTCreator中, 选择 `调试` -> `开始调试` -> `挂接到一个CDB会话`, 输入`tcp:server=192.168.233.128, port=999`, 其中IP地址和端口号都是调试机的cdb服务的. 
-        * 调试过程
-            * 要在qtcreator中打断点, 需要先在调试机的cdb中`ctrl + c`中断, 然后在qtcreator的源文件中打断点. 目前发现在qtcreator的变量窗口中不显示变量, 只能在cdb中使用命令来查询. 
+* QTCreator
+    * 远程调试
+        * windows
+            * 调试机
+                * 把`Tools\QTCreator\lib\qtcreatorcdbext64`文件夹拷贝到调试机, 将环境变量`_NT_DEBUGGER_EXTENSION_PATH`设为该文件路径. 
+                * 环境变量`_NT_SYMBOL_PATH`也可以设一下, 这个是cdb的符号查找路径. cdb命令行的用法同windbg. 
+                * 把项目生成的exe和pdb文件都拷贝到调试机
+            * 启动调试
+                * 在调试机中运行cdb启动调试服务器: `cdb.exe -server tcp:port=999 myTest.exe`
+                * 在开发机的QTCreator中, 选择 `调试` -> `开始调试` -> `挂接到一个CDB会话`, 输入`tcp:server=192.168.233.128, port=999`, 其中IP地址和端口号都是调试机的cdb服务的. 
+            * 调试过程
+                * 要在qtcreator中打断点, 需要先在调试机的cdb中`ctrl + c`中断, 然后在qtcreator的源文件中打断点. 目前发现在qtcreator的变量窗口中不显示变量, 只能在cdb中使用命令来查询. 
+    * 问题
+        * 编辑器中没有解析符号, 且报错`Clang Code Model: Error: The clangbackend executable ... could not be started`: 
+            * `帮助` -> `关于插件`, 把 `C++` -> `ClangCodeModel`后的勾去掉, 重启qtcreator. 
 
 ## 编程
 * 控件
@@ -101,7 +105,7 @@
                     * `Qt::ApplicationModal`
             * `setVisible(bool)`: 设置组件是否可见. 
             * 在组件中绑定数据
-                * `Q_DECLARE_METATYPE`: 
+                * `Q_DECLARE_METATYPE(<数据类型>)`: 必须先将相关数据类型(包括结构体)用此宏做声明, 才能使用`setData`. 
                 * `setData(int role, const QVariant &value)`: 绑定数据
                 * `setData(int column, int role, const QVariant &value)`: 绑定数据(`QTableWidgetItem`和`QTreeWidgetItem`)
                 * `data(int role)`: 获取数据
@@ -189,6 +193,14 @@
 
             qDeleteAll(qTree.takeChildren()); // 清空节点下所有子节点
             qItem->setChildIndicate(QTreeWidgetItem::ShowIndicator);
+
+            qItem->child(i); // 获取第i个子节点
+            qTree->topLevelItem(i); // 获取第i个顶层节点
+
+            auto newItem = new QTreeWidgetItem(qItem); // 在qItem下创建新的子节点
+            qTree->addTopLevelItem(new QTreeWidgetItem); // 
+
+            ui->myTreewidget->editItem(qItem, 0);
             ```
     * 输入组件
         * `QCombobox`: 下拉框
@@ -306,16 +318,17 @@
     * `QString`
         ```cpp
         QString str;
+        QString s = "hello";
+
+        // 操作
         str.sprintf("%d", 1); // 格式化字符
         str.simplified(); // 去除首尾空格
         str.mid(pos, len); // 截取字符串, 从pos位置开始, 截取出len个字符
+        str = s + "\n"; // 拼接字符串
 
-        QString s = "hello";
+        // 取值
+        str.back(); 
 
-        char *s = "hello";
-        QString(s);
-
-        QString s2 = s + "\n"; // 拼接字符串
 
         QString::number(1);
 
@@ -323,7 +336,20 @@
         QString::fromStdString;
         QString::fromStdWString;
         ```
+    * `QByteArray`: 字节数组. 
+        * 数据会以'\0'结尾. 
+        ```cpp
+        QByteArray ary("1234");
 
+        ary.size(); // 4
+        ary.data(); // 得到指向底层数据的指针
+        ary.resize(10); // 调整大小
+        
+        ary[0];
+        ary.at(0); // 比ary[0]快, 因为它不会深拷贝. 
+
+        ary.append("abcd"); // 结尾附加数据
+        ```
     * `QVariant`: 在组件上保存数据和传输数据时用该类
         ```cpp
         // 自定义的结构体数据

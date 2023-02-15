@@ -523,6 +523,8 @@
         * 编辑`Gemfile`, 加一行`gem 'pry-byebug'`
         * 在要分析的地方加一行`binding.pry`, 即加上一个断点. 
         * 如果要进入`exploit`函数调试, 则要在其中打断点, 然后`set payload`设置一个载荷, 然后执行`run`. 
+        * 如果要调试框架核心的代码, 需要在修改代码后重新载入文件. 
+            * `load`和`require`加载库时搜索的路径保存在`$LOAD_PATH`列表中. 其中用的最多的路径就是msf下的`lib`. 
 
         * 指令
             * `backtrace`: 栈跟踪
@@ -531,6 +533,7 @@
             * `down`: 反之
             * `next`: 执行下一行代码
             * `finish`: 运行至函数返回
+            * `continue`: 继续运行
             * `break`: 列出所有断点
                 * `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
                 * `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.

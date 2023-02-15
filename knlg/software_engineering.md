@@ -1,3 +1,11 @@
+# 概念
+* 向前兼容(forward compatibility): 老版本软硬件可使用新版本软硬件产生的数据. 
+    * HTML: 浏览器遇到新版HTML时, 可简单忽略不支持的标签. 
+* 向后兼容(backward compatibility): 新版本软硬件可使用老版本软硬件产生的数据. 
+    * x86指令集: 新CPU可运行老版本软件. 
+    * Windows
+    * glibc
+
 # 软件测试
 [https://www.cnblogs.com/hd92/p/10906464.html](https://www.cnblogs.com/hd92/p/10906464.html)有动图
 

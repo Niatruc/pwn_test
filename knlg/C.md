@@ -8,19 +8,23 @@
 #define NULL 0
 ```
 
-* 格式字符串
-    * `%Z`: ANSI
-    * `%wZ`: Unicode
-    * `%zx`: 64位16进制
-    * `%zd`或`%I64d`: 64位10进制
-    * `%u`: 无符号整数
-    * `%lu`: unsigned long, DWORD
+## 格式字符串
+* `%Z`: ANSI
+* `%wZ`: Unicode
+* `%zx`: 64位16进制
+* `%zd`或`%I64d`: 64位10进制
+* `%u`: 无符号整数
+* `%lu`: unsigned long, DWORD
+* `%s`
     * `%ls`: 宽字符串
     * `%hs`: 窄字符串
-    * `scanf("%[^\n]%*c", str);`
-        * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空格就中断)
-        * `%[^\n]`: 
-        * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
+    * `%10s`: 输出的字符串占10列. 不够则左边补空格. 
+    * `% - 10s`: 输出的字符串占10列. 不够则左边补空格. 
+* `scanf("%[^\n]%*c", str);`
+    * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空格就中断)
+    * `%[^\n]`: 
+    * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
+        * 例如, `sscanf(buffer, "%*d %c", c1);` 会把buffer中第一个整数匹配到, 但是没赋值给任何变量; 把接下来匹配到的字符赋给c1. 
 
 * 拷贝函数
     * `strcpy_s(dst, len, src)`: `len`的长度需为`strlen(src) + 1`. 如果用`strlen(src)`, 则`src`的第一个字符拷贝不到(对应位置是0)
@@ -29,7 +33,7 @@
     * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
     * 有windows界面的程序: `WinMainCRTStartup` -> `WinMain`
     * 在`main`执行前执行自定义代码:
-        * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute((constructor)) void before() {}`
+        * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute__((constructor)) void before() {}`
         * VC: 如下定义`.CRT$XIU`段, 链接器就会形成日下的C初始化函数表: 
 
         [__xi_a, ..., before1(xiu), ..., __xi_z]
@@ -50,98 +54,114 @@
             int g_iValue = func();
             ```
 
-* 数据长度(32位及64位系统)
-    |数据类型或数据|长度(字节)|
-    |-|-|
-    |char|1|
-    |short|2|
-    |long|4或8|
-    |int|4|
-    |float|4|
-    |double|8|
-    |double*|4或8|
-    |bool|1|
-    |"str"|4|
-    |100i64|8|
+## 数据长度(32位及64位系统)
+    
+|数据类型或数据|长度(字节)|
+|-|-|
+|char|1|
+|short|2|
+|long|4或8|
+|int|4|
+|float|4|
+|double|8|
+|double*|4或8|
+|bool|1|
+|"str"|4|
+|100i64|8|
 
-* 数据定义
-    * `const char *str = "abc";` `str`指向常量, `str`是变量
-    * `char const *str = "abc";` `str`是常量, 相当于`char str[3] = "abc"`
+* gcc编译器的数据类型长度
+    
+    |数据类型|长度(32位系统)|长度(64位系统)|
+    |-|-|-|
+    |char|1|1|
+    |short|2|2|
+    |int|4|4|
+    |float|4|4|
+    |double|8|8|
+    |long|4|8|
+    |long long|8|8|
+    |long double|12|16|
+    |complex long double|16|32|
 
-* 结构体
-    * 对齐
-        * 结构体成员所在地址需是该成员大小的整数倍. 下面结构体大小: 16, 1 + 1 + 2(补齐给i) + 4 + 8
-            
-            ```cpp
-            struct a {
-                char c1;
-                char c2;
-                long i;
-                double f;
-            }
-            ```
+## 数据定义
+* `const char *str = "abc";` `str`指向常量, `str`是变量
+* `char const *str = "abc";` `str`是常量, 相当于`char str[3] = "abc"`
+* ` int (*ptr)(int, int);` 定义函数指针变量. 
 
-        * 栈对齐: x86(4), x64(16, 入栈8字节).
-        * 如下表示按一字节对齐(如网络协议, 需要让总数据量较少, 以提高报文传播速度).
-           
-            ```cpp
-            // push和pop之间的代码保持1字节对齐; pop以后就按原来的字节对齐
-            #pragma pack(push)
-            #pragma pack(1) // 这两行可直接写成: #pragma pack(push, 1)
-            struct {...}
-            #pragma pack(pop)
-            ```
-
-    * 位域
-        * 参考: https://blog.csdn.net/qq_33270521/article/details/85058248
-            
-            ```cpp
-            typedef struct{
-                int a:2;	// 最低位
-                int b:2;
-                int c:1;    // 最高位
-            }test;
-            
-            int main(void)
-            {
-                test t;
-                t.a = 1;
-                t.b = 3;
-                t.c = 1;
-                printf("%d, %d, %d\n", a, b, c); // 1, -1, -1
-                return 0;
-            }
-            ```
-
-            * 因为最高位视为符号位, 所以打印b和c得到了负数. 
-
-* 变量存储位置
-    * 全局变量: 静态区(`.data`存已初始化变量, `.bss`存未初始化变量). 用了`static`关键字声明的变量不可被其它文件通过`extern`导入.
-    * 在函数中定义的局部变量: 
-        * `char s1[] = "123";` `s1`和"123"都存在栈上, 因而`s1`的值将是栈上地址(指向"123"); 
-        * `char *s2 = "123";` "123"存在`.rdata`中;
-        * `static int c = 10;` 作用域为函数内, 类似于闭包中的变量(会在函数执行完后仍保留); 存于`.data`
-    * 局部变量的地址不可被返回(编译不通过)
-
+## 结构体
+* 对齐
+    * 结构体成员所在地址需是该成员大小的整数倍. 下面结构体大小: 16, 1 + 1 + 2(补齐给i) + 4 + 8
+        
         ```cpp
-        // 存储位置, 作用域, 生命周期
-        int a = 1;  // .data节, 整个项目, 程序执行期间
-        char *p1; // .bss节, 整个项目, 程序执行期间
-        static int x = 10; // .data节, 本文件, 程序执行期间
-        int main(void) 
-        { 
-            int b = 0; // 栈, main函数, main函数执行期间
-            char s1[] = "123"; // 栈, main函数, main函数执行期间(栈上存了"123\0")
-            char *p2; // 栈, main函数, main函数执行期间
-            char *s2 = "123"; // 栈, main函数, main函数执行期间("123\0"存于.rdata节, s2指向之)
-            static int c = 10; // .data节, main函数, 程序执行期间
-            p1 = (char *)malloc(128); 
-            p2 = (char *)malloc(256); 
-            free(p1); 
-            free(p2); 
-            return 0; 
-        } 
+        struct a {
+            char c1;
+            char c2;
+            long i;
+            double f;
+        }
         ```
+
+    * 栈对齐: x86(4), x64(16, 入栈8字节).
+    * 如下表示按一字节对齐(如网络协议, 需要让总数据量较少, 以提高报文传播速度).
+        
+        ```cpp
+        // push和pop之间的代码保持1字节对齐; pop以后就按原来的字节对齐
+        #pragma pack(push)
+        #pragma pack(1) // 这两行可直接写成: #pragma pack(push, 1)
+        struct {...}
+        #pragma pack(pop)
+        ```
+
+* 位域
+    * 参考: https://blog.csdn.net/qq_33270521/article/details/85058248
+        
+        ```cpp
+        typedef struct{
+            int a:2;	// 最低位
+            int b:2;
+            int c:1;    // 最高位
+        }test;
+        
+        int main(void)
+        {
+            test t;
+            t.a = 1;
+            t.b = 3;
+            t.c = 1;
+            printf("%d, %d, %d\n", a, b, c); // 1, -1, -1
+            return 0;
+        }
+        ```
+
+        * 因为最高位视为符号位, 所以打印b和c得到了负数. 
+
+## 存储
+* 全局变量: 静态区(`.data`存已初始化变量, `.bss`存未初始化变量). 用了`static`关键字声明的变量不可被其它文件通过`extern`导入.
+* 在函数中定义的局部变量: 
+    * `char s1[] = "123";` `s1`和"123"都存在栈上, 因而`s1`的值将是栈上地址(指向"123"); 
+    * `char *s2 = "123";` "123"存在`.rdata`中;
+    * `static int c = 10;` 作用域为函数内, 类似于闭包中的变量(会在函数执行完后仍保留); 存于`.data`
+* 局部变量的地址不可被返回(编译不通过)
+
+    ```cpp
+    // 存储位置, 作用域, 生命周期
+    int a = 1;  // .data节, 整个项目, 程序执行期间
+    char *p1; // .bss节, 整个项目, 程序执行期间
+    static int x = 10; // .data节, 本文件, 程序执行期间
+    int main(void) 
+    { 
+        int b = 0; // 栈, main函数, main函数执行期间
+        char s1[] = "123"; // 栈, main函数, main函数执行期间(栈上存了"123\0")
+        char *p2; // 栈, main函数, main函数执行期间
+        char *s2 = "123"; // 栈, main函数, main函数执行期间("123\0"存于.rdata节, s2指向之)
+        static int c = 10; // .data节, main函数, 程序执行期间
+        p1 = (char *)malloc(128); 
+        p2 = (char *)malloc(256); 
+        free(p1); 
+        free(p2); 
+        return 0; 
+    } 
+    ```
 
 * 内存布局
     * x86为32位寻址, 因此寻址空间上限为4GB, 也可通过PAE(Physical address extension)扩到36位(64GB)
@@ -153,75 +173,6 @@
             <img alt="" src="./pic/mem.jpg" width="70%" height="70%">
     * 其他
         * `int a[1024*1024*1024] = {1};` 这样初始化数组会导致`.data`节大小为4G.
-
-* 位运算
-    * 算术右移用符号位填充, 逻辑右移用0填充. 
-    * -1为二进制全1; 有符号数最大值为01111..., 最小值为10000...
-
-        ```cpp
-        (char)(127<<1)+1    // -1
-        (char)(-1>>1)+1   // 0
-        1<<2+3  // 32
-        (15&240)+((2^100)%7)    // 2 (第二项: (2 * (1 + 7) ^ 33) % 7)
-        (char)(-128 * -1)   // -128 (0b10000000)
-        1^2^4^5^6^...^1024  // 1027 (1^2^3^4^5^6^...^1024)
-        0x12345678 | ~0xFFFEFFFF    // 0x12355678
-        ```
-
-* 函数
-    * 函数传参
-        * 传值, 传指针, 传引用
-            * 注: C语言没有引用传递, 这个是C++的概念. 故在C源码文件中如下`func2`的定义不通过. 
-
-        ```cpp
-        // x86
-
-        void fun(char c[]) 
-        { 
-            printf("%d\n" , sizeof(c));     // c是指针
-        }
-        void fun2(char &c) // 传引用, 就是实参本身
-        { 
-            printf("%d\n" , sizeof(c)); 
-        }
-        void fun3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用fun3时传给它的数组大小若大于9则会出错
-        { 
-            printf("%d\n" , sizeof(c)); 
-        } 
-
-        void f(char *p);
-        void f1(char **p);
-        void f2(char *&p);  // 指针的引用
-        int main() 
-        {   
-            int a = 0;
-            int *p = &a; // p是实参
-            f(p);   // 传的是a的地址, 因而可改变a的值
-            char c[] = "12345678"; 
-            printf("%d\n" , sizeof(c)); // 9
-            fun(c); // 4
-            fun2(*c); // 1(*c即c[0])
-            fun3(c); // 9
-            return 0; 
-        }
-        ```
-
-    * 调用约定
-        * __stdcall: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
-        * __cdecl: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
-        * __fastcall: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
-
-    * 不定长参数
-
-        ```cpp
-        void func(int var1, ...) {
-            va_list vl;  
-            va_start(vl, var1); // 使vl指向可选参数列表的第一个参数. var1是可选参数列表前的一个指针
-            va_arg(vl, type); // 返回参数列表指针指向的参数, 类型为type, 并使vl指向下一个参数. 
-            va_end(vl); // 清空参数列表, 并置参数指针vl为无效指针
-        }
-        ```
-
 * 内存分配
 
     ```cpp
@@ -241,56 +192,143 @@
     kfree(p);
     ```
 
-* 错误/异常
-    * 类型
-        * 文件打开失败
-        * 分配内存返回NULL
-        * 等等
-    * 处理
-        * if/goto
-        * __try/__except: 这个是windows独有的异常处理模型, 即SEH. 
-            * `__except(<过滤器表达式>)`:
-            ```cpp
-            __try {
+## 算术运算
+* 位运算
+    * 算术右移用符号位填充, 逻辑右移用0填充. 
+    * -1为二进制全1; 有符号数最大值为01111..., 最小值为10000...
 
-            } __except(MyFilter(GetExceptionCode(), GetExceptionInformation())) {
+        ```cpp
+        (char)(127<<1)+1    // -1
+        (char)(-1>>1)+1   // 0
+        1<<2+3  // 32
+        (15&240)+((2^100)%7)    // 2 (第二项: (2 * (1 + 7) ^ 33) % 7)
+        (char)(-128 * -1)   // -128 (0b10000000)
+        1^2^4^5^6^...^1024  // 1027 (1^2^3^4^5^6^...^1024)
+        0x12345678 | ~0xFFFEFFFF    // 0x12355678
+        ```
 
-            }
+## 函数
+* 函数传参
+    * 传值, 传指针, 传引用
+        * 注: C语言没有引用传递, 这个是C++的概念. 故在C源码文件中如下`func2`的定义不通过. 
 
-            int MyFilter(unsigned int code, struct _EXCEPTION_POINTERS* ep) {
-                DbgPrint("code: %u", code);
-                ep->ExceptionRecord->ExceptionAddress;
-                return 1;
-            }
-            ```
-            * 在__except的块中, 可以使用`GetExceptionCode`宏得到异常代码, 但不能使用`GetExceptionInformation`, 因为它指向的信息通常位于堆栈上, 并在控件传输到异常处理程序时被销毁. 
-
-* 宏
     ```cpp
-    // 把宏参数拼接到字符串中: 
-    #define WARN(msg) printf("warning: " #msg "\n")
+    // x86
 
-    // 把宏参数拼接到另一个c语言token
-    #define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
+    void fun(char c[]) 
+    { 
+        printf("%d\n" , sizeof(c));     // c是指针
+    }
+    void fun2(char &c) // 传引用, 就是实参本身
+    { 
+        printf("%d\n" , sizeof(c)); 
+    }
+    void fun3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用fun3时传给它的数组大小若大于9则会出错
+    { 
+        printf("%d\n" , sizeof(c)); 
+    } 
 
-    // 可变参数宏(把...原封不动转到__VA_ARGS__位置)
-    // 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
-    #define DEBUG(...) printf(__VA_ARGS__)
+    void f(char *p);
+    void f1(char **p);
+    void f2(char *&p);  // 指针的引用
+    int main() 
+    {   
+        int a = 0;
+        int *p = &a; // p是实参
+        f(p);   // 传的是a的地址, 因而可改变a的值
+        char c[] = "12345678"; 
+        printf("%d\n" , sizeof(c)); // 9
+        fun(c); // 4
+        fun2(*c); // 1(*c即c[0])
+        fun3(c); // 9
+        return 0; 
+    }
     ```
 
-    * 预定义宏
-        |宏|描述|
-        |-|-|
-        |__FILE__|	这会在程序编译时包含当前文件名. |
-        |__LINE__|	这会在程序编译时包含当前行号. |
-        |__FUNCTION__|	这会在程序编译时包含当前函数名. |
-        |__DATE__|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
-        |__TIME__|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
+* 调用约定
+    * __stdcall: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
+    * __cdecl: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
+    * __fastcall: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
+
+* 不定长参数
+
+    ```cpp
+    void func(int var1, ...) {
+        va_list vl;  
+        va_start(vl, var1); // 使vl指向可选参数列表的第一个参数. var1是可选参数列表前的一个指针
+        va_arg(vl, type); // 返回参数列表指针指向的参数, 类型为type, 并使vl指向下一个参数. 
+        va_end(vl); // 清空参数列表, 并置参数指针vl为无效指针
+    }
+    ```
+
+## 错误/异常
+* 类型
+    * 文件打开失败
+    * 分配内存返回NULL
+    * 等等
+* 处理
+    * if/goto
+    * __try/__except: 这个是windows独有的异常处理模型, 即SEH. 
+        * `__except(<过滤器表达式>)`:
+        ```cpp
+        __try {
+
+        } __except(MyFilter(GetExceptionCode(), GetExceptionInformation())) {
+
+        }
+
+        int MyFilter(unsigned int code, struct _EXCEPTION_POINTERS* ep) {
+            DbgPrint("code: %u", code);
+            ep->ExceptionRecord->ExceptionAddress;
+            return 1;
+        }
+        ```
+        * 在__except的块中, 可以使用`GetExceptionCode`宏得到异常代码, 但不能使用`GetExceptionInformation`, 因为它指向的信息通常位于堆栈上, 并在控件传输到异常处理程序时被销毁. 
+
+## 宏
+```cpp
+// 把宏参数拼接到字符串中: 
+#define WARN(msg) printf("warning: " #msg "\n")
+
+// 把宏参数拼接到另一个c语言token
+#define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
+
+// 可变参数宏(把...原封不动转到__VA_ARGS__位置)
+#define DEBUG(...) printf(__VA_ARGS__)
+// 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
+#define DEBUG2(format, ...) printf(format, ##__VA_ARGS__)
+
+#define A 1
+#undef A
+
+// 可在编译时打印信息
+#ifndef A
+#error A is not defined 
+#warning A is not defined 
+#endif
+
+// 可以判断条件
+#if ((defined A) && (!defined B))
+...
+#elif
+...
+#endif
+```
+
+* 预定义宏
+    |宏|描述|
+    |-|-|
+    |__FILE__|	这会在程序编译时包含当前文件名. |
+    |__LINE__|	这会在程序编译时包含当前行号. |
+    |__FUNCTION__|	这会在程序编译时包含当前函数名. |
+    |__DATE__|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
+    |__TIME__|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
 
 * 预编译选项
     * `#pragma execution_character_set("utf-8")`: 告诉msvc编译器, 当前文件以utf8编码编译. 
+    * `#pragma message("asdf")`: 会在编译时打印字符串的内容(在确认`ifdef`或`ifndef`宏的代码块有没有被编译时有用处)
 
-* 问题代码
+# 问题代码
 
     ```cpp
     void GetMemory(char *p) 
@@ -342,7 +380,7 @@
     }
     ```
 
-# 编码经验教训
+# 编码经验
 * 参数检查
     * 指针是否为NULL
     * 参数中缓存长度是否在合理范围内
@@ -380,8 +418,9 @@
 * 同步, 异步, 互斥
     * 获取的资源要确保被释放
         * 要留意goto, break, __try__except会不会导致释放步骤被跳过. 
-* 奇技淫巧
-    * 有时为了在捕获到错误时终止一段代码, 会用到大量if-else或goto语句. 可以如下用do-while: 
+
+## 奇技淫巧
+* 有时为了在捕获到错误时终止一段代码, 会用到大量if-else或goto语句. 可以如下用do-while: 
     ```cpp
     if (a) goto NEXT;
     ...
@@ -395,6 +434,21 @@
         ...
         if (b) break;
     } while (FALSE);
+    ```
+    * 复合语句
+    ```cpp
+    char *a = ({
+        unsigned int *p = __builtin_alloca(16);
+        p[0] = 0x12345678;
+        (cahr *)p; // 返回值
+    });
+    ```
+
+* 编译时打印宏参数的值
+    ```cpp
+    #define __PRINT_MACRO(x) #x
+    #define PRINT_MACRO(x) #x"="__PRINT_MACRO(x)
+    #pragma message(PRINT_MACRO(MYOPT))
     ```
 
 # C++

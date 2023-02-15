@@ -294,6 +294,61 @@
     ```
 
     * make以后生成`hello.ko`
+    * Kbuild
+        * make的时候, 首先读`.config`文件中的变量, 然后读`KBuild`文件. `KBuild`文件会用到`.config`文件中的变量. 
+        ```sh
+        # 将 <模块名>.o 编译进内核. 
+        obj-y := <模块名>.o
+
+        # Kbuild会调用`$(AR) rcSTP`所有目标文件合并到`built-in.a`文件中. 这个文件没有符号表. 
+        # `built-in.a`会在后续通过`scripts/link-vmlinux.sh`链接进vmlinux中. 
+        # 列表中个文件的先后顺序是重点. 允许重复文件名(成功链接的目标文件会在后面被忽略). 
+        # 链接顺序也是重点. 在系统boot的时候, 它们的`module_init`/`__initcall`是按它们出现的顺序执行的. 
+        obj-y += obj1.o obj2.o
+
+        # 将 <模块名>.o 编译为模块
+        obj-m := <模块名>.o
+
+        # 编译到 lib.a 文件中
+        lib-y := obj1.o obj2.o
+
+        # 指定依赖的文件. 调用`$(CC)`生成这些目标文件, 对它们调用`$(LD) -r`, 生成 `<模块名>.o`
+        <模块名>-y += obj1.o obj2.o
+
+        # 等同于make时指定的EXTRA_CFALGS参数
+        ccflags-y += -DMYVAR1=\"myvar1\"
+
+        # 其它的还有asflags-y, ldflags-y
+        ```
+
+        * Kbuild的第二阶段(Stage2)会调用`modpost`程序: (引用: https://blog.csdn.net/lidan113lidan/article/details/119743237)
+            * 生成`xx.mod.c`文件: 记录ko所需的其他信息. 
+                ```cpp
+                // *.mod.c文件都拥有相同的文件头，生成此头文件的代码在./scripts/mod/modpost.c中
+                #include <linux/build-salt.h>                                                                                                                     
+                #include <linux/module.h>
+                #include <linux/vermagic.h>
+                #include <linux/compiler.h>
+                
+                BUILD_SALT;
+                
+                // MODULE_INFO(tag,name)宏的作用是在.modinfo段添加变量 字符串变量tag = "tag = info"
+                // VERMAGIC_STRING为内核版本信息
+                MODULE_INFO(vermagic, VERMAGIC_STRING);
+                // KBUILD_MODNAME是cc时传入的参数，其在Makefile.lib中定义:
+                // modname_flags  = -DKBUILD_MODNAME=$(call name-fix,$(modname))
+                MODULE_INFO(name, KBUILD_MODNAME);
+                
+                // 这个结构体记录模块信息
+                __visible struct module __this_module
+                __attribute__((section(".gnu.linkonce.this_module"))) = {
+                    .name = KBUILD_MODNAME,
+                    .init = init_module, // 模块的初始化函数
+                    .arch = MODULE_ARCH_INIT,
+                };
+                ```
+            * 生成`Module.symvers`文件: 内核和内部模块中所有`EXPORT_SYMBOL_XXX`符号信息都输出到这个文件. 这个文件的作用是在外部模块编译时告知外部模块当前内核有哪些导出符号, 以及这些导出符号的CRC值.
+            * 将`xx.mod.c`编译生成`xx.mod.o`文件. 最后用`ld -r`将其与模块的`xx.o`链接, 生成可加装的模块`xx.ko`. 
     * 模块相关命令
         * `sudo insmod hello.ko`: 加载ko文件
         * `sudo rmmod hello.ko`: 卸载ko文件
@@ -314,7 +369,14 @@
                 * `c`: 表示字符设备
     * 编译运行客户端程序
 
-## 部分常用API
+## 头文件
+* `linux/version.h`: 如要判断linux内核版本, 需要此头文件. 
+    * 判断内核版本: `#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)`
+
+## 常量
+* `THIS_MODULE`: 定义于`include/linux/export.h`, 指向本模块(`module`结构体). 
+
+## 常用API
 * 数据传递
     * 在内核层不能直接操作用户层地址的数据, 需要拷贝. 相关API如下: 
         * `copy_from_user(to, from, len)`: 
@@ -373,9 +435,14 @@
         * 内核镜像, 也是ELF
         * 有`.text`和`.data`
         * 没有符号表, 可以用[kdress](https://github.com/elfmaster/kdress). `kdress`会从 `System.map` 文件或者`/proc/kallsyms` 中获取符号相关的信息, 会根据这两种方式的可读性优先选取一种. 然后通过为符号表创建节头, 将获取到的符号信息重建到内核可执行文件中. 
+            * `sudo ./kdress vmlinuz-$(uname -r) vmlinux /boot/System.map-$(uname -r)`
+    * vmlinuz
+        * 在vmlinux的基础上, 经过gzip或bzip压缩而来, 同时添加了启动和解压缩代码. 是可以引导boot启动内核的最终镜像. 
+        * 将vmlinuz解压为vmlinux: `/usr/src/linux-headers-$(uname -r)/scripts/extract-vmlinux /boot/vmlinuz-$(uname -r) > vmlinux` 
 * strace
 * 内核配置项
     * `CONFIG_DEBUG_KERNEL`: 用于使其它调试选项可用. 
+* kprobe
 
 ## linux内核数据结构
 * `file_operation`结构体: 是把系统调用和驱动程序关联起来的关键数据结构. 

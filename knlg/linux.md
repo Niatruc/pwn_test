@@ -2,40 +2,103 @@
 * `/proc`: 每个进程在此目录下都有一个文件. 
     * `/<进程id>`
         * `/map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
-        * `/kcore`: Linux 内核的动态核心文件. 
-        * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
+    * `/kcore`: Linux 内核的动态核心文件. 
+    * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
+    * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟系统内存相关的
     * `/sys`
         * `/kernel`
             * `/random`
                 * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
 * `/boot`:
     * `/System.map`: 内核符号. 
+    * `/grub`
+        * `/grub.cfg`
+            * 其中`menuentry`处有启动项. 
+    * `/initrd.img-<内核版本号>`: initrd的目的就是在kernel加载系统识别cpu和内存等核心信息之后, 让系统进一步知道还有那些硬件是启动所必须使用的
 * `/dev`
     * `/input`
         * `/event<数字>`: 键盘等输入设备的实时数据可从这些文件读取. 
+    * `/urandom`: 随机数据. 
 * `/lib`
     * `/udev`: 
+* `/etc`
+    * `/default`
+        * `/grub`: 
+            * 修改该文件并运行`update-grub`, 将更新`/boot/grub/grub.cfg`
+            * `GRUB_DEFAULT`对应默认启动项. 
+
+
 # 开发
 * code blocks
     1. `sudo apt install codeblocks`: 
     2. `sudo apt install build-essential`: 
     3. `sudo apt install valgrind`: 用于探测内存泄露的调试组件
     3. `sudo apt install codeblocks-contrib`: 安装codeblocks常用插件
-* gcc
-    * `-o <输出文件名>`
-    * `-g`: 带上调试符号. 
-    * `-static`: 静态编译. 
-    * `-I<头文件目录>`
-    * `-L<库文件目录绝对路径>`
-    * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
-        * `-Map=<map文件路径>`: 生成map文件. 
-        * `-Bstatic -l<库名>`: 指定静态链接库. 
-        * `-Bdynamic -l<库名>`: 指定动态链接库. 
-        * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
-    * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
-* make
-    * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
-    * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
+* 静态库: (https://blog.csdn.net/hexf9632/article/details/100985400)
+    * 编译生成静态库
+        * `gcc -Wall -O2 -fPIC -I./ -c -o mylib.o mylib.c`
+        * `ar crv libmylib.a mylib.o`
+    * 编译引用了静态库的程序(不需要头文件)
+        * `gcc test.c -o test ./libmylib.a`
+        * `gcc test.c -o test -L. -lmylib `
+        * `gcc test.c -o test -L. libmylib.a`
+* 动态库(隐式)
+    * 编译生成动态库
+        * `gcc -o2 -fPIC -shared mylib.c -o libmylib.so`
+            * `-fPIC`: 表示生成位置无关代码
+            * `-shared`: 表示动态库
+    * 编译引用了动态库的程序(不需要头文件)
+        * `gcc -o2 -Wall -L. -lmylib test.c -o test`
+    * 这时对test程序使用ldd, 会看到`libmylib.so => ./libmylib.so`
+        * 这时候需要修改`LD_LIBRARY_PATH`, 否则找不到动态库. 
+* 动态库(显式)
+    ```cpp
+    #include <stdio.h>
+    #include <dlfcn.h>
+
+    #define LIB "./libmylib.so"
+
+    int main(void)
+    {
+        /*
+        * RTLD_NOW：将共享库中的所有函数加载到内存 
+        * RTLD_LAZY：会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
+        */
+
+        void *dl = dlopen(LIB,RTLD_LAZY); //打开动态库
+
+        if (dl == NULL)
+            fprintf(stderr,"Error:failed to load libary.\n");
+
+        char *error = dlerror(); //检测错误
+        if (error != NULL)
+        {
+            fprintf(stderr,"%s\n",error);
+            return -1;
+        }
+
+        void (*func)() = dlsym(dl,"mylib"); // 获取函数地址
+        error = dlerror(); //检测错误
+        if (error != NULL)
+        {
+            fprintf(stderr,"%s\n",error);
+            return -1;
+        }
+
+        func(); //调用动态库中的函数
+
+        dlclose(dl); //关闭动态库
+        error = dlerror(); //检测错误
+        if (error != NULL)
+        {
+            fprintf(stderr,"%s\n",error);
+            return -1;
+        }
+
+        return 0;
+    }
+
+    ```
 
 # 调试
 ## GDB
@@ -103,7 +166,7 @@
     * `fork`: 创建子进程, 其从调用`fork`之后的地方开始执行.     
         * 返回值
             * 负值: 创建子进程失败. 
-            * 零: 返回到新创建的子进程. (即若返回值为0, 表面此时在子进程中)
+            * 零: 返回到新创建的子进程. (即若返回值为0, 表明此时在子进程中)
             * 正值: 返回父进程. 该值包含新创建的子进程的进程ID. (即若返回值大于0, 表面此时在父进程中)
     * `int kill(pid_t pid, int sig);` 向`pid`进程发送`sig`信号. 
     * `signal(int sig, void (*func)(int))`: 设置`func`函数, 来等待`sig`信号. 
@@ -111,7 +174,7 @@
         * 一些常用信号
             |信号常量|信号含义|
             |-|-|
-            |SIGABRT|	(Signal Abort) 程序异常终止. |
+            |SIGABRT|	(Signal Abort) 程序异常终止. (执行`abort`函数; 执行`assert`函数); 多次`free`; |
             |SIGFPE|	(Signal Floating-Point Exception) 算术运算出错, 如除数为 0 或溢出（不一定是浮点运算）. |
             |SIGILL|	(Signal Illegal Instruction) 非法函数映象, 如非法指令, 通常是由于代码中的某个变体或者尝试执行数据导致的. |
             |SIGINT|	(Signal Interrupt) 中断信号, 如 ctrl-C, 通常由用户生成. |
@@ -157,9 +220,23 @@
 
             }
             ```
-    * `pid_t waitpid(pid_t pid,int * status,int options)`: 暂停进程, 等待信号到来或pid子进程结束. 
-    * `exec`系列: 将执行从原进程转到新进程. 若成功则原进程不再执行. (成功则不返回, 失败则返回-1)
-        * `int execvp(const char *file ,char * const argv [])`: 执行可执行文件. 
+    * `pid_t waitpid(pid_t pid, int * status, int options)`: 暂停进程, 等待信号到来或pid子进程结束. 
+    * `pid_t wait(int * status)`
+        * 判断子进程返回的状态: `if (WEXITSTATUS(*status) == 0)`
+    * `int daemon(int nochdir, int noclose)`: 将本进程作为守护进程运行. 
+        * 参数
+            * `nochdir`: 为0时, 更改进程运行目录为`/`. 
+            * `noclose`: 为0时, 将3个stdin, stdout, stderr重定向到`/dev/null`. 
+    * `exec`系列: **将执行从原进程转到新进程**. 若成功则原进程不再执行. (成功则不返回, 失败则返回-1)
+        
+        ```cpp
+        int execl(const char *path, const char *arg, ...);
+        int execlp(const char *file, const char *arg, ...);
+        int execle(const char *path, const char *arg,..., char * const envp[]);
+        int execv(const char *path, char *const argv[]);
+        int execvp(const char *file, char *const argv[]);
+        int execvpe(const char *file, char *const argv[],char *const envp[]);
+        ```
     * `system`: 执行bash命令. 如果不是运行为后台进程, 则要等进程结束该函数才返回. 返回退出码(错误返回-1)
 
 # 线程
@@ -180,6 +257,69 @@
         }
     }
     ```
+* 同步
+    * 互斥体: 
+        ```cpp
+        #include <pthread.h>
+
+        // 初始化mutex. 这种方法无需销毁
+        pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+        // 也可以: 
+        pthread_mutex_init(&mutex, NULL);
+
+        // 销毁. 若互斥量处于已加锁的状态, 或正在和条件变量配合使用, 则该函数会返回EBUSY错误码. 
+        pthread_mutex_destroy(&mutex);
+
+        pthread_mutex_lock(&mutex);
+            // 临界区
+        pthread_mutex_unlock(&mutex);
+
+        // 非阻塞版本.  
+        /*********************************/
+        if (pthread_mutex_lock(&mutex) == 0) { // 尝试获取锁
+            ...
+            pthread_mutex_unlock(&mutex);
+        } else {
+            ...
+        }
+
+        ```
+        
+        * `int pthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr);`
+
+    * 条件变量: `thread_cond_t`
+        * 条件变量本质也是一个全局变量, 它的功能是阻塞线程, 直至接收到"条件成立"的信号后, 被阻塞的线程才能继续执行. 
+        * 一个条件变量可以阻塞多个线程, 这些线程会组成一个等待队列. 
+        * 为了避免多线程之间发生"抢夺资源"的问题, 条件变量在使用过程中必须和一个互斥锁搭配使用. 
+        * 初始化: 
+            * 静态分配: `pthread_cond_t cond = PTHREAD_COND_INITIALIZER;`
+            * 动态分配: `int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);`
+            * **不能用一个条件变量对另一个条件变量赋值.**
+        * 销毁: 动态分配的条件变量需要销毁. 
+            * `int pthread_cond_destroy(pthread_cond_t *cond);`
+        * 使用: 
+            ```cpp
+            pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
+            pthread_cond_t myCond = PTHREAD_COND_INITIALIZER;
+
+            pthread_mutex_lock(&myMutex); // 先获取互斥锁
+            pthread_cond_wait(&myCond, &myMutex); // 等待条件成立。myMutex会被释放, 因此其它线程可以获取它. 
+            // 得到信号后, 会再次获取myMutex, 因此后面需要释放它. 
+            // ...
+            pthread_mutex_unlock(&myMutex); 
+
+
+            // 另一个线程
+            pthread_cond_signal(&myCond); // 发出条件成立的信号, 唤醒线程
+            ```
+
+            * `pthread_cond_wait`被调用时, **会释放其绑定的互斥体**, 并阻塞线程(所以前面有个获取互斥体的操作); 收到信号后, 会返回并对绑定的互斥体上锁, 所以最后又会有一个解锁操作. 
+
+# 内存
+* 内存检测工具
+    * `valgrind`: 可检测目标程序中引起内存泄露的代码. 
+
 
 # 文件
 * 头文件
@@ -203,15 +343,26 @@
             * `mode`: 文件访问权限的初始值. 
         * 返回值: 大于0则打开文件成功. 
             * -1: 失败
+    * `int ftruncate(int fd, off_t length);`: 将fd指定的文件大小改为参数`length`指定的大小. `fd`需是以写入的模式打开. 
+    * `off_t lseek(int fd, off_t offset, int whence)`: 在读写文件前, 将文件指针移动到`offset`指定的位置. 
+        * 参数
+            * `whence`
+                * `SEEK_SET`: 相对起始位置. 
+                * `SEEK_END`: 相对结束位置. 
+                * `SEEK_CUR`: 相对当前位置. 
+        * 返回值: 若成功, 返回设置后文件指针的位置. 
+            * 可获取文件大小: `lseek(fd, 0, SEEK_END);`
+
     * `ssize_t write(int fd,const void * buf,size_t count);` 
-        * `buf`: 存放要写入的内容
-        * `count`: 要写入的字节数
-        * 返回值: 
+        * 参数: 
+            * `buf`: 存放要写入的内容
+            * `count`: 要写入的字节数
+        * 返回值: 成功则返回写入的字节数, 失败则返回-1. 
+    * `ssize_t read(int fd, void *buf, size_t count);`
+        * 返回值: 成功则返回读取的字节数, 到达文件末尾则返回0, 失败则返回-1. 
+    * `int dup(int fd)`: 复制现有的文件描述符fd, 返回新描述符. 
+    * `int dup2(int fd, int fd2)`: 同`dup`, 但是可以用`fd2`指定新描述符, 如果`fd2`已打开, 则会先将其关闭. 
     * `int fileno(FILE *stream)`: 获得文件流所使用的文件描述符. 
-    * `int isatty(int desc)`: 判断文件描述符指向的文件是否是终端. 
-    * `perror(char *s)`: 将上一个函数发生错误的原因输出到stderr. `s`所指向的字符串会先被打印. 
-    * `termios.h`
-        * `int tcgetattr(int fd, struct termios *termios_p);` 获取终端参数, 保存于`termios`结构体. 
     * `fd_set`: 这个结构体的变量用于存放文件描述符. 
         * `FD_ZERO(fd_set*)`: 清空一个fd_set. 
         * `FD_SET(int, fd_set*)`: 将一个fd加入到一个fd_set中. 
@@ -237,14 +388,63 @@
                 fd_set set; 
                 FD_ZERO(&set); // 将set清空 
                 FD_SET(s, &set); // 将套接字s加入set
-                select(0, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读
-                if(FD_ISSET(s, &set) { // 检查s是否在set中
+                select(s + 1, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读(会阻塞)
+                if(FD_ISSET(s, &set) { // 检查s是否在set中(即s是否被唤醒)
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
                 } 
-                //do   something   here 
             }
             ```
 
+
+# 终端
+* api
+    * `int isatty(int desc)`: 判断文件描述符指向的文件是否是终端. 
+    * `perror(char *s)`: 将上一个函数发生错误的原因输出到stderr. `s`所指向的字符串会先被打印. 
+    * `termios.h`
+        * `int tcgetattr(int fd, struct termios *termios_p);` 获取终端参数, 保存于`termios`结构体. 
+    * `int openpty(int *amaster, int *aslave, char *name, struct termios *termp, struct winsize *winp); `
+        * 作用: 创建一个虚拟终端. 创建一个控制端(master)和一个数据端(slave). 控制端用于向虚拟终端写入数据和从中读数据; 数据段用于应用程序和虚拟终端的交互. 
+        * 参数: 
+            * `amaster`: 保存控制端的文件描述符. 
+            * `aslave`: 保存数据端的文件描述符. 
+            * `name`: 如不为NULL, 则会接收slave pty的路径. 
+            * `termp`: 如不为NULL, 则会接收`struct termios`数据. 
+            * `winp`: 如不为NULL, 则会接收`struct winp`数据. 
+        * 示例: 
+            ```cpp
+            #include <unistd.h>
+            #include <pty.h>
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <fcntl.h>
+            #include <sys/wait.h>
+
+            int main() {
+                int master, slave;
+                pid_t pid; 
+
+                if (openpty(&master, &slave, buf, N3ULL, NULL) == -1) {
+                    return -1;
+                }
+
+                pid = fork();
+                if (pid == -1) {
+                    return -1;
+                }
+
+                if (pid == 0) { // 子进程中
+                    close(master); // 子进程不需要读主控端的数据, 所以关闭master
+                    dup2(slave, STDOUT_FILENO);
+                    dup2(slave, STDERR_FILENO);
+                    execlp("ls", "ls", "-l", NULL);
+                } else {
+                    close(slave); // 父进程不需要写入数据端, 所以关闭slave. 
+                    int n = read(master, buf, sizeof(buf));
+                    write(STDOUT_FILENO, buf, n); // 打印
+                    wait(NULL); // 阻塞, 等待子进程结束
+                }
+            }
+            ```
 
 # 网络
 * 知识点
@@ -255,13 +455,17 @@
         * `htons`: 短整型转端口值
         * `ntohs`: 端口值转短整型
         * `htonl`: 整型(4字节)转IPv4值
-        * `ntohs`: IPv4值转整型(4字节)
+        * `ntohl`: IPv4值转整型(4字节)
     * `int socket(int domain, int type, int protocol);`
         * 头文件: `<sys/socket.h>`
         * 参数
-            * `domain`: 协议族, 有`AF_INET`(Address Family, 也可写成`PF_INET`)和`AF_INET6`. 
+            * `domain`: 协议族
+                * `AF_INET`(Address Family, 也可写成`PF_INET`)
+                * `AF_INET6`. 
+                * `PF_PACKET`: 使用原生套接字时, 提供该选项, 则接收的数据包从以太网协议头部开始. 
             * `type`: 传输方式, 字节流`SOCK_STREAM`, 数据报`SOCK_DGRAM`, 原始套接字`SOCK_RAW`
-            * `protocol`: 使用的协议, 通常有`IPPROTO_TCP`, `IPPROTO_UDP`, `IPPROTO_IP`
+            * `protocol`: 使用的协议, 通常有`IPPROTO_TCP`, `IPPROTO_UDP`, `IPPROTO_ICMP`, `IPPROTO_IP`
+                * `IPPROTO_RAW`: 如果用了这个参数, 则**这个socket只能用来发IP包, 不能接收任何数据**. 
         * 返回值: 返回一个文件描述符, 如果失败, 则返回-1
         * 注: 
             * 使用小于1024的端口需要root权限
@@ -274,6 +478,7 @@
                 * `SO_SNDTIMEO`: 设置发送超时时间. 
                 * `SO_RCVBUF`: 为接收确定缓冲区大小. 
                 * `SO_SNDBUF`: 指定发送缓冲区大小. 
+                * `SO_REUSEADDR`: 一般来说, 一个端口释放后会等待两分钟之后才能再被使用. 这个选项让端口释放后立刻可用. 
             * `optval`: 可设为一个`struct timeval*`值, 以指定超时时间. 
                 * `setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv_out, sizeof(tv_out))`
     * `int bind(int sockfd, const struct sockaddr *addr,socklen_t addrlen);` 将网络地址和端口与套接字绑定. 
@@ -302,13 +507,21 @@
                 `MSG_NOSIGNAL`: 当另一端终止连接时, 请求在基于流的错误套接字上不要发送SIGPIPE信号. 
                 `MSG_OOB`: 发送out-of-band数据(需要优先处理的数据), 同时现行协议必须支持此种操作. 
         * 返回值: 发送的字节数. -1则表示发送失败. 
-
-    * `int sendto ( int s , const void * msg, int len, unsigned int flags, const struct sockaddr * to , int tolen ) ;`
-    * `int recv(int sockfd, void *buf, int len, int flags)`: 
+    * `ssize_t send(int sock, const void *buf, size_t len, int flags);`
+    * `ssize_t recv(int sockfd, void *buf, int len, int flags)`: 
         * 返回值: 
             * 大于0: 接收的数据的字节数. 
-            * 0: 远端关闭连接. 
+            * 0: **远端关闭连接.** 
             * -1: 失败. 
+    * `ssize_t sendto( int s , const void * msg, int len, unsigned int flags, const struct sockaddr * to , int tolen) ;`
+    * `ssize_t recvfrom(int sockfd, const void *buff, size_t nbytes, int flags, const struct sockaddr *from, socklen_t *addrlen);`
+    * `int close(int fd);`
+        * 关闭套接字. 会发送一个FIN. 
+    * `int shutdown(int sockfd,int howto);` 
+        * 参数: 
+            1. `SHUT_RD`: 值为0,关闭连接的读这一半. 
+            2. `SHUT_WR`: 值为1,关闭连接的写这一半. 
+            3. `SHUT_RDWR`: 值为2,连接的读和写都关闭. 
 
         <img alt="require_musl" src="./pic/linux_socket.jpg" width="30%" height="30%">
     
@@ -319,7 +532,23 @@
         #include <sys/types.h> 
         #include <sys/socket.h>
 
+        // tcp
+        socket(AF_INET, SOCK_STREAM, 0);
 
+        // udp 
+        int server_fd = socket(AF_INET, SOCK_DGRAM, 0); 
+        struct sockaddr_in server_addr;
+        ser_addr.sin_family = AF_INET;
+        ser_addr.sin_addr.s_addr = htonl(INADDR_ANY); // IP地址
+        ser_addr.sin_port = htons(SERVER_PORT);  // 端口
+        int ret = bind(server_fd, (struct sockaddr*)&ser_addr, sizeof(ser_addr)); // 服务端(开监听端口的一方)需要调用bind, 另一方无需
+        // 接收数据
+        struct sockaddr_in clent_addr; // 用于接收发送数据的对端的IP地址和端口
+        int len = sizeof(clent_addr);
+        int count = recvfrom(fd, buf, BUFF_LEN, 0, (struct sockaddr*)&clent_addr, &len); // 阻塞等待数据
+
+        // icmp
+        socket(AF_INET, SOCK_RAW, IPPROTO_ICMP); 
         ```
 
 # ELF文件
@@ -340,6 +569,102 @@
         * 例: 
             * `gcc -Wl,--dynamlic-link=./my_lib/ld-2.31.so -Wl,--rpath=./my_lib/`
             * 注意`./my_lib/`必须是目标运行环境中的合法路径. 所以这里需把程序依赖的libc库拷到目标机, 和目标可执行文件放到同一目录下, 并命名为`mylib`. 
+* 相关数据结构
+```cpp
+#define EI_NIDENT 16 
+typedef struct{ 
+    unsigned char e_ident[EI_NIDENT]; 
+    uint16_t e_type; 
+    uint16_t e_machine; 
+    uint32_t e_version; 
+    ElfN_Addr e_entry; 
+    ElfN_Off e_phoff; // 程序头偏移量
+    ElfN_Off e_shoff; 
+    uint32_t e_flags; 
+    uint16_t e_ehsize; 
+    uint16_t e_phentsize; 
+    uint16_t e_phnum; 
+    uint16_t e_shentsize; 
+    uint16_t e_shnum; 
+    uint16_t e_shstrndx; 
+}ElfN_Ehdr;
+
+typedef struct { 
+    uint32_t p_type; (段类型) 
+    Elf32_Off p_offset; (段偏移) 
+    Elf32_Addr p_vaddr; (段虚拟地址) 
+    Elf32_Addr p_paddr; (段物理地址) 
+    uint32_t p_filesz; (段在文件中的大小) 
+    uint32_t p_memsz; (段在内存中的大小) 
+    uint32_t p_flags; (段标识, execute|read|write) 
+    uint32_t p_align; (段在内存中的对齐值) 
+} Elf32_Phdr;
+
+// 动态段的结构体
+typedef struct{ 
+    Elf32_Sword d_tag; 
+    union{ 
+        Elf32_Word d_val; 
+        Elf32_Addr d_ptr; 
+    } d_un; 
+} Elf32_Dyn; 
+extern Elf32_Dyn_DYNAMIC[];
+
+typedef struct { 
+    uint32_t sh_name; // shdr名称在shdr字符串表中的偏移 
+    uint32_t sh_type; // shdr类型, 即SHT_PROGBITS
+    uint32_t sh_flags; // shdr标识, SHT_WRITE|SHT_ALLOC 
+    Elf32_Addr sh_addr; // 节其实地址 
+    Elf32_Off sh_offset; // shdr在文件中的偏移
+    uint32_t sh_size; // 节在磁盘文件中的大小 
+    uint32_t sh_link; // 指向另一个节 
+    uint32_t sh_info; // interpretation depends on section type 
+    uint32_t sh_addralign; // 节地址的对齐量
+    uint32_t sh_entsize; // 节中每个入口的大小
+} Elf32_Shdr;
+```
+* ELF 文件类型
+    * `ET_NONE`: 未知类型. 
+    * `ET_REL`: 重定位文件(目标文件). 通常是还未被链接到可执行程序的一段位置独立的代码. 
+    * `ET_EXEC`: 可执行文件. 
+    * `ET_DYN`: 共享目标文件. 即共享库(动态的可链接的文件). 
+    * `ET_CORE`: 核心文件. 
+* 程序头
+    * 可执行文件(包括共享库)中的段及其类型. 
+    * 类型: 
+        * `PT_LOAD`: 如`text`和`data`
+        * `PT_DYNAMIC`: 动态段的Phdr. 
+        * `PT_NOTE`: 可能保存了与特定供应商或者系统相关的附加信息. 
+        * `PT_INTERP`: 存放程序解释器位置(一个NULL结尾的字符串, 其中有位置和大小信息). 
+        * `PT_PHDR`: 程序头表本身的位置和大小. 
+* 节头
+    * 每个段中, 会有代码或者数据被划分为不同的节. 
+    * 每个 ELF 目标文件都有节, 但是不一定有节头. (默认有节头, 但去掉也不会影响运行, 且会影响gdb, objdump等, 因为它们需要节头来读取符号)
+    * `.text`: (`SHT_PROGBITS`类型)
+    * `.rodata`: 只读数据. 只能在`text`段找到该节. (`SHT_PROGBITS`类型)
+    * `.plt`: 过程链接表(Procedure Linkage Table, PLT). (`SHT_PROGBITS`类型)
+    * `.data`: 存放初始化的全局变量和动态链接信息. (data段) (`SHT_PROGBITS`类型)
+    * `.bss`: 存放未初始化的全局变量. (data段) (`SHT_NOBITS`类型)
+    * `.got.plt`: 全局偏移表. 动态链接器在运行时进行修改. (`SHT_PROGBITS`类型)
+    * `.dynsym`: 保存了从共享库导入的动态符号信息. (text段) (`SHT_DYNSYM`类型)
+    * `.dynstr`: 保存了动态符号字符串表. 
+    * `.rel.*`: 保存了重定位相关的信息. (`SHT_REL`类型)
+    * `.hash`(`.gnu.hash`): 保存了一个用于查找符号的散列表. 使用如下散列算法查询. 
+
+        ```cpp
+        uint32.t 
+        dl_new_hash(const char *s) 
+        { 
+            uint32_t h = 5381; 
+            for(unsigned char c = *s; c != '\0'; c = *++s) 
+            h = h * 33 + c; 
+            return h; 
+        }
+        ```
+* 符号
+* 重定位
+* 动态链接
+* 编码 ELF 解析器
             
 
 * 问题
@@ -366,6 +691,8 @@
 * `$[a+1]`: 获取算术运算结果. 
 * `${a}`: 得到变量a的值(作为字符串)
 * `>`是直接覆盖文件, `>>`是追加到文件尾. 
+* 重定向: 
+    * `my_proc 2>&1`: 将标准错误输出重定向到标准输出. 
 * 赋值
     ```sh
     a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
@@ -421,6 +748,9 @@
     * `ctrl+k`: 删除光标到行尾内容. 
     * `ctrl+w`: 删除光标前一个单词. 
     * `alt+d`: 删除光标后一个单词. 
+* 环境变量
+    * `LD_PRELOAD`: 指定动态链接优先搜索的库路径
+    * `LD_SHOW_AUXV`: 通知程序加载器来展示程序运行时的辅助向量. 
 
 * 用户
     * `id`: 查看当前用户信息(uid, gid, 所属组). 
@@ -448,6 +778,7 @@
     * `ps`: 查看进程信息. 
         * `ps aux`
         * `ps elf`
+    * `pidof <进程名>`: 按名称, 列出进程及其父进程的pid
     * `top`
     * `jobs`: 查看后台进程的工作状态. 
         * `-l`: 同时列出pid
@@ -498,11 +829,18 @@
         * `-t`: 打印TCP连接
         * `-u`: 打印UDP连接
     * `nc`: netcat
-        * `-lpk 80`: 监听本机的80端口
+        * `-lk -p 80`: 监听本机的80端口
             * `-p`: 表示源端口
             * `-l`: 表示监听
             * `-k`: 表示保持开启(可接收)
         * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
+        * 注意: 
+            * Linux和Windows下netcat参数不同. 
+            * 每次请求连接建立后都会关闭(单次连接). 
+    * `socat`: netcat加强版, 可称为`nc++`. 
+        * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
+    * `ncat`: 连接, 重定向套接字
+        * `ncat --sh-exec "ncat <目的地址> <目的端口>" -l <本机端口> --keep-open`: 端口转发
 * 系统信息
     * `uname`
         * `-r`: 查看内核版本. 
@@ -513,11 +851,19 @@
         * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
     * `tail <文件>`: 默认显示文件后10行. 
         * `<> | tail -20`
+    * `head <文件>`: 打印文件的前面部分
+        * `-c 4`: 前4个字节
+        * `-n 4`: 前4行
+    * `hexdump`
+        * `'-e "%x"'`: 指定使用格式字符串打印数据. 
+        
 * ELF工具
     * `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
     * `dress`
     * `readelf`: 显示elf文件的信息
+        * `-h`: 打印头部
         * `-s`: 列出符号表
+        * `-l`: Phdr表(段及节)
     * `ldd`
         * `--version`: 可得到glibc版本
         * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
@@ -526,17 +872,56 @@
     * `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 
         * `-D`: 反汇编
         * `-d`: 只反汇编代码部分
-        * `-tT`: 打印所有符号
-    * `objcopy`: 
+        * `-tT`: 打印所有符号(-T表示也打印动态库的符号)
+        * `-x`: 打印头部所有信息
+        * `-f`: 只打印文件头
+        * `-h`: 打印节头
+        * `-s`: 打印节内容
+        * `-S`: 打印汇编代码
+    * `objcopy`: 可以用来分析和修改任意类型的ELF目标文件, 还可以修改ELF节, 或将ELF节复制到ELF二进制中(或从ELF二进制中复制ELF节). 
         * `–only-section=.data <infile> <outfile>`: 将`.data`节从一个ELF文件复制到另一个文件中. 
     * `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
         * `<elf文件> -o <输出文件>`
     * `ftrace`: https://github.com/elfmaster/ftrace
     * `nm xx.so`: 列出object文件的符号
         * `-c`: 查看导出函数表
+        * `-D`: 查看动态库的符号
 
 * 编译工具
+    * gcc
+        * `-c <源程序文件名>`: 编译成`.o`文件
+        * `-o <输出文件名>`
+        * `-g`: 带上调试符号. 
+        * `-static`: 静态编译. 
+        * `-I<头文件目录>`
+        * `-L<库文件目录绝对路径>`
+        * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
+            * `-Map=<map文件路径>`: 生成map文件. 
+            * `-Bstatic -l<库名>`: 指定静态链接库. 
+            * `-Bdynamic -l<库名>`: 指定动态链接库. 
+            * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
+        * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
+        * `-T`: 指定链接器脚本. 
+        * `-shared`: 产生一个共享object, 这个对象后面可以跟其他对象链接以组成一个可执行文件. 
+        * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
+        * `-fPIC`: 
+        * 链接器脚本(lds文件)
+        * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
+            ```cpp
+            __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
+
+            __attribute__((stdcall)) void f2(); // 指定函数的调用约定
+
+            // 给结构体变量s指定属性
+            struct my_struct
+            __attribute__((unused)) // 表示可能不会用到
+            __attribute__((aligned(1))) // 表示1字节对齐
+            __attribute__((section("my_sec"))) // 表示s被分配到my_sec节中
+            s = { ... };
+            ```
     * `make`
+        * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
+        * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
         * Makefile
             ```sh
             MAKE=make
@@ -551,8 +936,9 @@
             # 目标: 依赖文件集
             #   命令1
             #   命令2
+            # 命令前加个@, 可以阻止终端打印这条命令. 
             target1: 
-                $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+                @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
             
             # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
             target2: 
@@ -561,19 +947,50 @@
             else
                 ...
             endif
+
+            %.o:%.c
+                gcc -o $@ $<
+            
+            # 示例: 构建一个动态库
+            libmy.so: add.o sub.o
+                gcc -shared -o $@ $^
+
+            %.o: %.c
+                gcc -fPIC -c $<
+
+            # 示例: 构建一个静态库
+            libmy.so: add.o sub.o
+                ar -rc $@ $^
+
+            %.o: %.c
+                gcc -c $<
             ```
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
             * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
-            * `M=<工作目录>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. 
+            * `M=<工作目录绝对路径>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. M是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
             * 注意上述选项后面接的路径都**必须是完整路径**. 
-        * 常量
-            * `BASH_SOURCE`: 当前文件路径. 
-                * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
-            * `$@`: 表示目标文件. 
-            * `$^`: 表示所有依赖文件. 
-            * `$<`: 表示第一个依赖文件. 
-            * `$?`: 表示比目标还新的依赖文件列表. 
+            * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
+                * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
+            * 常量
+                * `BASH_SOURCE`: 当前文件路径. 
+                    * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
+                * `$@`: 表示目标文件. (也就是紧跟在make指令后面的字符串)
+                * `$^`: 表示所有依赖文件. 
+                * `$<`: 表示第一个依赖文件. 
+                * `$?`: 表示比目标还新的依赖文件列表. 
+            * 符号
+                * `:=`: 表示变量的值决定于它在makefile中的位置, 而不是整个makefile展开后的最终值
+                * `?=`: 如果没有被赋值过就赋予等号后面的值. 
+                * `+=`: 添加等号后面的值. 
+    * `ar`
+        * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
+        * `-x`: 从静态库文件中抽取文件 objfile
+        * `-t`: 打印静态库的成员文件列表
+        * `-d`: 从静态库中删除文件 objfile
+        * `-s`: 重置静态库文件索引
+        * `-v`: 创建文件冗余信息
+        * `-c`: 创建静态库文件
 * git
     * 工作流: 
         
@@ -611,15 +1028,19 @@
             * `-D <分支名>`: 强制删除分支. 当开发者希望删除所有提交记录时可用该选项. 
             * `<分支名> -m <新分支名>`: 重命名分支. 
             * `-a`: 列出所有远程分支. 
+        * `checkout <分支>`: 切换到分支. 
+        * `push --set-upstream origin <新分支名>`: 将分支推送到服务器
+        * `pull origin <远程分支名>[:<本地分支名>]`: 拉取指定分支
+        * `clone -b <分支名> <git地址>`: 拉取指定分支
 * 库管理
     * `dpkg`
         * `-i`: 安装deb包. 
         * `--instdir=<安装路径>`: 
         * `dpkg-query -l`: 列出已安装包. 
         * `-P`: 卸载包. 
-
-* 其他
-    
+        * `--get-selections | grep linux-image`: 查看已安装内核. 
+    * `apt`
+        * ``
     * 打印ansi彩色字体
         * `echo -e "\033[33m彩色\033[0m"`
     * 设置UTC时间
