@@ -1,7 +1,8 @@
 # Linux系统目录及文件
 * `/proc`: 每个进程在此目录下都有一个文件. 
-    * `/<进程id>`
+    * `/<pid>`
         * `/map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
+        * `/fd`: 其下文件都是数字(代表文件描述符). 各个文件都链接到实际文件, 比如设备, 套接字等. 
     * `/kcore`: Linux 内核的动态核心文件. 
     * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
     * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟系统内存相关的
@@ -42,63 +43,65 @@
         * `gcc test.c -o test ./libmylib.a`
         * `gcc test.c -o test -L. -lmylib `
         * `gcc test.c -o test -L. libmylib.a`
-* 动态库(隐式)
-    * 编译生成动态库
-        * `gcc -o2 -fPIC -shared mylib.c -o libmylib.so`
-            * `-fPIC`: 表示生成位置无关代码
-            * `-shared`: 表示动态库
-    * 编译引用了动态库的程序(不需要头文件)
-        * `gcc -o2 -Wall -L. -lmylib test.c -o test`
-    * 这时对test程序使用ldd, 会看到`libmylib.so => ./libmylib.so`
-        * 这时候需要修改`LD_LIBRARY_PATH`, 否则找不到动态库. 
-* 动态库(显式)
-    ```cpp
-    #include <stdio.h>
-    #include <dlfcn.h>
+* 动态库
+    * `__attribute__((constructor))`指定加载函数. `__attribute__((destructor))`加载卸载函数. 
+    * 隐式加载
+        * 编译生成动态库
+            * `gcc -o2 -fPIC -shared mylib.c -o libmylib.so`
+                * `-fPIC`: 表示生成位置无关代码
+                * `-shared`: 表示动态库
+        * 编译引用了动态库的程序(不需要头文件)
+            * `gcc -o2 -Wall -L. -lmylib test.c -o test`
+        * 这时对test程序使用ldd, 会看到`libmylib.so => ./libmylib.so`
+            * 这时候需要修改`LD_LIBRARY_PATH`, 否则找不到动态库. 
+    * 显式加载
+        ```cpp
+        #include <stdio.h>
+        #include <dlfcn.h>
 
-    #define LIB "./libmylib.so"
+        #define LIB "./libmylib.so"
 
-    int main(void)
-    {
-        /*
-        * RTLD_NOW：将共享库中的所有函数加载到内存 
-        * RTLD_LAZY：会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
-        */
-
-        void *dl = dlopen(LIB,RTLD_LAZY); //打开动态库
-
-        if (dl == NULL)
-            fprintf(stderr,"Error:failed to load libary.\n");
-
-        char *error = dlerror(); //检测错误
-        if (error != NULL)
+        int main(void)
         {
-            fprintf(stderr,"%s\n",error);
-            return -1;
+            /*
+            * RTLD_NOW：将共享库中的所有函数加载到内存 
+            * RTLD_LAZY：会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
+            */
+
+            void *dl = dlopen(LIB,RTLD_LAZY); //打开动态库
+
+            if (dl == NULL)
+                fprintf(stderr,"Error:failed to load libary.\n");
+
+            char *error = dlerror(); //检测错误
+            if (error != NULL)
+            {
+                fprintf(stderr,"%s\n",error);
+                return -1;
+            }
+
+            void (*func)() = dlsym(dl,"mylib"); // 获取函数地址
+            error = dlerror(); //检测错误
+            if (error != NULL)
+            {
+                fprintf(stderr,"%s\n",error);
+                return -1;
+            }
+
+            func(); //调用动态库中的函数
+
+            dlclose(dl); //关闭动态库
+            error = dlerror(); //检测错误
+            if (error != NULL)
+            {
+                fprintf(stderr,"%s\n",error);
+                return -1;
+            }
+
+            return 0;
         }
 
-        void (*func)() = dlsym(dl,"mylib"); // 获取函数地址
-        error = dlerror(); //检测错误
-        if (error != NULL)
-        {
-            fprintf(stderr,"%s\n",error);
-            return -1;
-        }
-
-        func(); //调用动态库中的函数
-
-        dlclose(dl); //关闭动态库
-        error = dlerror(); //检测错误
-        if (error != NULL)
-        {
-            fprintf(stderr,"%s\n",error);
-            return -1;
-        }
-
-        return 0;
-    }
-
-    ```
+        ```
 
 # 调试
 ## GDB
@@ -147,6 +150,8 @@
         * `asm`: 汇编
         * `split`: 源程序和汇编各一个窗口
     * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
+    * `info`
+        * `inferior`: 可查看你调试的进程的信息, 包括pid和路径等. 
     * 设置
         * `set follow-fork-mode child`: 设置gdb在fork之后跟踪子进程. 
         * `set var a = 1`: 设置变量a的值为1
@@ -304,28 +309,61 @@
             pthread_cond_t myCond = PTHREAD_COND_INITIALIZER;
 
             pthread_mutex_lock(&myMutex); // 先获取互斥锁
-            pthread_cond_wait(&myCond, &myMutex); // 等待条件成立。myMutex会被释放, 因此其它线程可以获取它. 
-            // 得到信号后, 会再次获取myMutex, 因此后面需要释放它. 
-            // ...
+                pthread_cond_wait(&myCond, &myMutex); // 等待条件成立. myMutex会被释放, 因此其它线程可以获取它. 
+                // 得到信号后, 会再次获取myMutex, 因此后面需要释放它. 
+                // ...
             pthread_mutex_unlock(&myMutex); 
 
 
             // 另一个线程
-            pthread_cond_signal(&myCond); // 发出条件成立的信号, 唤醒线程
+            pthread_mutex_lock(&myMutex); // 先获取互斥锁
+                pthread_cond_signal(&myCond); // 发出条件成立的信号, 唤醒线程
+            pthread_mutex_unlock(&myMutex); 
+
+            pthread_cond_broadcast(&myCond); // 同时唤醒多个 调用pthread_cond_wait在等待的线程
+
+            // 有超时的wait
+            // https://blog.csdn.net/wteruiycbqqvwt/article/details/99707580
+            /************************************************************/
+            struct timeval now;
+            gettimeofday(&now, NULL);
+
+            // 在now基础上, 增加ms毫秒
+            struct timespec outtime;
+            outtime.tv_sec = now.tv_sec + ms / 1000;
+
+            // us的值有可能超过1秒
+            uint64_t  us = now.tv_usec + 1000 * (ms % 1000); 
+            outtime.tv_sec += us / 1000000; 
+
+            us = us % 1000000;
+            outtime.tv_nsec = us * 1000;
+
+            int ret = pthread_cond_timedwait(&signal->cond, &signal->mutex, &outtime);
+
             ```
 
             * `pthread_cond_wait`被调用时, **会释放其绑定的互斥体**, 并阻塞线程(所以前面有个获取互斥体的操作); 收到信号后, 会返回并对绑定的互斥体上锁, 所以最后又会有一个解锁操作. 
 
+# PTrace
+* 要点
+    * 用于获取另一个进程的控制权. 
+    * `gdb`, `strace`都用到了`ptrace`. 
+    * 可用在进程注入(**动态库注入**)中. 
+    * 可用于**反调试**. 
+    * 在进程中用`ptrace`跟踪自身会失败. 
+
+
 # 内存
 * 内存检测工具
     * `valgrind`: 可检测目标程序中引起内存泄露的代码. 
-
 
 # 文件
 * 头文件
     * `<sys/types.h>`
     * `<sys/stat.h>`
     * `<fcntl.h>`
+    * `<poll.h>`: `poll`. 
 * api
     * `int fd = open(const char *pathname,int flags, mode_t mode);` 
         * 参数
@@ -368,20 +406,19 @@
         * `FD_SET(int, fd_set*)`: 将一个fd加入到一个fd_set中. 
         * `FD_CLR(int, fd_set*)`: 将一个fd从一个fd_set移除. 
         * `FD_ISSET(int, fd_set*)`: 检测一个fd是否在一个fd_set中, 是则返回true. 
-        * `int select(int maxfdp, fd_set* readfds, fd_set* writefds, fd_set* errorfds, struct timeval* timeout)`
-            * 用于监视文件描述符的变化情况(读写或异常). 比如检查套接字是否有数据可读了. 这个函数会将未准备好的描述符位清零. 
-            * 参数: 
-                * `maxfdp`: 最大fd值加一
-                * `readfds`: 用于检查可读性. 如果想检查一个套接字集合`fd_set`是否有可读套接字, 就将这个参数设为`fd_set`
-                * `writefds`: 用于检查可写性
-                * `errorfds`: 用于检查异常
-                * `timeout`: 用于决定select等待I/O的最长时间, 在此期间select函数会阻塞. 为NULL则无限等待. 
-                    * `timeout->tv_sec`或`timeout->tv_usec`不为0时, 等待指定的时间. (前者为秒, 后者为微秒)
-            * 返回值
-                * 满足要求的描述符的个数
-                * -1: 出错
-                * 0: 超时
-        
+    * `int select(int maxfdp, fd_set* readfds, fd_set* writefds, fd_set* errorfds, struct timeval* timeout)`
+        * 用于监视文件描述符的变化情况(读写或异常). 比如检查套接字是否有数据可读了. 这个函数会将未准备好的描述符位清零. 
+        * 参数: 
+            * `maxfdp`: 最大fd值加一
+            * `readfds`: 用于检查可读性. 如果想检查一个套接字集合`fd_set`是否有可读套接字, 就将这个参数设为`fd_set`
+            * `writefds`: 用于检查可写性
+            * `errorfds`: 用于检查异常
+            * `timeout`: 用于决定select等待I/O的最长时间, 在此期间select函数会阻塞. 为NULL则无限等待. 
+                * `timeout->tv_sec`或`timeout->tv_usec`不为0时, 等待指定的时间. (前者为秒, 后者为微秒)
+        * 返回值
+            * 满足要求的描述符的个数
+            * -1: 出错
+            * 0: 超时
         * 示例: 读一个socket
             ```cpp
             while(1) {
@@ -393,6 +430,70 @@
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
                 } 
             }
+            ```
+    * `int poll(struct pollfd* fds, nfds_t nfds, int timeout);`
+        * 参考: https://blog.csdn.net/weixin_43389824/article/details/124731063
+        * 类似于`select`, 用于在文件描述符上等待可IO操作. 
+        * 原理: 内核将用户的`fds`结构体数组拷贝到内核中. 当有事件发生时, 再将所有事件都返回到`fds`结构体数组中, `poll`只返回已就绪事件的个数, 所以用户要操作就绪事件就要用轮询的方法. 
+        * 参数
+            * `fds`: 一个`pollfd`数组. 
+                ```cpp
+                struct pollfd
+                {
+                    int fd; // 文件描述符
+                    short events; // 请求的事件
+                    short revents; // 返回的事件
+                };
+                ```
+                * `events`可取值: 
+                    |事件标识|解释|
+                    |-|-|
+                    |`POLLIN`|	数据可读|
+                    |`POLLPRI`|	文件出现异常条件. 包括: TCP套接字上有带外数据; 使用包模式的伪终端的master在slave上观测到状态变化; `cgroups.events`文件被修改.  |
+                    |`POLLOUT`|	数据可写|
+                    |`POLLRDHUP`|	流套接字的对端关闭了连接, 或者关闭写. |
+                    |`POLLERR`|	发生错误|
+                    |`POLLHUP`|	挂起|
+                    |`POLLNVAL`|	无效请求: `fd`未打开. |
+                    |`POLLRDNORM`|	同`POLLIN`|
+                    |`POLLRDBAND`|	高优先级数据可读(Linux中一般用不到)|
+                    |`POLLWRNORM`|	同`POLLOUT`|
+                    |`POLLWRBAND`|	高优先级数据可写|
+            * `nfds`: `fds`数组中结构体的数量. 
+            * `timeout`: 超时时间, 单位为毫秒. 
+        * 示例
+            ```cpp
+            #include <stdio.h>
+            #include <unistd.h>
+            #include <poll.h>
+
+            int main()
+            {
+                struct pollfd poll_fd;
+                poll_fd.fd = 0;
+                poll_fd.events = POLLIN;
+                while(1)
+                {
+                    int ret = poll(&poll_fd, 1, 20000);
+                    if(ret<0)
+                    {
+                        perror("poll");
+                        continue;
+                    }
+                    if(ret==0)
+                    {
+                        printf("poll timeout\n");
+                        continue;
+                    }
+                    if(poll_fd.revents == POLLIN)
+                    {
+                        char buf[1024];
+                        read(0, buf, sizeof(buf)-1);
+                        printf("msg:%s", buf);
+                    }
+                }
+            }
+
             ```
 
 
@@ -723,7 +824,7 @@ typedef struct {
     # while循环
     a=1 # 等号两边不能有空格
     while [ $a -gt 0]; do
-        a=$[$a-1]
+        a=$[$a - 1]
         echo $a
     done
 
@@ -792,7 +893,8 @@ typedef struct {
         * `fuser -v <文件名>`
     * `pkexec --user <用户名> <可执行文件>`: 允许以其他用户身份执行程序. 未指定用户, 则以root运行. 
     * `strace`: 跟踪进程的调用和信号. 
-        * `-f -p <pid> -o <输出文件>`
+        * `-f -p <pid> -o <输出文件>`: 通过`-p`可追踪指定进程. `-f`表示要追踪该进程的所有子进程. 
+            * `> /dev/null 2>&1`: 加上这条, 可以不打印`strace`以及被追踪进程的标准输出流中的数据. 
         * `-s <长度>`: 对于字符串参数, 最大打印长度. 默认为32. 
         * `-e trace=<调用类型>`: 跟踪特定类型的接口, 这些类型有: 
             * `%file`: 文件相关调用
@@ -841,6 +943,17 @@ typedef struct {
         * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
     * `ncat`: 连接, 重定向套接字
         * `ncat --sh-exec "ncat <目的地址> <目的端口>" -l <本机端口> --keep-open`: 端口转发
+    * `tcpdump`
+        * `-d <规则>`: 生成bpf规则(类汇编指令代码)
+        * `-dd <规则>`: 生成bpf规则(C语言, `struct sock_filter`结构体数组)
+        * `-i <网卡名称>`
+        * `-c <捕获的包的数量>`
+        * 过滤表达式
+            * `host <ip地址>`
+            * `port <端口>`
+            * 协议: ether, ip, ip6, arp, rarp, tcp, udp等
+            * `ip[x:y]`: 表示从ip头部的下标x开始, y个字节. 
+                * `ip[0] & 0x0f > 5`: ip头部第一个字节的后半部大于5
 * 系统信息
     * `uname`
         * `-r`: 查看内核版本. 
@@ -1007,9 +1120,13 @@ typedef struct {
             * `--reverse`: 
             * `--author=<用户名>`: 
             * `(--before|--since|--until|--after)=({1.weeks.ago}|{2022|11|22})`: 
-    * 去除某个文件的历史提交记录: 
-        1. `git filter-branch -f  --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
-        2. `git push origin --force --all`
+    * 提交
+        * 去除某个文件的历史提交记录: 
+            1. `git filter-branch -f --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
+            2. `git push origin --force --all`
+        * 将一个分支的提交合并到另一个分支. 
+            1. 首先checkout到目标分支. 
+            2. `git cherry-pick <commit的哈希值>`
     * 放弃修改及回滚:
         * `checkout`
             * 会导致`HEAD detached`
@@ -1031,7 +1148,7 @@ typedef struct {
         * `checkout <分支>`: 切换到分支. 
         * `push --set-upstream origin <新分支名>`: 将分支推送到服务器
         * `pull origin <远程分支名>[:<本地分支名>]`: 拉取指定分支
-        * `clone -b <分支名> <git地址>`: 拉取指定分支
+        * `clone -b <分支名> <git地址> <仓库新名称>`: 拉取指定分支
 * 库管理
     * `dpkg`
         * `-i`: 安装deb包. 

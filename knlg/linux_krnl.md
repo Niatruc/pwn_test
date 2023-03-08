@@ -425,6 +425,7 @@
         * `sudo cat /proc/kmsg`
         * `tail -f /var/log/dmesg`: (在ubuntu中会说找不到这个文件)
         * `watch "dmesg | tail -20"`
+    * `dump_stack`: 可以打印调用栈的信息. 
 * gdb
     * 无法在内核中修改数据, 加断点, 单步调试, 只能查看信息
 * kdb: 只能在2.6版旧内核使用, 需要打上补丁; 优点是不需要两台机器进行调试, 直接在本机进行操作
@@ -667,7 +668,7 @@
     * `--dport`: 指定目的端口
     * `-j DROP`: 指定如何处理
         * `REJECT`
-        * `ACCEPT` 
+        * `ACCEPT`  
 
     <img alt="" src="./pic/linux_iptables_netfilter.jpg" width="30%" height="30%">
 
@@ -705,11 +706,16 @@
 
         <img alt="" src="./pic/linux_nf_hooks.jpg" width="30%" height="30%">
 
-    * sk_buff
-        * `head`: 缓冲区头部
-        * `end`: 缓冲区尾部
-        * `data`: 数据头部
-        * `tail`: 数据尾部
+    * `sk_buff`: 
+        * 头文件`include/linux/skbuff.h`
+            * 其中有多个`skb_xxx`内联函数, 可用于获取以太网, xIP, TCP等协议头部偏移. 
+        * 结构体成员: 
+            * `head`: 缓冲区头部
+            * `end`: 缓冲区尾部
+            * `data`: 数据头部
+            * `tail`: 数据尾部
+            * `protocol`: 网络层协议. 
+                * 在`uapi/linux/if_ether.h`中有一系列`ETH_P_XXX`宏, 指定了`protocol`的取值. 
         
         <img alt="" src="./pic/linux_sk_buff.jpg" width="30%" height="30%">
 

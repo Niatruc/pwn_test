@@ -12,16 +12,17 @@
 * `%Z`: ANSI
 * `%wZ`: Unicode
 * `%zx`: 64位16进制
-* `%zd`或`%I64d`: 64位10进制
+* `%zd`或`%I64d`: 64位10进制 
 * `%u`: 无符号整数
 * `%lu`: unsigned long, DWORD
 * `%s`
     * `%ls`: 宽字符串
     * `%hs`: 窄字符串
     * `%10s`: 输出的字符串占10列. 不够则左边补空格. 
-    * `% - 10s`: 输出的字符串占10列. 不够则左边补空格. 
+    * `%-10s`: 输出的字符串占10列. 不够则右边补空格. 
+    * `%010s`: 输出的字符串占10列. 不够则左边补字符`0`. 
 * `scanf("%[^\n]%*c", str);`
-    * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空格就中断)
+    * 可用于代替`gets`, 获取输入的完整字符串(因直接`scanf("%s", str)`会在遇到空字符就中断)
     * `%[^\n]`: 
     * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
         * 例如, `sscanf(buffer, "%*d %c", c1);` 会把buffer中第一个整数匹配到, 但是没赋值给任何变量; 把接下来匹配到的字符赋给c1. 
@@ -293,6 +294,9 @@
 // 把宏参数拼接到另一个c语言token
 #define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
 
+// 单字符化操作符#@
+#define simplech(b) #@b // 如, simplech(#) 扩展成 '#'
+
 // 可变参数宏(把...原封不动转到__VA_ARGS__位置)
 #define DEBUG(...) printf(__VA_ARGS__)
 // 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
@@ -435,14 +439,15 @@
         if (b) break;
     } while (FALSE);
     ```
-    * 复合语句
-    ```cpp
-    char *a = ({
-        unsigned int *p = __builtin_alloca(16);
-        p[0] = 0x12345678;
-        (cahr *)p; // 返回值
-    });
-    ```
+
+* 复合语句
+```cpp
+char *a = ({
+    unsigned int *p = __builtin_alloca(16);
+    p[0] = 0x12345678;
+    (char *)p; // 返回值
+});
+```
 
 * 编译时打印宏参数的值
     ```cpp
@@ -450,6 +455,9 @@
     #define PRINT_MACRO(x) #x"="__PRINT_MACRO(x)
     #pragma message(PRINT_MACRO(MYOPT))
     ```
+
+* `typeof`
+    * `typeof(func1)* f`: 可将指针`f`转为函数`func1`类型的函数指针.     
 
 # C++
 ## 数据类型
