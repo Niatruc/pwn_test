@@ -5,23 +5,23 @@
 
 ## 指令
 
-ADD ： 加, 注意是立即数模式还是源目模式
+`ADD`: 加, 注意是立即数模式还是源目模式
 
-AND ： 按位与, 注意是立即数模式还是源目模式
+`AND`: 按位与, 注意是立即数模式还是源目模式
 
-LD ： 直接寻址, 读内存（PC+偏移）存储的值到目的寄存器DR, 即 DR = M[pc + offset]
+`LD`: 直接寻址, 读内存（PC+偏移）存储的值到目的寄存器DR, 即 DR = M[pc + offset]
 
-ST ：直接寻址, 将寄存器SR的值写入到目的地址对应的内存, 即 M[pc + offset] = SR
+`ST`:直接寻址, 将寄存器SR的值写入到目的地址对应的内存, 即 M[pc + offset] = SR
 
-LDI ： 间接寻址（指针）, 读内存（PC+偏移）存储的值作为地址（指针）p, 再读取p对应的内存值到目的寄存器DR, 即DR = *M[pc + offset]
+`LDI`: 间接寻址（指针）, 读内存（PC+偏移）存储的值作为地址（指针）p, 再读取p对应的内存值到目的寄存器DR, 即DR = *M[pc + offset]
 
-STI ：间接寻址（指针）, 将寄存器SR的值写入指针p（pc+偏移地址存放的值）对应的内存中, 即 *M[pc + offset] = SR
+`STI`:间接寻址（指针）, 将寄存器SR的值写入指针p（pc+偏移地址存放的值）对应的内存中, 即 *M[pc + offset] = SR
 
-LDR ：基址+偏移寻址, 将【base寄存器的值+offset】地址存储的数据读取到目的寄存器DR, 即DR = M[R[base] + offset], 其中 R[base] 表示取base寄存器存放的值
+`LDR`:基址+偏移寻址, 将【base寄存器的值+offset】地址存储的数据读取到目的寄存器DR, 即DR = M[R[base] + offset], 其中 R[base] 表示取base寄存器存放的值
 
-STR ：基址+偏移寻址, 将源寄存器SR的值写入到内存的【base寄存器的值+offset】地址里, 即 M[R[base] + offset] = SR
+`STR`:基址+偏移寻址, 将源寄存器SR的值写入到内存的【base寄存器的值+offset】地址里, 即 M[R[base] + offset] = SR
 
-LEA ：计算有效地址, 将pc+offset的值存放到寄存器DR, 不访问内存, 只是做加法
+`LEA`:计算有效地址, 将pc+offset的值存放到寄存器DR, 不访问内存, 只是做加法
 
 <img alt="why1" src="./pic/lc3.png" width="50%" height="50%">
 
@@ -68,48 +68,3 @@ NUM2 .FILL 16
 .END        ； 指示结束位置
 ```
 
-# x86
-## 基础
-* 工作模式
-    * 实模式: 
-        * 8086的工作模式只有这一种. 
-        * 程序用的都是真实的物理地址. `段地址+段内偏移`得到的逻辑地址就是物理地址. 
-        * 实模式下用户程序和操作系统拥有同等权利. 用户程序可以修改操作系统的内存. 
-    * 保护模式: 
-        * 80286及之后的x86系列上的一种操作模式. 
-        * 在该模式下, 内存管理分两种: 段模式和页模式(段页式)
-        * 保护模式给内存段加了加了段属性, 以限制用户对内存的操作权限. 
-        * 引入全局描述符表GDT, 其中每一项为段描述符(其中包含段基址, 段界限, 类型, 段特权级DPL等)
-
-## 运算相关
-* `aaa`(adjust after addition)
-    * 用于在两个未打包的BCD值相加后, 调整al和ah寄存器的内容
-    * 具体算法(参考: https://blog.csdn.net/liudongdong19/article/details/80551132)
-        1. 如果al的低4位是在0到9之间, 保留低4位, 清除高4位, 如果al的低4位在10到15之间, 则通过加6, 来使得低4位在0到9之间, 然后再对高4位清零. 
-        2. 如果al的低4位是在0到9之间, ah值不变, CF和AF标志清零, 否则, ah=ah+1, 并设置CF和AF标志. 
-
-## 浮点数相关
-* `fstenv <mem>`: 保存控制寄存器, 状态寄存器, 标记寄存器, FPU指令指针偏移量, FPU数据指针, FPU最后执行的操作码到内存中
-* `fnstenv <mem>`: 把FpuSaveState结构体保存到内存
-    ```c
-    struct FpuSaveState{
-    uint32_t control_word;
-    uint32_t status_word;
-    uint32_t tag_word；
-    uint32_t fpu_instruction_pointer;
-    uint32_t fpu_instruction_selector;
-    uint32_t fpu_opcode;
-    uint32_t fpu_operand_pointer;
-    uint16_t fpu_operand_selector;
-    uint16_t reserved;
-    };
-    ```
-
-## 内存
-* 硬件层提供了一系列的内存屏障 来提供一致性的能力. (https://blog.csdn.net/weixin_65360362/article/details/126424921)
-    1. `lfence`, 读屏障. 在读指令前插入读屏障, 可以让高速缓存中的数据失效, 重新从主内存加载数据
-    2. `sfence`, 写屏障. 在写指令之后插入写屏障, 能让写入缓存的最新数据写回到主内存
-    3. `mfence`, 全能型的屏障, 具备了lfence和sfence的能力
-
-## 时钟
-* `TSC(Time Stamp Counter)`: 这个寄存器每个 CPU 时钟信号到来时加1. 

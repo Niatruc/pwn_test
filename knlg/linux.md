@@ -5,6 +5,9 @@
         * `/fd`: 其下文件都是数字(代表文件描述符). 各个文件都链接到实际文件, 比如设备, 套接字等. 
     * `/kcore`: Linux 内核的动态核心文件. 
     * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
+    * `/modules`: 内核模块信息. 
+    * `/net`
+        * `/tcp`: 记录tcp连接信息. `nethogs`会用到. 
     * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟系统内存相关的
     * `/sys`
         * `/kernel`
@@ -68,7 +71,7 @@
             * RTLD_LAZY：会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
             */
 
-            void *dl = dlopen(LIB,RTLD_LAZY); //打开动态库
+            void *dl = dlopen(LIB, RTLD_LAZY); //打开动态库
 
             if (dl == NULL)
                 fprintf(stderr,"Error:failed to load libary.\n");
@@ -80,7 +83,7 @@
                 return -1;
             }
 
-            void (*func)() = dlsym(dl,"mylib"); // 获取函数地址
+            void (*func)() = dlsym(dl, "mylib"); // 获取函数地址
             error = dlerror(); //检测错误
             if (error != NULL)
             {
@@ -105,13 +108,18 @@
 
 # 调试
 ## GDB
+* 安装
+    * 源码: http://ftp.gnu.org/gnu/gdb
+    * 安装过程中可能会更新系统自带的python, 导致与原有gdb使用的python不同, 会造成不少问题. 需要在更新python后, 使用gdb的源码重新编译和构建gdb.
+    * 安装过程中会自动下载相关pip包, 可以先按 https://www.runoob.com/w3cnote/pip-cn-mirror.html 设置指定默认的pip源. 
+* 远程调试: `target remote 172.17.0.2:12345`
 * 启动参数: 
     * `-tui`: 同时打开源程序
     * 设置程序运行参数
         * `gdb --args <程序路径> <程序参数>`
         * 在进入gdb后, 可以`run <程序参数>`
         * 在进入gdb后, 可以`set args <程序参数>`
-* coredump: 
+* `coredump`: 
     * 设置coredump文件限制大小为无限大: `ulimit -c unlimited`
     * 设置coredump文件生成路径(以root身份): `echo "/my_dir/core-%e-%t-%s-%p" > /proc/sys/kernel/core_pattern`, 其中: 
         * `%e`: 进程名
@@ -136,25 +144,46 @@
         * `display a`: 显示变量a的值
         * `x/<FMT> <addr>`
             * 例: `x/10xw &a`: 以16进制的格式, 打印变量a的地址开始后的10个四字节数据. 
-            * 格式可选: o(8进制), x(16进制), d(十进制), u(无符号十进制), t(二进制), f, a(地址), i(指令), c(字符), s(字符串), z(左侧零填充的16进制)
+            * 格式可选: 
+                * `o`: 8进制
+                * `x`: 16进制
+                * `d`: 十进制
+                * `u`: 无符号十进制
+                * `t`: 二进制
+                * `f`: 浮点   
+                * `a`: 地址
+                * `i`: 指令
+                * `c`: 字符
+                * `s`: 字符串
+                * `z`: 左侧零填充的16进制
             * 大小可选: b(1字节), h(2), w(4), g(8)
+    * 打印信息
         * `i`: 
             * `breakpoints`: 显示所有断点
             * `locals`: 显示所有局部变量
             * `registers`: 显示所有寄存器
+            * `sh`: 显示所有共享库
+            * `inferior`: 可查看你调试的进程的信息, 包括pid和路径等. 
     * 断点
-        * `b <filename>:<function name>`
-        * `delete n`: 删除第n个断点
-    * `layout`: 界面
-        * `src`: 源程序
-        * `asm`: 汇编
-        * `split`: 源程序和汇编各一个窗口
-    * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
-    * `info`
-        * `inferior`: 可查看你调试的进程的信息, 包括pid和路径等. 
+        * `b` 
+            * ` <filename>:<function name>`: 函数断点
+            * 条件断点
+                * `if cnt==10`
+        * `watch`
+            * ` *<地址>`: 数据断点
+            * ` &<变量>`: 数据断点
+        * `d n`: 删除第n个断点
+    * `call <func>(<args>)`: 调用函数(如程序或libc库的函数). 结果保存在历史值中(`$`). 
+    * 界面
+        * `layout`: 
+            * `src`: 源程序
+            * `asm`: 汇编
+            * `split`: 源程序和汇编各一个窗口
+        * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
     * 设置
         * `set follow-fork-mode child`: 设置gdb在fork之后跟踪子进程. 
         * `set var a = 1`: 设置变量a的值为1
+        * `set var $r1 = 1`: 设置寄存器r1的值为1
 
 # 字符串
 * api
@@ -853,156 +882,186 @@ typedef struct {
     * `LD_PRELOAD`: 指定动态链接优先搜索的库路径
     * `LD_SHOW_AUXV`: 通知程序加载器来展示程序运行时的辅助向量. 
 
-* 用户
-    * `id`: 查看当前用户信息(uid, gid, 所属组). 
-    * `groups`: 查看当前用户所属组. 
-* 权限
-    * `chmod`: 修改文件的rwx权限. 
-        * 权限数字: <特殊权限位>rwx
-        * 特殊权限: 
-            * `s`: 
-                * 数字为4. 意为在运行时设置用户或组id. 
-                * 赋予(可执行)文件s权限, 文件在执行时具有文件所有者的权限(免了sudo). 
-            * `t`: 
-                * 数字为1. 意为限制删除位或黏着位. 
-                * 常用于共享文件夹. 
-                * 如果一个目录的权限为777, 并赋予了t权限, 则用户可以在这个目录下创建和删除自己创建的文件, 不能删除其他人创建的文件. 
-    * `setcap`
-        * 
-    * 修改登录口令策略
-        1. 安装`libpam-cracklib`
-        2. 打开`/etc/pam.d/common-password`
-        3. 把有`pam_cracklib.so`那一行注释掉
-        4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
+### 用户
+* `id`: 查看当前用户信息(uid, gid, 所属组). 
+* `groups`: 查看当前用户所属组. 
+### 权限
+* `chmod`: 修改文件的rwx权限. 
+    * 权限数字: <特殊权限位>rwx
+    * 特殊权限: 
+        * `s`: 
+            * 数字为4. 意为在运行时设置用户或组id. 
+            * 赋予(可执行)文件s权限, 文件在执行时具有文件所有者的权限(免了sudo). 
+        * `t`: 
+            * 数字为1. 意为限制删除位或黏着位. 
+            * 常用于共享文件夹. 
+            * 如果一个目录的权限为777, 并赋予了t权限, 则用户可以在这个目录下创建和删除自己创建的文件, 不能删除其他人创建的文件. 
+* `setcap`
+    * 
+* 修改登录口令策略
+    1. 安装`libpam-cracklib`
+    2. 打开`/etc/pam.d/common-password`
+    3. 把有`pam_cracklib.so`那一行注释掉
+    4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
 
-* 进程
-    * `ps`: 查看进程信息. 
-        * `ps aux`
-        * `ps elf`
-    * `pidof <进程名>`: 按名称, 列出进程及其父进程的pid
-    * `top`
-    * `jobs`: 查看后台进程的工作状态. 
-        * `-l`: 同时列出pid
-        * `-r`: 列出run的
-        * `-s`: 列出stop的
-    * `kill -<信号码> %<工作号>或pid`
-        * `-l`: 列出所有信号码. 
-        * `-9`: 强制退出. 
-    * `killall <命令>`: 将系统中以某个命令启动的进程全杀. 
-    * `fuser`: 找出正在使用某个文件或目录的进程. 
-        * `fuser -v <文件名>`
-    * `pkexec --user <用户名> <可执行文件>`: 允许以其他用户身份执行程序. 未指定用户, 则以root运行. 
-    * `strace`: 跟踪进程的调用和信号. 
-        * `-f -p <pid> -o <输出文件>`: 通过`-p`可追踪指定进程. `-f`表示要追踪该进程的所有子进程. 
-            * `> /dev/null 2>&1`: 加上这条, 可以不打印`strace`以及被追踪进程的标准输出流中的数据. 
-        * `-s <长度>`: 对于字符串参数, 最大打印长度. 默认为32. 
-        * `-e trace=<调用类型>`: 跟踪特定类型的接口, 这些类型有: 
-            * `%file`: 文件相关调用
-            * `%process`: 进程管理相关调用, 如`fork`, `exec`, `exit_group`
-            * `%network`: 网络通信相关调用, 如`socket`, `sendto`, `connect`
-            * `%signal`: 信号相关调用, 如`kill`, `sigaction`
-            * `%desc`: 文件描述符相关调用, 如`write`, `read`, `select`, `epoll`
-            * `%ipc`: 进程通信相关调用, 如`shmget`等. 
-        * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
-    * `pidof <程序名>`: 列出正在运行的该程序的进程号. 
-    
-* 文件和目录
-    * `nautilus`: 打开文件管理器(gnome)
-    * `ls`
-        * `-F`: 后缀表示文件类型
-            * `/`: 目录
-            * `*`: 可执行文件
-            * `@`: 符号链接
-            * `=>`: 目录
-            * `|`: 目录
-    * `lsof <文件路径>`: list open files, 可以查看打开该文件的进程. 
-        * 在查找`fork`产生的孤儿进程时有用. 
-    * `find <目录>`: 在目录下寻找符合条件的文件
-        * `-name <通配符表达式>`: 查找符合名称的文件
-        * `-type l`: 列出所有符号链接
-        * `-xtype l`: 列出指向不存在的文件的符号链接
-    * `truncate`: 用于将文件缩小或扩展到指定的大小. 
-        * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
-        * 扩展文件: `truncate -s +200k file.txt`
-* 网络 
-    * 重启网络
-        * `service network-manager restart`
-    * `ss`: 类似`netstat`
-        * `-t`: 打印TCP连接
-        * `-u`: 打印UDP连接
-    * `nc`: netcat
-        * `-lk -p 80`: 监听本机的80端口
-            * `-p`: 表示源端口
-            * `-l`: 表示监听
-            * `-k`: 表示保持开启(可接收)
-        * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
-        * 注意: 
-            * Linux和Windows下netcat参数不同. 
-            * 每次请求连接建立后都会关闭(单次连接). 
-    * `socat`: netcat加强版, 可称为`nc++`. 
-        * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
-    * `ncat`: 连接, 重定向套接字
-        * `ncat --sh-exec "ncat <目的地址> <目的端口>" -l <本机端口> --keep-open`: 端口转发
-    * `tcpdump`
-        * `-d <规则>`: 生成bpf规则(类汇编指令代码)
-        * `-dd <规则>`: 生成bpf规则(C语言, `struct sock_filter`结构体数组)
-        * `-i <网卡名称>`
-        * `-c <捕获的包的数量>`
-        * 过滤表达式
-            * `host <ip地址>`
-            * `port <端口>`
-            * 协议: ether, ip, ip6, arp, rarp, tcp, udp等
-            * `ip[x:y]`: 表示从ip头部的下标x开始, y个字节. 
-                * `ip[0] & 0x0f > 5`: ip头部第一个字节的后半部大于5
-* 系统信息
-    * `uname`
-        * `-r`: 查看内核版本. 
-* 文本
-    * `grep`
-        * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
-    * `watch`
-        * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
-    * `tail <文件>`: 默认显示文件后10行. 
-        * `<> | tail -20`
-    * `head <文件>`: 打印文件的前面部分
-        * `-c 4`: 前4个字节
-        * `-n 4`: 前4行
-    * `hexdump`
-        * `'-e "%x"'`: 指定使用格式字符串打印数据. 
+### 进程
+* `ps`: 查看进程信息. 
+    * `ps aux`
+    * `ps elf`
+* `pidof <进程名>`: 按名称, 列出进程及其父进程的pid
+* `top`
+* `jobs`: 查看后台进程的工作状态. 
+    * `-l`: 同时列出pid
+    * `-r`: 列出run的
+    * `-s`: 列出stop的
+* `kill -<信号码> %<工作号>或pid`
+    * `-l`: 列出所有信号码. 
+    * `-9`: 强制退出. 
+* `killall <命令>`: 将系统中以某个命令启动的进程全杀. 
+* `fuser`: 找出正在使用某个文件或目录的进程. 
+    * `fuser -v <文件名>`
+* `pkexec --user <用户名> <可执行文件>`: 允许以其他用户身份执行程序. 未指定用户, 则以root运行. 
+* `strace`: 跟踪进程的调用和信号. 
+    * `-f -p <pid> -o <输出文件>`: 通过`-p`可追踪指定进程. `-f`表示要追踪该进程的所有子进程. 
+        * `> /dev/null 2>&1`: 加上这条, 可以不打印`strace`以及被追踪进程的标准输出流中的数据. 
+    * `-s <长度>`: 对于字符串参数, 最大打印长度. 默认为32. 
+    * `-e trace=<调用类型>`: 跟踪特定类型的接口, 这些类型有: 
+        * `%file`: 文件相关调用
+        * `%process`: 进程管理相关调用, 如`fork`, `exec`, `exit_group`
+        * `%network`: 网络通信相关调用, 如`socket`, `sendto`, `connect`
+        * `%signal`: 信号相关调用, 如`kill`, `sigaction`
+        * `%desc`: 文件描述符相关调用, 如`write`, `read`, `select`, `epoll`
+        * `%ipc`: 进程通信相关调用, 如`shmget`等. 
+    * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
+* `pidof <程序名>`: 列出正在运行的该程序的进程号. 
+
+### 文件和目录
+* `nautilus`: 打开文件管理器(gnome)
+* `ls`
+    * `-F`: 后缀表示文件类型
+        * `/`: 目录
+        * `*`: 可执行文件
+        * `@`: 符号链接
+        * `=>`: 目录
+        * `|`: 目录
+* `lsof <文件路径>`: list opened files, 可以查看打开该文件的进程. 
+    * 在查找`fork`产生的孤儿进程时有用. 
+* `find <目录>`: 在目录下寻找符合条件的文件
+    * `-name <通配符表达式>`: 查找符合名称的文件
+    * `-type l`: 列出所有符号链接
+    * `-xtype l`: 列出指向不存在的文件的符号链接
+* `truncate`: 用于将文件缩小或扩展到指定的大小. 
+    * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
+    * 扩展文件: `truncate -s +200k file.txt`
+* `dd`: 转换, 拷贝文件
+    * `if=<输入文件>`
+    * `of=<输出文件>`
+    * `bs=bytes`: 同时设置读入/输出的块大小为`bytes`个字节. 
+    * `skip=blocks`: 从输入文件开头跳过blocks个块后再开始复制. 
+* `mount <设备路径> <目标目录>`
+    * `-o loop=/dev/<loop设备>`: 
+        * 如果要访问img文件中的内容, 可使用该选项. 其将loop设备指向img文件, 然后mount该loop设备到目标目录
+        * 可以直接`-o loop`, 则系统会使用一个空闲的loop设备. 
+
+### 网络 
+* 重启网络
+    * `service network-manager restart`
+    * `nmcli networking on`
+* `ss`: 类似`netstat`
+    * `-t`: 打印TCP连接
+    * `-u`: 打印UDP连接
+* `nc`: netcat
+    * `-lk -p 80`: 监听本机的80端口
+        * `-p`: 表示源端口
+        * `-l`: 表示监听
+        * `-k`: 表示保持开启(可接收)
+    * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
+    * 注意: 
+        * Linux和Windows下netcat参数不同. 
+        * 每次请求连接建立后都会关闭(单次连接). 
+* `socat`: netcat加强版, 可称为`nc++`. 
+    * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
+* `ncat`: 连接, 重定向套接字
+    * `ncat --sh-exec "ncat <目的地址> <目的端口>" -l <本机端口> --keep-open`: 端口转发
+* `tcpdump`
+    * `-d <规则>`: 生成bpf规则(类汇编指令代码)
+    * `-dd <规则>`: 生成bpf规则(C语言, `struct sock_filter`结构体数组)
+    * `-i <网卡名称>`
+    * `-c <捕获的包的数量>`
+    * 过滤表达式
+        * `host <ip地址>`
+        * `port <端口>`
+        * 协议: ether, ip, ip6, arp, rarp, tcp, udp等
+        * `ip[x:y]`: 表示从ip头部的下标x开始, y个字节. 
+            * `ip[0] & 0x0f > 5`: ip头部第一个字节的后半部大于5
+* `ssh`
+    * 反向代理: 让远端开启端口, 把远端端口数据转发到本地. 可用于让外网访问内网服务器. 
+        1. 在内网本地机中执行, `ssh -R HostC:PortC:HostB:PortB user@HostC`: 把 远端端口`HostC:PortC` 的数据转发到`HostB:PortB`端口
+            * 比如, 在虚拟机中, 执行`ssh -R 22222:localhost:22 user@myhost`, 把宿主机的22222端口的数据转发到虚拟机22端口. 
+        2. 在远端机器执行`ssh -p PortC user@HostC`, 访问自己的`HostC:PortC`端口, 实际将访问`HostB:PortB`. 
+            * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
+* `tunctl`: 创建, 管理TUN/TAP接口(作为虚拟网络设备, TAP模拟数据链路层设备, TUN模拟网络层设备). 
+    * `-u <user>`: 指定用户
+    * `-t <tapname>`: 指定接口名称
+    * `-d <tapname>`: 将网卡设置为非持续的
+    * 创建完成后, 即可像其他网络接口一样配置: 
+        * `ifconfig tap0 192.168.1.100 up`: 为`tap0`设置ip地址并启动
+        * `route add -host 192.168.0.1 dev tap0`: 添加路由
+### 系统信息
+* `uname`
+    * `-r`: 查看内核版本. 
+### 文本
+* `grep`
+    * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
+* `watch`
+    * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
+* `tail <文件>`: 默认显示文件后10行. 
+    * `<> | tail -20`
+* `head <文件>`: 打印文件的前面部分
+    * `-c 4`: 前4个字节
+    * `-n 4`: 前4行
+* `hexdump`
+    * `'-e "%x"'`: 指定使用格式字符串打印数据. 
         
-* ELF工具
-    * `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
-    * `dress`
-    * `readelf`: 显示elf文件的信息
-        * `-h`: 打印头部
-        * `-s`: 列出符号表
-        * `-l`: Phdr表(段及节)
-    * `ldd`
-        * `--version`: 可得到glibc版本
-        * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
-    * `xdd`
-        * 查看16进制
-    * `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 
-        * `-D`: 反汇编
-        * `-d`: 只反汇编代码部分
-        * `-tT`: 打印所有符号(-T表示也打印动态库的符号)
-        * `-x`: 打印头部所有信息
-        * `-f`: 只打印文件头
-        * `-h`: 打印节头
-        * `-s`: 打印节内容
-        * `-S`: 打印汇编代码
-    * `objcopy`: 可以用来分析和修改任意类型的ELF目标文件, 还可以修改ELF节, 或将ELF节复制到ELF二进制中(或从ELF二进制中复制ELF节). 
-        * `–only-section=.data <infile> <outfile>`: 将`.data`节从一个ELF文件复制到另一个文件中. 
-    * `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
-        * `<elf文件> -o <输出文件>`
-    * `ftrace`: https://github.com/elfmaster/ftrace
-    * `nm xx.so`: 列出object文件的符号
-        * `-c`: 查看导出函数表
-        * `-D`: 查看动态库的符号
+### ELF工具
+* `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
+* `dress`
+* `patchelf`
+    * `--set-rpath RPATH`: 设置程序的`rpath`
+* `readelf`: 显示elf文件的信息
+    * `-h`: 打印头部
+    * `-s`: 列出符号表
+    * `-l`: Phdr表(段及节)
+* `ldd`
+    * `--version`: 可得到glibc版本
+    * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
+* `xdd`
+    * 查看16进制
+* `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 
+    * `-D`: 反汇编
+    * `-d`: 只反汇编代码部分
+    * `-tT`: 打印所有符号(-T表示也打印动态库的符号)
+    * `-x`: 打印头部所有信息
+    * `-f`: 只打印文件头
+    * `-h`: 打印节头
+    * `-s`: 打印节内容
+    * `-S`: 打印汇编代码
+* `objcopy`: 可以用来分析和修改任意类型的ELF目标文件, 还可以修改ELF节, 或将ELF节复制到ELF二进制中(或从ELF二进制中复制ELF节). 
+    * `–only-section=.data <infile> <outfile>`: 将`.data`节从一个ELF文件复制到另一个文件中. 
+* `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
+    * `<elf文件> -o <输出文件>`
+* `ftrace`: https://github.com/elfmaster/ftrace
+* `nm xx.so`: 列出object文件的符号
+    * `-c`: 查看导出函数表
+    * `-D`: 查看动态库的符号
+* `ar`
+    * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
+        * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
+    
 
 * 编译工具
     * gcc
-        * `-c <源程序文件名>`: 编译成`.o`文件
+        * `-c <源程序文件名>`: 编译成`.o`文件(不链接)
         * `-o <输出文件名>`
         * `-g`: 带上调试符号. 
         * `-static`: 静态编译. 
@@ -1019,6 +1078,27 @@ typedef struct {
         * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
         * `-fPIC`: 
         * 链接器脚本(lds文件)
+            * 参考: 
+                * `https://www.codenong.com/cs109007373/`
+            * 示例
+            
+            ```
+            SECTIONS
+            {
+                . = 0×10000;
+                .text : { *(.text) }
+
+                .data : {
+                    tbl = .;
+                    *(.data.tbl)
+                    tbl_end = .;
+                }
+            }
+            ```
+
+            * 把定位器符号置为0×10000(若不指定, 则该符号的初始值为0).
+            * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
+            * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
         * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
             ```cpp
             __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
@@ -1132,6 +1212,7 @@ typedef struct {
             * 会导致`HEAD detached`
             * 放弃本地所有修改: `git checkout .`
             * 放弃对某个文件的修改: `git checkout <file>`
+        * `reset --hard`
         * `reset <某次提交的hash>`: 回退到某次提交. 
             * `--mixed`: 默认选项, 重置暂存区到某次提交. 
             * `--soft`: 用于回退至某个版本. 

@@ -57,10 +57,13 @@
     * `LIBS += -L路径 -l库名`: 添加库. 对于系统库, 在QT已设好环境变量的情形中, 则不需要`-L路径`
     * `CONFIG += console thread`: 在运行程序时打开控制台窗口. 
     * `CONFIG += exceptions_off`: 可屏蔽系统异常引起的弹框. 在使用windows的`__try__except`时有用. 
+    * `QMAKE_CFLAGS += -DMYFLAG1`: 表示给`gcc`编译器添加`-DMYFLAG1`选项. 
+    * `QMAKE_CXXFLAGS += -DMYFLAG1`: 表示给`g++`编译器添加`-DMYFLAG1`选项. 
+    * `QMAKE_LFLAGS += /MANIFESTUAC:\"level=\'requireAdministrator\' uiAccess=\'false\'\"`: 运行前请求以管理员权限运行. 
 
 * 文件目录
-    * .pro文件: 项目文件
-    * .h文件和.cpp文件一般一一对应, 前者声明, 后者实现 
+    * `.pro`文件: 项目文件
+    * `.h`文件和`.cpp`文件一般一一对应, 前者声明, 后者实现 
 
 * 使用技巧
     * `alt + enter`: 在头文件声明函数后, 通过此快捷键可在对应的cpp文件中添加函数定义. 
@@ -76,12 +79,13 @@
             * 调试机
                 * 把`Tools\QTCreator\lib\qtcreatorcdbext64`文件夹拷贝到调试机, 将环境变量`_NT_DEBUGGER_EXTENSION_PATH`设为该文件路径. 
                 * 环境变量`_NT_SYMBOL_PATH`也可以设一下, 这个是cdb的符号查找路径. cdb命令行的用法同windbg. 
-                * 把项目生成的exe和pdb文件都拷贝到调试机
+                * 把项目生成的**exe和pdb文件**都拷贝到调试机. 
             * 启动调试
                 * 在调试机中运行cdb启动调试服务器: `cdb.exe -server tcp:port=999 myTest.exe`
                 * 在开发机的QTCreator中, 选择 `调试` -> `开始调试` -> `挂接到一个CDB会话`, 输入`tcp:server=192.168.233.128, port=999`, 其中IP地址和端口号都是调试机的cdb服务的. 
             * 调试过程
-                * 要在qtcreator中打断点, 需要先在调试机的cdb中`ctrl + c`中断, 然后在qtcreator的源文件中打断点. 目前发现在qtcreator的变量窗口中不显示变量, 只能在cdb中使用命令来查询. 
+                * 要在qtcreatorr的源文件中打断点, 需要先在调试机的cdb中`ctrl + c`中断. 
+                * 目前发现在qtcreator的变量窗口中不显示变量, 只能在cdb中使用命令来查询. 
     * 问题
         * 编辑器中没有解析符号, 且报错`Clang Code Model: Error: The clangbackend executable ... could not be started`: 
             * `帮助` -> `关于插件`, 把 `C++` -> `ClangCodeModel`后的勾去掉, 重启qtcreator. 
@@ -117,6 +121,7 @@
             ui->mySplitter->setStretchFactor(0, 1); // 0表示第0个格子. 占比为1
             ui->mySplitter->setStretchFactor(1, 2); // 1表示第1个格子. 占比为2
             ```
+        * `QHBoxLayout`
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * QT Creator生成的MainWindow主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
@@ -125,31 +130,50 @@
         * `QDialog::open()`: 窗口模态, 只会阻塞一个窗口. 
     * 右键菜单: 
         ```cpp
-        this->setContextMenuPolicy(Qt::CustomContextMenu);
-        tabMenu = new QMenu(ui->myTable); // 指定在ui->myTable右键时弹出菜单
+            this->setContextMenuPolicy(Qt::CustomContextMenu);
+            tabMenu = new QMenu(ui->myTable); // 指定在ui->myTable右键时弹出菜单
 
-            QAction *act1 = new QAction("do sth", this);
-            tabMenu->addAction(act1);
-            connect(act1, SIGNAL(triggered(bool)), this, SLOT(handel_act1)); // 绑定slot
+                QAction *act1 = new QAction("do sth", this);
+                tabMenu->addAction(act1);
+                connect(act1, SIGNAL(triggered(bool)), this, SLOT(handel_act1)); // 绑定slot
 
-        connect(ui->myTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(my_show_tabMenu(QPoint))); // 绑定slot, 以在点击位置弹出菜单
+                // 选项组
+                auto actGrp = new QActionGroup(ui->myTable);
+                actGrp->setExclusive(true); // 设为单选
 
-        void MyWidget::my_show_tabMenu(QPoint) {
-            tabMenu->exec(QCursor::pos());
-        }
+                    QAction *act2 = new QAction("do sth 2", this);
+                    act2->setCheckable(true); // 设为可勾选. 此时, 其triggered信号的bool类型参数可用于判断该项是否为勾选. 
+                    actGrp->addAction(act2); // 加入到组
+                    tabMenu->addAction(act2); // 加入到菜单
+
+                    QAction *act3 = new QAction("do sth 3", this);
+                    act3>setCheckable(true);
+                    actGrp->addAction(act3);
+                    tabMenu->addAction(act3);
+
+                connect(actGrp, &QActionGroup::triggered, this, [=](){
+
+                });
+
+            connect(ui->myTable, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(my_show_tabMenu(QPoint))); // 绑定slot, 以在点击位置弹出菜单
+
+            void MyWidget::my_show_tabMenu(QPoint) {
+                tabMenu->exec(QCursor::pos());
+            }
         ``` 
     * `QButton`: 
         * 示例: 
             ```cpp
-            QWidget widget; // 添加窗口
-            QPushButton But("按钮控件",&widget); // 定义一个按钮, 它位于 widget 窗口中
-            But.setGeometry(10,10,100,50); // 设置按钮的位置和尺寸
+                QWidget widget; // 添加窗口
+                QPushButton But("按钮控件",&widget); // 定义一个按钮, 它位于 widget 窗口中
+                But.setGeometry(10,10,100,50); // 设置按钮的位置和尺寸
             ```
     * `QTableWidget`: 表格组件
         * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
         * 属性
             * `sortingEnabled`: 设置是否可按列排序.  
-            * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
+            * `Header`: 可设置行高, 列宽. 
+                * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
         * 示例: 
             ```cpp
             // 解决点击表格时表头变粗的问题
@@ -170,12 +194,21 @@
             QTableWidgetItem* pQTableWidgetItem1 = new QTableWidgetItem(); 
             ui->myTableWidget->setItem(rowNum, 0, pQTableWidgetItem1); // 在第0列插入
 
+            pQTableWidgetItem1->setData(Qt::DisplayRole, 12); // 为单元格设置数据12. 选用DisplayRole, 可以让列在排序按数字而非字符序. 
+
+            pQTableWidgetItem1->setTextAlignment(Qt::AlignRight); // 设置文本右对齐
+
             // 在列中插入控件(比如按钮)
             ui->myTableWidget->setCellWidget(row, 0, myButton); 
 
             // 清空表格
             ui->myTableWidget->clearContents(); // 不会去除表头
             ui->myTableWidget->setRowCount(0);
+
+            // 去除行号
+            QHeaderView *h = ui->myTableWidget->verticalHeader();
+            h->setHiddern(true);
+
             ```
         * 问题
             * 排序后, 对item获取的行号可能不正确. 
@@ -195,12 +228,25 @@
             qItem->setChildIndicate(QTreeWidgetItem::ShowIndicator);
 
             qItem->child(i); // 获取第i个子节点
+            qItem->parent(); // 获取父节点
             qTree->topLevelItem(i); // 获取第i个顶层节点
 
             auto newItem = new QTreeWidgetItem(qItem); // 在qItem下创建新的子节点
             qTree->addTopLevelItem(new QTreeWidgetItem); // 
 
             ui->myTreewidget->editItem(qItem, 0);
+            
+            qTree->setExpanded(true); // 展开树
+
+            qTree->sortItems(2, Qt::SortOrder::AscendingOrder); // 表示按第二列的值排序
+            
+            // 遍历
+            QTreeWidgetItemIterator it(qTree);
+            while (*it) {
+                it->text(0);
+                ...
+                it++;
+            }
             ```
     * 输入组件
         * `QCombobox`: 下拉框
@@ -213,6 +259,8 @@
                 * 光标
                     * `tc = textCursor()`: 获取光标
                     * `tc.insertText(sth)`: 光标处插入内容
+                    * `tc.insertHtml(sth)`: 光标处插入html文本
+                    * `moveCursor(QTextCursor::End)`: 将光标移到末尾
         * `QPlainTextEdit`: 也是文本框
             * 渲染html的性能比`QTextEdit`好. 
                 * `appendHtml(sth)`: 不会换行
@@ -240,6 +288,25 @@
             loop.exec(QEventLoop::ExcludeUserInputEvents); // 启动事件循环, 等待弹框的finished信号
         }
         ```
+    * `QCoreApplication::processEvents()`: 调用该函数, 让程序处理那些还没有处理的事件, 让程序保持响应. 
+    * 监听在某个组件上的键盘事件: 
+        ```cpp
+        ui->myTableWidget->installEventFilter(this); // 给表哥安装键盘事件处理器
+
+        bool MainWindows::eventFilter(QObject *obj, QEvent *eve) {
+            auto e = static_cast<QKeyEvent *>(eve);
+            int key = e->key;
+            switch (e->type()) {
+                case QEvent::KeyRelease: 
+                    if (e->isAutoRepeat()) // 这一行可不免长按某个键(比如方向键)时反复执行后面的可能比较耗时的代码. 
+                        return false;
+                    if (key == Qt::Key_up) {
+                        ...
+                    }
+                    break;
+            }
+        }
+        ```
 
 * 信号和槽机制
     * 信号函数
@@ -254,7 +321,7 @@
     * `connect(&But, SIGNAL(clicked()), &widget, SLOT(close()));` 将But按钮的信号函数clicked和widget窗口的槽函数close关联起来. 
         * 现在(QT5以后)不用SIGNAL和SLOT宏, 改成如`&QButton::clicked`这样的. 
         * 第5参数: 
-            * `Qt::AutoConnection`: 若发射和接收信号是同一线程, 则相当于`DirectConnection`, 否则相当于`QueuedConnection`. 
+            * `Qt::AutoConnection`: 缺省值. 若发射和接收信号是同一线程, 则相当于`DirectConnection`, 否则相当于`QueuedConnection`. 
             * `Qt::DirectConnection`: 
             * `Qt::QueuedConnection`: 
             * `Qt::BlockingQueuedConnection`: 同`DirectConnection`, 但会阻塞到槽函数返回. (若发射和接收信号是同一线程, 则不可使用它, 否则会死锁)
@@ -320,21 +387,25 @@
         QString str;
         QString s = "hello";
 
-        // 操作
-        str.sprintf("%d", 1); // 格式化字符
+        str.sprintf("%d", 1); // 格式化字符(旧写法)
+        str = QString::asprintf("%d", 1); // 格式化字符(新写法)
         str.simplified(); // 去除首尾空格
         str.mid(pos, len); // 截取字符串, 从pos位置开始, 截取出len个字符
         str = s + "\n"; // 拼接字符串
 
-        // 取值
-        str.back(); 
+        str.back(); // 取值
 
+        str.indexOf("<sub_str>"); // 搜索
 
         QString::number(1);
 
         QString::fromWCharArray(L"宽字符串");
         QString::fromStdString;
         QString::fromStdWString;
+
+        // 正则匹配
+        QRegExp re("<pattern>")
+        int pos = re.indexIn(str); // 返回匹配的位置
         ```
     * `QByteArray`: 字节数组. 
         * 数据会以'\0'结尾. 
@@ -375,10 +446,19 @@
 * 文件和目录
     * 获取程序工作目录: `QDir::currentPath()`
     * 获取程序文件所在目录: `QCoreApplication::applicationDirPath()`
+    * 打开文件管理器: `QDesktopServices::openUrl(QUrl(path))`
+    * `QFileInfo`
+        * 构造: `QFileInfo fileInfo(pathStr)`
+        * `dir().path()`: 获取文件的父目录. 
     * `QDir`
         ```cpp
         QDir dir("./mydir");
         (dir.removeRecursively())
+
+        QDir::mkdir("/xx/xxx/"); // 上级目录不存在时会创建失败
+        QDir::mkpath("/xx/xxx/"); // 上级目录不存在时, 会一起创建. 目录已存在, 则直接返回true. 
+
+        QDir::toNativeSeparators(path); // 将路径中的斜杠按当前操作系统替换为相应的路径分隔符
         ```
     * `QFile`
         * 打开方式
@@ -429,6 +509,9 @@
             aStream<< endl << str; //写入文本流,在字符的前面会换行
 
             ```
+* 网络
+    * 在`pro`文件, 加上`Qt += network`, 否则引用`QHostAddress`等库时会说找不到文件. 
+    * `quint32 ipAddress = QHostAddress("192.168.1.100").toIPv4Address();`: 点分十进制字符串转IPv4地址. 
 * 其他
     * 时间
         * `QDateTime::currentDateTime().toString()`: 获取当前日期

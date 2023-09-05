@@ -1,3 +1,12 @@
+# 内核编译
+* 步骤
+    * 指定gcc: `export CC=/usr/bin/gcc-4.x`
+    * 指定cpu架构: `export ARCH=x86`
+    * `make x86_64_defconfig`: 根据`arch/x86`下的`defconfig`文件生成`.config`文件. 
+    * `make menuconfig`: 使用图形界面添加配置项. 
+    * `make -j8`: 编译内核(8线程). 
+* 要点
+
 # 内核开发
 * 要点
     * 不能访问C库和标准C头文件
@@ -195,7 +204,12 @@
             ```
         
         * 分析汇编
-            * '='表示输出; '&'表示寄存器不能重复; 字母含义如下表. 
+            * '='表示这是输出寄存器(如果没有, 则可以在第一个冒号后面留空, 紧接第二个冒号). 
+            * `output` `input` `modify`中有多个时, 可用逗号隔开. 
+            * '&'表示寄存器不能重复. 
+            * 寄存器`%0`, `%1`依次从`output`, `input`中用到的寄存器开始编码(如上面的代码, 则是将`__lm`变量值存到`%0`寄存器, 将`%1`寄存器的值存到`seg`变量)
+            * `jne 2f`中, `2`是汇编代码段的编号(作为跳转目标), `f`表示向前(在它下面的代码), `b`表示向后(在它上面的代码). 每行汇编指令后面有`\n\t`, `\n`换行, `\t`是为了gcc把嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
+            * 字母含义如下表. 
 
                 |字母|含义|
                 |-|-|
@@ -208,8 +222,6 @@
                 | a, b, c, d | 表示要求使用寄存器eax/ax/al, ebx/bx/bl,  ecx/cx/cl或edx/dx/dl |
                 | S, D | 表示要求使用寄存器esi或edi |
 
-            * 寄存器`%0`, `%1`依次从`output`, `input`中用到的寄存器开始编码(如上面的代码, 则是将`__lm`变量值存到`%0`寄存器, 将`%1`寄存器的值存到`seg`变量)
-            * `jne 2f`中, `2`是汇编代码段的编号(作为跳转目标), `f`表示向前(在它下面的代码), `b`表示向后(在它上面的代码). 每行汇编指令后面有`\n\t`, `\n`换行, `\t`是为了gcc把嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
         * `asm volatile("rdtsc": "=a" (low), "=d" (high));` // 调用rdtsc指令, 返回64位时间戳(`tsc`寄存器), 低32位和高32位分别存于low和high变量
 
 * hello world
@@ -324,7 +336,7 @@
         * Kbuild的第二阶段(Stage2)会调用`modpost`程序: (引用: https://blog.csdn.net/lidan113lidan/article/details/119743237)
             * 生成`xx.mod.c`文件: 记录ko所需的其他信息. 
                 ```cpp
-                // *.mod.c文件都拥有相同的文件头，生成此头文件的代码在./scripts/mod/modpost.c中
+                // *.mod.c文件都拥有相同的文件头, 生成此头文件的代码在./scripts/mod/modpost.c中
                 #include <linux/build-salt.h>                                                                                                                     
                 #include <linux/module.h>
                 #include <linux/vermagic.h>
@@ -335,7 +347,7 @@
                 // MODULE_INFO(tag,name)宏的作用是在.modinfo段添加变量 字符串变量tag = "tag = info"
                 // VERMAGIC_STRING为内核版本信息
                 MODULE_INFO(vermagic, VERMAGIC_STRING);
-                // KBUILD_MODNAME是cc时传入的参数，其在Makefile.lib中定义:
+                // KBUILD_MODNAME是cc时传入的参数, 其在Makefile.lib中定义:
                 // modname_flags  = -DKBUILD_MODNAME=$(call name-fix,$(modname))
                 MODULE_INFO(name, KBUILD_MODNAME);
                 
@@ -381,7 +393,10 @@
     * 在内核层不能直接操作用户层地址的数据, 需要拷贝. 相关API如下: 
         * `copy_from_user(to, from, len)`: 
         * `strncpy_from_user(to, from, max_len)`: 
+        * `get_user(x, ptr)`: 将`ptr`指向的数据复制到`x`. 用于拷贝char或int等简单类型数据. 
     * 内核层函数对用户层变量的声明一般要加一个`__user`标识. 
+    * `access_ok(addr, size)`: 判断地址是否可在内核空间中访问. 
+
 * `kallsyms_lookup_name(const char* name)`: 根据所给符号名称, 获取符号地址. 比如传入`sys_call_table`, 可获取系统调用表的地址. 
 * `call_usermodehelper`: 用于在内核层中执行用户态程序或系统命令. 
 
@@ -737,7 +752,7 @@
                     
                     write_cr0(read_cr0() | 0x10000);
                 ```
-            * 在Ubuntu18以后版本测试时, 发现上述代码会引发错误. 因此可用另一种方法: 
+            * 在Ubuntu18以后版本(内核版本5.4.0-42)测试时, 发现上述代码会引发错误. 因此可用另一种方法: 
                 ```cpp
                     unsigned int level;
                     pte_t* pte = lookup_address((unsigned long) sys_call_table, &level);
@@ -755,6 +770,66 @@
         push $address 
         ret
         ```
+
+# 块I/O
+* 设备类型
+    
+    |-|字符设备|块设备|
+    |-|串口, 键盘|磁盘|
+    |-|不可随机访问数据(以流的形式)|可随机访问数据|
+    |-|仅需一个位置: 当前位置|需要能移动到不同位置|
+    |-||内核要提供一个专门的提供服务的子系统|
+    |-|-|-|
+    |-|-|-|
+
+* 扇区: 设备的最小寻址单元, 有时称为硬扇区或设备块. 
+* 块: 文件系统的最小寻址单元, 有时称为文件块或IO块. 块包含一个或多个扇区. 内存中一个页包含一个或多个块. 
+
+
+# netlink
+* 参考
+    * [一文了解linux 内核与用户空间通信之netlink使用方法](https://zhuanlan.zhihu.com/p/552291792)
+* 要点
+    * 基于socket
+    * 用于内核空间和用户空间之间的通信
+    * 异步通信机制, 消息保存在socket缓存队列(`sk_buff`)中. (**`ioctl`则是同步通信**)
+    * 非可靠协议. 其尽力将数据发送到目的地, 但是可能丢包(比如OOM或有其它错误时). 若要可靠传输, 则发送者需要接收者作响应(设置`NLM_F_ACK`)
+    * 支持多播. 对于每一个netlink协议类型, 可以有多达 32多播组, 每一个多播组用一个位表示. 
+    * 消息
+        ```cpp
+        struct nlmsghdr {
+            __u32 nlmsg_len; // 总长度
+            __u16 nlmsg_type; // 类型(通常为0)
+            __u16 nlmsg_flags; // 标识
+            __u32 nlmsg_seq; // 序列号
+            __u32 nlmsg_pid; // 发送者端口的id
+        };
+        ```
+
+        * 消息标识
+            * 常规标识
+                * `NLM_F_REQUEST`: 消息是一个请求. 
+                * `NLM_F_MULTI`: 消息是一个多部分消息的一部分, 后续的消息可以通过宏`NLMSG_NEXT`来获得. 结束则是`NLMSG_DONE`. 
+                * `NLM_F_ACK`: 该请求需要接收者的确认. (Request for an acknowledgment on success)
+                * `NLM_F_ECHO`: 消息是请求包的回传. 
+            * GET请求的额外标识
+                * `NLM_F_ROOT`: 返回满足条件的整个表, 而不是单个条目. 有该标志的请求通常导致响应消息设置`NLM_F_MULTI`标志. 当设置了该标志时, 请求是协议特定的, 因此, 需要在字段 `nlmsg_type` 中指定协议类型. 
+                * `NLM_F_MATCH`: 返回所有满足条件(criteria)的条目. (未实现)
+                * `NLM_F_ATOMIC`: 请求返回的数据应当原子地收集(GET), 预防数据在获取期间被修改. 
+                    * 使用该标识的前提: 有`CAP_NET_ADMIN`功能或者uid为0. 
+                * `NLM_F_DUMP`: 未实现. 
+            * NEW请求的额外标识
+                * `NLM_F_REPLACE`: 覆盖数据表中的条目. 
+                * `NLM_F_EXCL`: 用于和 CREATE 和 APPEND 配合使用, 如果条目已经存在, 将失败. 
+                * `NLM_F_CREATE`: 在表中创建一个条目(若不存在). 
+                * `NLM_F_APPEND`: 表尾附加. 
+* 用户层接口
+    * `socket(AF_NETLINK, SOCK_RAW, <netlink_type>)`: 
+        * `netlink_type`由用户指定. 用户需在`include/linux/netlink.h`定义, 如`#define NETLINK_MYSET 17`
+    * `bind`
+    * `sendmsg`
+    * `recvmsg`
+    * `close`
                 
 # 错误记录
 * 驱动编译错误记录

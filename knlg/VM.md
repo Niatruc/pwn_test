@@ -12,6 +12,8 @@
     * 使用桥接网卡后, 虚拟机并未得到路由器分配的地址: 
         * `编辑` -> `虚拟网络编辑器` -> `更改设置`, 找到桥接模式的网卡, 看`已桥接至(G)`的下拉列表中是否已选中正确的网卡. 
         * 如果物理机连了多个网络, 试一下把桥接的网卡之外的其它网卡禁用掉. 
+* 磁盘扩容
+    * 参考: https://blog.csdn.net/qq_34160841/article/details/113058756
 
 # cuckoo
 * Locker文件: 
@@ -130,3 +132,16 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * 移除\<none\>镜像
 
     `docker rmi $(docker images -f "dangling=true" -q)`
+
+# Qemu
+* 快照
+    * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
+* 运行
+    * 运行一个linux内核
+        ```sh
+            qemu-system-x86_64 \
+                -kernel <内核bzImage文件路径>
+                -initrd <文件系统镜像的压缩文件(xx.img.gz)> # 作为初始的ram磁盘(ram disk)
+                -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
+                -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
+        ```

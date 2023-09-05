@@ -188,7 +188,131 @@ void main()
         * 方法一: 换用新函数`inet_pton`. 需要导入头文件`WS2tcpip.h`
         * 方法二: 工程属性 -> c/c++ -> sdl检查, 改为否
 
+# PE文件
+* 参考资料
+    * https://docs.microsoft.com/en-us/windows/win32/debug/pe-format
+
+* 编程
+    * 头文件
+        * 在应用层时, 导入`Windows.h`
+        * 在内核层时, 导入`ntimage.h`
+
+* 转储内存中的PE镜像
+    * 使用微软提供的windows sysinternal中的`procdump`
+
+* PE文件中的大小值
+    * 磁盘PE文件的dos头, pe头, 节表的总大小记录在optional头部的`SizeOfHeaders`字段
+
+* 文件载入内存前后的情况
+
+    <img alt="" src="./pic/pe_in_mem.png" width="50%" height="50%">
+
+    * 根据RVA计算某个项在文件中的偏移
+        1. 已知该项的rva, 该项所属的节的节头部
+            * 获取节表地址: 使用宏`IMAGE_FIRST_SECTION`, 传入的宏参数为nt头部的地址. 
+        2. 从节头获取节的RVA以及节在文件中的偏移`PoiterToRawData`
+        3. 计算: `PoiterToRawData` + (项rva - 节rva)
+
+* 数据目录表(data directory): 位于`IMAGE_OPTIONAL_HEADER`结构体的最后, 是一个`IMAGE_DATA_DIRECTORY`数组. 
+    ```cpp
+    typedef struct _IMAGE_DATA_DIRECTORY {
+        DWORD VirtualAddress;
+        DWORD Size;
+    } IMAGE_DATA_DIRECTORY, PIMAGE_DATA_DIRECTORY;
+    ```
+
+    |偏移 (PE/PE32+)|Field|解释|
+    |-|-|-|
+    |96/112|导出表(Export Table) | `.edata`.|
+    |104/120|导入表(Import Table) | `.idata`.|
+    |112/128|资源表(Resource Table) | `.rsrc`.|
+    |120/136|异常表(Exception Table) | `.pdata`.|
+    |128/144|(Certificate Table) | `Attribute Certificate Table`.|
+    |136/152|重定位表(Base Relocation Table) |  `.reloc`.|
+    |144/160|Debug | `.debug`.|
+    |152/168|Architecture | 保留, 须为0. |
+    |160/176|Global Ptr | 要保存在全局指针寄存器的值的RVA. 其`size`成员的值要设为0. |
+    |168/184|线程局部存储器(TLS Table) | thread local storage (TLS), `.tls`. 用来保存变量或回调函数.  |
+    |176/192|(Load Config Table) | The load configuration table address and size. see The Load Configuration Structure.|
+    |184/200|Bound Import | The bound import table address and size.|
+    |192/208|IAT | 导入地址表.|
+    |200/216|Delay Import Descriptor | The delay import descriptor address and size. see `Delay-Load Import Tables`.|
+    |208/224|CLR Runtime Header | The CLR runtime header address and size. see The `.cormeta` Section (Object Only).|
+    |216/232| 保留, 须为0. | 
+
+    * 导出表
+
+        <img alt="" src="./pic/pe_image_export_directory.jpg" width="80%" height="80%">
+
+        * 数据目录表的第一项. 
+        * 两种方法获取某导出函数地址
+            * 通过函数名获取函数地址
+                1. 遍历`AddressOfNames`. 当在`AddressOfNames`找到匹配的名称时, 在`AddressOfNameOrdinals`数组拿到它对应的序号.
+                2. 以序号为索引在`AddressOfFunctions`数组中找到函数地址(这些地址是RVA, 即相对于模块在内存地址的偏移). 
+            * 通过序号获取函数地址: 省掉上一种方法的第一步. 
+    
+    * 导入表
+
+        <img alt="" src="./pic/pe_image_import_directory.jpg" width="80%" height="80%">
+
+        * `OriginalFirstThunk`字段指向导入名称表INT. 
+            * INT的每一项如果高位为0, 则该项为RVA; 为1, 则剩余数字为导入函数的序号. 
+            * `IMAGE_IMPORT_BY_NAME`: 前2字节为序号, 一般无用. 后面是导入函数名, 以0结尾. 
+        * `FirstThunk`字段指向导入地址表IAT. 
+            * IAT表初始与INT相同. 
+            * PE装载器将导入函数地址装入IAT(`GetProcAddress("函数名")`): 
+                * 对比INT中的名称或序号. 
+                * 将得到的函数地址填入IAT. 
+
+    * 重定位表
+        * 数据目录表的第六项, `IMAGE_DIRECTORY_ENTRY_BASERELOC`. 
+        ```cpp
+        typedef struct _IMAGE_BASE_RELOCATION {
+            DWORD   VirtualAddress;            //重定位数据所在页的RVA
+            DWORD   SizeOfBlock;               //当前页中重定位数据块的大小
+        } IMAGE_BASE_RELOCATION;
+        ```
+
+    * TLS表
+        * 接口: `TlsAlloc`, `TlsFree`, `TlsSetValue`, `TlsGetValue`
+
+* 节表: 紧接着PE头存储. 
+    ```cpp
+    // 节头(即节表的每一项)
+    typedef struct _IMAGE_SECTION_HEADER {
+        BYTE    Name[IMAGE_SIZEOF_SHORT_NAME];
+        union {
+                DWORD   PhysicalAddress;
+                DWORD   VirtualSize; // 节在内存中没对齐的大小(即去掉尾部填充的0之后的节的实际数据的数量) (大致能视为节的"有效数据的大小")
+        } Misc;
+        DWORD   VirtualAddress; // 节在内存中的偏移
+        DWORD   SizeOfRawData; // 节在文件中的大小
+        DWORD   PointerToRawData; // 节在文件中的位置
+        DWORD   PointerToRelocations;
+        DWORD   PointerToLinenumbers;
+        WORD    NumberOfRelocations;
+        WORD    NumberOfLinenumbers;
+        DWORD   Characteristics;
+    } IMAGE_SECTION_HEADER, *PIMAGE_SECTION_HEADER;
+    ```
+
+    * `SizeOfRawData`通常比`VirtualSize`大, **因为在磁盘中的节包含填充的0字节**. 
+    
 # win32 api
+
+## Windows共享库
+* `hal.dll`
+* `ntdll.dll`
+    * `ntdll.dll`及`ntoskrnl.exe`中包含Windows的原生api, 比如那些`NtXxx`, `ZwXxx`, `RtlXxx`函数. 
+* `kernel32.dll`
+    * 基础api, 包括存储器管理, 输入输出等. 其中的函数多会调用`ntdll.dll`提供的api. 
+* `gdi32.dll`
+    * 提供跟图形设备界面有关的函数, 例如输出到显卡和打印机的原生绘图功能. 
+* `user32.dll`
+    * 提供创建和管理Windows图形界面的功能, 例如桌面, 视窗. 
+* `comctl32.dll`
+    * 提供标准视窗界面组件, 比如打开文件对话框, 另存文件对话框. 依赖`gdi32.dll`及`user32.dll`. 
+
 ## 文件操作
 ```cpp
 // 打开或创建文件或io设备
@@ -268,7 +392,7 @@ DWORD GetModuleFileNameExW(
 );
 ```
 
-## 进程操作
+## 线程操作
 ```cpp
 CreateThread
 OpenThread
@@ -281,14 +405,81 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 ```cpp
 ```
 
+# cmd
+* `net`
+    * `share`: 查看开启的共享. (包括`ipc$`)
+    * `use \\<ip地址>\ipc$ /u:<用户名> <密码>`: 建立IPC连接. 
+    * `user`: 新增用户. 
+        * `/add <用户名> <口令>`
+    * `<start|stop> <服务名>`
+* `tasklist`: 查看进程列表
+    * `tasklist /S <ip地址> /U <用户名> -P <密码>`: 建立IPC连接. 
+* `sc`: 服务管理工具. 
+    * `delete <服务名>`
+    * `delete <服务名>`
+* `whoami`
+    * `/priv`: 查看用户权限. (如, `SeDebugPriviledge`)
+    * `/user`: 查看用户信息. 
+* `winver`: 查看系统版本号. 
+    * 系统版本号: 主版本号, 子版本号, 修正版本号, 编译版本号
+* `sysinfo`: 系统信息, 其中包括系统版本号. 
+* `wmic`: Windows Management Instrumentation, 可用于获取系统信息, 安装软件, 启动服务, 管理进程等操作. 
+    * `os get name,version,buildnumber,caption`: 获取操作系统的名称, 版本号, 构建号, 标题. 
+    * `memorychip get devicelocator,capacity,speed`: 获取内存条的设备定位器、容量、速度等信息。
+    * `cpu get name, maxclockspeed, numberofcores, numberoflogicalprocessors`: 获取CPU的型号、最大时钟速度、核心数、逻辑处理器数量等信息
+    * `diskdrive get index, model, size, interfacetype`: 获取硬盘的索引号、型号、大小和接口类型等信息
+    * `nic get index, name, macaddress`: 获取网卡信息，如网卡索引号、网卡名称、MAC地址等
+    * `/node:<IP地址> nicconfig where IPEnabled=TRUE get IPAddress`: 获取远端计算机的所有IP地址. 
+    * `process list brief`：列出所有运行中的进程信息，包括进程ID、名称、执行路径和在内存中的使用情况等
+    * `service get name, state`：获取系统中的服务状态，包括服务名称和当前状态。
+    * `service where name=<服务名称>`
+        * `call stopservice`：停止服务
+        * `call startservice`：启动服务
+    * `useraccount get name, sid`: 获取用户的名称和sid
+    * `group get name, sid`: 获取组的名称和sid
+
 # powershell
 * 管道: 命名管道的所有实例拥有相同的名称, 但是每个实例都有其自己的缓冲区和句柄, 用来为不同客户端通许提供独立的管道. 
     * 列出当前计算机所有命名管道: 
         * V3以下版本: `[System.IO.Directory]::GetFiles("\\.\\pipe\\")`
         * V3以上: `Get-ChildItem \\.\pipe\`
+* `无法打开..., 因为在此系统上禁止运行脚本`
+    * 这是因powershell的安全策略. 执行`set-ExecutionPolicy RemoteSigned`. `set-ExecutionPolicy Default`可改回来. 
 
 # 注册表
-* `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\AeDebug`中的Debugger键: 可以设置系统默认调试器, 如: `"C:\debuggers\windbg.exe" -p %ld -e %ld -g`
+* `HKEY_LOCAL_MACHINE\`
+    * `SAM\`
+        * `SAM\`: `C:\Windows\System32\config\SAM`文件中关于用户和组的部分会映射到这里. 默认情况下Administrator也看不了这里的内容, 需要右键该项 -> `权限`, 点击`Administrator`, 在下面的`权限`中勾选`完全控制`, 然后F5刷新注册表. 
+            * `Domains\`: \
+                * `Account\`: 
+                    * `Users\`: 
+                        * `<用户的RID>\`: 
+                            * `F`: 该值的`0x30`偏移处记录了用户的RID. (可将该值改为admin的RID, 从而将用户提升到admin权限)
+                        * `Names\`
+                            * `<用户名>\`: 每一项都有一个默认值, 该值即为用户的RID. 
+    * `SECURITY\`
+        * `SAM\`: 同上面的`SAM\SAM`. 
+    * `SYSTEM\`
+        * `CurrentControlSet\`
+            * `Services\`: 其下每一项对应一个服务
+                * `<服务>\`
+                    * `ImagePath`: sys文件路径或`%SyStemRoot%\System32\svchost.exe -k <服务组>`
+                    * `Parameters\`
+                        * `ServiceDll`: dll文件路径
+    * `SOFTWARE\`
+        * `Microsoft\`
+            * `Windows\`
+                * `CurrentVersion\`
+                    * `Policies\`
+                        * `System\`
+                            * `EnableLUA`: LUA表示首先用户账户, 现在称为UAC. 为0时, 禁用UAC. QT程序以admin运行时不能拖文件进去, 因为这个值为1, 而`explorer.exe`的权限较低. 此时可将该值改为0, 并重启系统, 解决此问题. 
+            * `Windows NT\`
+                * `CurrentVersion\`
+                    * `AeDebug\`
+                        * `Debugger`: 可以设置系统默认调试器, 如: `"C:\debuggers\windbg.exe" -p %ld -e %ld -g`
+                    * `ProfileList`
+                        * `<SID>`: 用户的sid
+                            * `ProfileImagePath`: 用户的主目录
 
 
 # svchost
@@ -302,8 +493,124 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
             * `ImagePath`: 值为`svchost.exe -k <组名>`. 
 * `tasklist /svc`: 可以显示每个进程主持的服务
 * `tasklist /M`: 可以显示每个进程用的模块(dll)
+* 调试: 
+    * 调试主函数`ServiceMain`: 
+        * 如果有源码, 可以在函数开头放一个`Sleep`, 睡眠比较长一段时间. 启动服务后, 记录下进程id, 并在其睡眠结束前通过windbg附加到进程, 在`Sleep`后设置断点. 
 
-# 一些方法
+# 系统进程, 服务
+* `lsass.exe`
+    * Local Security Authority Service, 用于本地安全和登陆策略. 
+* `csrss.exe`
+    * Client/Server Runtime Subsystem, 微软客户端/服务端运行时子系统. 该进程管理Windows图形相关任务. 
+* `explorer.exe`
+    * 为用户提供了图形用户界面. 
+
+## 认证
+* 凭据管理
+* LSA身份验证
+* 网络提供商接口
+* 智能卡验证
+* SSPI(Security Support Provider Interface)
+    * 要点
+        * 允许app使用不同的安全模型
+        * SSPI不会构建登录凭证(这个是操作系统的工作)
+        * 支持的安全协议包括Kerberos和LAN管理器. 
+        * 可在内核层或应用层使用
+    * 包
+        * CredSSP(Credential Security Support Provider)
+            * 让app能将用户凭证委托给服务器进行远程验证. CredSSP提供了一个tls协议通道. 验证过程使用`SPNEGO`(Simple and Protected Negotiate Protocol)协议. 
+        * Microsoft Negotiate
+        * Microsoft NTLM
+            * Windows Challenge/Response
+        * Microsoft Kerberos
+        * Microsoft Digest SSP
+        * Secure Channel
+* Winlogon和凭据提供者
+
+# 用户, 授权机制
+* 启用`administrator`
+    * 非家庭版
+        * 方法一: `计算机管理` -> `本地用户和组` -> `用户` -> `administrator`, 右键`属性`, 把账户`已禁用`的勾去掉. 
+        * 方法二: 运行`lusrmgr.msc`, 类似上述操作. 
+    * 家庭版
+        * `net user administrator /active:yes`
+* SIDs: 安全标识符
+    * 组成: `S-R-X-Y1-Y2-Yn-1-Yn`
+        * `S`: 表示这是SID. 
+        * `R`: 修订级. 
+        * `X`: 标识符的授权值. (identifier authority)
+        * `Y`: 一系列子授权值. 前面1到n-1个组成的序列表示域标识符, 最后一个则是相对标识符(用于区分用户或组). 
+        * 例子: 
+            * `S-1-5-32-544`
+                * 1: 修订级为1. 
+                * 5: NT Authority. 
+                * 32: Builtin. (内置账号和组的SID都有这个域标识符32)
+                * 544: Administrators. 
+    * Well-known SIDs
+        * `Everyone`, `World`: 包含所有用户
+        * `CREATOR_OWENER`: 作为ACE的占位符. 当ACE被继承时, 系统会将此占位符替换为创建对象者的SID. 
+        * `Administrators`
+        * `SECURITY_LOCAL_SYSTEM_RID`: `S-1-5-18`, 提权至system时可能会用到此sid. 
+        * `SECURITY_NT_NON_UNIQUE`: `S-1-5-21`, 普通用户登录时可看到此sid. 
+* 
+
+# 开发
+* 在编译阶段判断系统版本: 
+    * 参考: `https://learn.microsoft.com/en-us/cpp/porting/modifying-winver-and-win32-winnt?view=msvc-170`
+    * 通过判断`WINVER`宏. 
+        ```cpp
+            #if (WINVER >= _WIN32_WINNT_WIN10)
+                // ...
+            #else
+                // ...
+            #endif
+
+            // sdkddkver.h
+            // _WIN32_WINNT version constants
+            //
+            #define _WIN32_WINNT_NT4                    0x0400 // Windows NT 4.0
+            #define _WIN32_WINNT_WIN2K                  0x0500 // Windows 2000
+            #define _WIN32_WINNT_WINXP                  0x0501 // Windows XP
+            #define _WIN32_WINNT_WS03                   0x0502 // Windows Server 2003
+            #define _WIN32_WINNT_WIN6                   0x0600 // Windows Vista
+            #define _WIN32_WINNT_VISTA                  0x0600 // Windows Vista
+            #define _WIN32_WINNT_WS08                   0x0600 // Windows Server 2008
+            #define _WIN32_WINNT_LONGHORN               0x0600 // Windows Vista
+            #define _WIN32_WINNT_WIN7                   0x0601 // Windows 7
+            #define _WIN32_WINNT_WIN8                   0x0602 // Windows 8
+            #define _WIN32_WINNT_WINBLUE                0x0603 // Windows 8.1
+            #define _WIN32_WINNT_WINTHRESHOLD           0x0A00 // Windows 10
+            #define _WIN32_WINNT_WIN10                  0x0A00 // Windows 10
+            // . . .
+        ```
+* 判断目标平台的位数: 根据宏`_WINX64`
+* 调试: 
+    * `OutputDebugStringA(LPCSTR lpOutputString)`: 可将调试信息输出到调试器(`Windbg`, `DdgView`). 在`DdgView`中, 要把`Capture Global Win32`勾上, 才能打印出来. 
+
+## VS
+* 编译选项
+    * `/sdl`: 安全开发生命周期检查. (vs2012以后). 要求严格按SDL的要求编译代码. 会有如下行为: 
+        * 会让一些函数无法通过编译. 
+        * 有一些warning会被视为错误. 
+        * 严格检测缓冲区溢出. 
+        * 定义一个对象时, 会自动为其赋值0. 
+        * 会在delete某个指针后, 为该指针赋值一个无效值, 防止重用. 
+    * `/GS`: 安全检查. 在ebp和局部变量之间插入一个全局cookie, 防溢出. 
+        * 在函数体的开头部分代码中, 有一条`mov eax, [__security_cookie]`指令和`call __security_check_cookie`. 
+    * `/JMC`: 支持仅我的代码调试. 代码中会调用`__CheckForDebuggerJustMyCode`函数. 
+    * `/RTC`: 基本运行时检查. 代码中会调用如`_RTC_CheckStackVars`函数. 在 `项目属性` -> `C/C++` -> `代码生成` -> `基本运行时检查` 中设置. 
+        * `/RTCu`: 未初始化变量检查. 会调用`_RTC_UninitUse`函数. 
+        * `/RTCs`: 堆栈帧检查. 会调用`_RTC_CheckStackVars`函数. 
+        * `/RTCsu`或`/RTC1`: 以上两者都有. 
+
+# Win11
+* 安装
+    * Vmware
+        * `设置` -> `硬件`, 添加可信平台模块. 
+        * `设置` -> `选项` -> `访问控制`, 加密. 
+    * `ctrl + shift + f3` 跳过登录. 
+
+# 杂项
 * 重命名文件卡死的解决方法(以及删文件时卡在99%很长时间)
     * `sfc /scannow`: 系统会开始扫描受损的文件然后修复. 参考: https://www.bilibili.com/read/cv8178838
 

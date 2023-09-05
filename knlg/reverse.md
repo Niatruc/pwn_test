@@ -18,20 +18,7 @@
 * source insight 4.0
     * 参考: https://www.cnblogs.com/lixuejian/p/15117744.html
 
-# VS编译选项
-* `/sdl`: 安全开发生命周期检查. (vs2012以后). 要求严格按SDL的要求编译代码. 会有如下行为: 
-    * 会让一些函数无法通过编译. 
-    * 有一些warning会被视为错误. 
-    * 严格检测缓冲区溢出. 
-    * 定义一个对象时, 会自动为其赋值0. 
-    * 会在delete某个指针后, 为该指针赋值一个无效值, 防止重用. 
-* `/GS`: 安全检查. 在ebp和局部变量之间插入一个全局cookie, 防溢出. 
-    * 在函数体的开头部分代码中, 有一条`mov eax, [__security_cookie]`指令和`call __security_check_cookie`. 
-* `/JMC`: 支持仅我的代码调试. 代码中会调用`__CheckForDebuggerJustMyCode`函数. 
-* `/RTC`: 基本运行时检查. 代码中会调用如`_RTC_CheckStackVars`函数. 在 `项目属性` -> `C/C++` -> `代码生成` -> `基本运行时检查` 中设置. 
-    * `/RTCu`: 未初始化变量检查. 会调用`_RTC_UninitUse`函数. 
-    * `/RTCs`: 堆栈帧检查. 会调用`_RTC_CheckStackVars`函数. 
-    * `/RTCsu`或`/RTC1`: 以上两者都有. 
+
 
 # 调试技术
 * 调试CreateRemoteThread创建的线程
@@ -74,56 +61,490 @@
                 * 用push-ret代替jmp
                 * 用call代替jmp
             4. 基于操作系统的控制间接化
-                1. 混淆后代码触发一个异常(无效指针, 无效运算，无效指令)
+                1. 混淆后代码触发一个异常(无效指针, 无效运算, 无效指令)
                 2. 系统调用异常处理函数
-                3. 异常处理函数根据其内部逻辑分发指令流，然后把程序设置到正常状状态
-            5. 不透明谓词(opaque predicate): 一个特殊条件结构, 其求值总为true或false
+                3. 异常处理函数根据其内部逻辑分发指令流, 然后把程序设置到正常状状态
+            5. 不透明谓词(opaque predicate): 一个特殊条件结构, 其求值总为 true或false
                 * 给CFG(控制流图)增加一条新的边. 这条假分支要看着真实. 
                 * 可通过计算复杂度很高的算术问题实现. 
-    * 同时使用以上两者
-        * 插入垃圾代码: 在两块有效代码块间插入死代码. 其中要么有无效指令，要么有跳转到无效地址的跳转指令. 
+        * 同时使用以上两者
+        * 插入垃圾代码: 在两块有效代码块间插入死代码. 其中要么有无效指令, 要么有跳转到无效地址的跳转指令. 
         * 控制流图展平: 把所有控制结构用一个switch语句(分发器)替代.
             * 可把它看成只针对控制流的部分虚拟化. 
-    * 虚拟机
-        * 有性能开销, 故通常只对选定的部分进行虚拟化. 
-    * 白盒加密
-
-    * 基于栈的混淆
+        * 虚拟机
+           * 有性能开销, 故通常只对选定的部分进行虚拟化. 
+        * 白盒加密
+        * 基于栈的混淆
     * 使用不常用指令, 如rcl, sbb, pushf, pushad
 
 # 常见算法
 * Lzw算法: https://www.cnblogs.com/mcomco/p/10475329.html
 
+# 工具
+## binwalk
+* `binwalk <bin文件>`
+* 参数
+    * `--extract=./my_extract.conf`: 指定配置文件(否则使用默认的预定义配置文件`extract.conf`)
+    * `-e`: 从固件中提取文件. 
+    * `-m ./foobar.mgc`: 使用魔术签名文件. 
+    * `-M`: 在签名扫描期间, 递归扫描提取的文件. (使用`-e`或`-dd`时有效)
+    * `-W <文件1> <文件2> <文件3>`: 对多个bin文件进行字节比较. 可与`--block`, `--length`, `--offset`, `--terse`等一起使用. 
+    * `-E`: 熵分析. 
+    * `-H`: 判断得到的熵值分类数据块是压缩的还是加密的. 
+    * `--enable-plugin=zlib`: 使用指定插件扫描固件, 如`zlib`. 
+    * ``: 
+## x64dbg
+* 插件
+    * 插件集合: https://github.com/A-new/x64dbg_plugin
 
-# x64dbg
-## 插件
-* 插件集合: https://github.com/A-new/x64dbg_plugin
+    * `ret-sync`
+        * 功能: 用于在动态调试时联动ida和od/x64dbg/windbg等调试器
+        * 安装方法参考: https://bbs.pediy.com/thread-252634.htm
+        * 下载: 
+            * https://github.com/bootleg/ret-sync#x64dbg-usage
+            * (已编译的项目(od/x64dbg/windbg))[https://dev.azure.com/bootlegdev/ret-sync-release/_build/results?buildId=109&view=artifacts&pathAsName=false&type=publishedArtifacts]
+        * 安装(ida和x64dbg)
+            * 将Syncplugin.py 和 retsync文件夹拷贝到ida的插件目录
+            * 将x64dbg_sync.dp64放到x64dbg的插件目录
+        * 启动
+            * ida加载目标exe后, `edit` -> `plugins` -> `ret-sync`, 点击restart
+            * x64dbg运行exe, 并点击 `插件` -> `SyncPlugin` -> `Enable sync`, 或直接在命令行运行`!sync`
 
-* ret-sync插件
-    * 功能: 用于在动态调试时联动ida和od/x64dbg/windbg等调试器
-    * 安装方法参考: https://bbs.pediy.com/thread-252634.htm
-    * 下载: 
-        * https://github.com/bootleg/ret-sync#x64dbg-usage
-        * (已编译的项目(od/x64dbg/windbg))[https://dev.azure.com/bootlegdev/ret-sync-release/_build/results?buildId=109&view=artifacts&pathAsName=false&type=publishedArtifacts]
-    * 安装(ida和x64dbg)
-        * 将Syncplugin.py 和 retsync文件夹拷贝到ida的插件目录
-        * 将x64dbg_sync.dp64放到x64dbg的插件目录
-    * 启动
-        * ida加载目标exe后, `edit` -> `plugins` -> `ret-sync`, 点击restart
-        * x64dbg运行exe, 并点击 `插件` -> `SyncPlugin` -> `Enable sync`, 或直接在命令行运行`!sync`
+    * `sharpOd`
+        * 反反调试插件. SharpOD x64向wow64进程, 注入纯64位code, 并且hook ntdll64 api. 
 
-* sharpOd
-    * 反反调试插件. SharpOD x64向wow64进程, 注入纯64位code, 并且hook ntdll64 api. 
+    * `MapoAnalyzer`
+        * 让x64dbg拥有和IDA一样的函数识别, 反编译功能. 
+        * 参考: https://bbs.pediy.com/thread-268502.htm
 
-* MapoAnalyzer
-    * 让x64dbg拥有和IDA一样的函数识别, 反编译功能. 
-    * 参考: https://bbs.pediy.com/thread-268502.htm
+## IDA
+* 快捷键
+    * `f2`: 
+        * 在hex窗口中, 可编辑内存数据
+    * `f5`: 反编译
+    * `esc`: 返回上一处
+    * `ctrl + enter`: 重回下一处
+    * `g`: 跳转到地址
+    * `x`: 交叉引用
+    * `n`: 重命名
+    * `d`: 转为数据(多按几次, 依次转为byte, word, dw, qw类型)
+    * `a`: 转为字符串
+    * `c`: 转为指令
+    * `u`: 转为数据(取消解析)
+    * `;`: 在ida view窗口中, 可为指令添加注释. 
+    * `/`: 在伪代码窗口中, 可添加注释. 
+* 反编译的伪代码窗口: 
+    * `Synchronize with`: 可以与反汇编窗口和hex窗口同步, 以确定C语句对应的汇编指令. 
+    * 修改变量类型: 
+        * `Set lvar type`: 指定变量类型为其它基本类型. 
+        * `Convert to struct *`: 指定变量类型为某结构体指针类型. 
+    * `Map to another variable...`: 可用于消除中间变量. 
+* 用pycharm调试ida插件
+    * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
+    * 步骤
+        1. 使用ida安装路径下的python以及easy_install安装pycharm安装目录下的pydevd-pycharm.egg
+            ```sh
+            E:\zbh\disasm\IDA7_5\Python38\python.exe E:\zbh\disasm\IDA7_5\Python38\Scripts\easy_install.exe  "E:\PyCharm 2021.1.3\debug-eggs\pydevd-pycharm.egg"
+            ```
+        2. 在pycharm中新增`Python Debug Server`的配置, 填好服务IP地址和端口, 并F9启动调试服务.
 
-# dnspy
+            <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg.jpg" width="70%" height="70%">
 
-# jeb
+            <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg2.jpg" width="70%" height="70%">
 
-# jd
+        3. 在要调试的文件中插入如下代码, **在需要中断的地方的前面都需要插入`pydevd_pycharm.settrace`这行代码,** **可以把这行代码视为断点**.
+            ```py
+            import pydevd_pycharm
+            pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToServer=True)
+            ```
+        4. 启动IDA, 则将命中断点.
+    * 注意:
+        1. 使用的ida是7.5版本; 使用pycharm企业版才有python debug server
+        2. 确保没有安装pydevd, 否则会有path mapping没有正确匹配路径的问题.
+        3. 重新加载并调试插件需要重启IDA(仅仅关掉一个项目并重新打开行不通)
+
+* IDAPython
+    * 从7.4开始使用的是python3.
+    * 参考资料
+        * [官方文档](https://hex-rays.com/products/ida/support/idapython_docs/)
+        * [接口变化](https://hex-rays.com/products/ida/support/ida74_idapython_no_bc695_porting_guide.shtml)
+        * https://github.com/ExpLife0011/IDAPython_Note
+        * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
+    * 安装目录下有一个`idapyswitch.exe`程序, 运行会检查系统中可用的python, 并让用户选择要用哪个python. (测试时不成功, 出现`No Python installations were found`)
+    * 设置所使用的python的几种方法: 
+        1. 设置环境变量, 添加`PYTHONHOME`, 值为要使用的python所在的目录. 
+            * 注: 因为将`PYTHONHOME`设置为非conda安装目录时, 会导致conda出现`module 'conda' not found`, 而要用的python可能不是conda的python, 所以不用该方法. 
+        2. [参考](http://scz.617.cn:8/python/202011182246.txt). 将嵌入式python中的 `python3.dll`, `python39.dll`, `python39.zip`, `python39._pth`, `_ctypes.pyd`, `libffi-7.dll`放到ida的根目录下. 
+            * ida会优先找根目录下的python. 
+            * 也可以将嵌入式python放到单独目录, 设置环境变量`PATH`, 将该目录路径加到`PATH`前部. 可在一个bat文件中作设置, 并在其中运行`ida.exe`. 
+        3. `idapyswitch --force-path <python.dll的路径>`. 会在注册表的`HKEY_CURRENT_USER\Software\Hex-Rays\IDA`下添加一个`Python3TargetDLL`键, 值为指定的路径. 
+            * 有问题, 会导致ida无法启动. 
+    * 开发
+        * 参考
+            * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
+        * ida提供的三个模块: 
+            * `idc`
+                * 光标
+                    * `here()`: 获取光标当前所在文件虚拟地址偏移. 
+                    * `jumpto(ea)`: 使光标跳转到地址偏移. 
+                * 段
+                    * `get_segm_name(ea)`: 获取`ea`地址所属段的名称. 
+                    * `get_segm_start(ea)`: 获取`ea`地址所属段的起始地址. 类似的有`get_segm_end`. 
+                    * `get_first_seg()`: 获取程序第一个段的起始地址. 
+                    * `get_next_seg(ea)`: 获取`ea`所在段的下一个段的起始地址. 
+                * 函数
+                    * `get_name_ea_simple(name)`: 根据所给符号名, 获取其地址. 
+                    * `set_name(ea, name, SN_CHECK)`: 设置`ea`地址处函数的名称. 
+                        * `flags`: `GENDSM_flags`或0. 
+                * 指令
+                    * `generate_disasm_line(ea, flags)`: 反汇编`ea`地址处的指令. 
+                    * `print_insn_mnem(ea)`: 打印`ea`地址处的指令的助记符. 
+                    * `print_operand(ea, n)`: 打印`ea`地址处的指令的第n个操作数.  
+                    * `prev_head(ea)`: `ea`位置的上一条指令的位置. 
+                    * `next_head(ea)`: `ea`位置的下一条指令的位置. 
+                * 获取/修改数据
+                    * `get_db_byte(ea)`: 获得从addr开始的一字节. 其它类似函数: `get_wide_word`, `get_wide_dword`, `get_qword`
+                    * `get_bytes(ea, size, use_dbg)`: 从`ea`地址处获取`size`个字节. `use_dbg`为True则表示目标为调试器的内存. 
+                    * `patch_byte(ea, value)`: 将addr处的一字节改成value. 其它类似函数: `patch_word`, `patch_dword`, `patch_qword`
+                * 注释
+                    * `get_cmt(ea, repeatable)`: 获取注释
+                    * `get_func_cmt(ea, repeatable)`: 获取函数注释
+                    * `set_cmt(ea, comment, repeatable)`: 设置注释
+                    * `set_func_cmt(ea, comment, repeatable)`: 设置函数注释
+                * `auto_mark_range(start, end, type)`: 将一个范围内的地址放到一个队列中. 
+                    * `auto_mark_range(x, (x)+1, AU_CODE)`: 可用于将`x`地址处的数据转为代码. 
+                * `ida_ida`
+                    * `inf_get_min_ea()`: 获取最小地址. 
+                    * `inf_get_max_ea()`: 获取最小地址. 
+                    * `inf_get_procname()`: 获取处理器名称. (如`PPC`)
+                * `ida_bytes`
+                    * `get_max_strlit_length(ea, strtype, options=0)`: 获取`ea`处字符串的长度. 
+                        * `strtype`
+                            * `ida_nale.STRTYPE_C`: C语言的字符串
+                    * `get_strlit_contents(ea, len, strtype)`: 获取`ea`处的字符串. `len`为长度, 包含NULL终止符. 
+                    * `create_struct(ea, length, tid, force=False)`: 可将结构体类型应用于一个地址, 将此处数据解析为结构体. 
+                        * `tid`: 可为结构体的id(`idaapi.get_struc_id("<结构体名>")`)
+                    * `create_dword(ea, length, force=False)`: 将`ea`地址处数据解析为dword类型. `length`是解析数据的总长度. 
+                        * 其它类似的有`create_byte`, `create_word`, `create_qword`. 
+                * `ida_struct`
+                    * `get_max_offset(struc)`: 获取结构体的大小. 
+                * `ida_dbg`: 
+                    * `start_process("/path/to/exe", "-q 1", "/path/to")`
+                    * 断点
+                        * `get_bpt_qty()`: 获取断点的数量. 
+                        * `getn_bpt(n, bpt)`: 获取第n个断点的信息(保存到`bpt`). 
+                        * `add_bpt(ea, size=0, type=ida_idd.BPT_DEFAULT)`: 添加断点. 
+                            * `ea`: 地址. 根据cpu架构, 硬件断点可被设置为任一地址. 
+                            * `size`: 断点的大小(跟软件断点, 只有数据断点会用到). 
+                            * `type`: 
+                                * `BPT_DEFAULT`: 相当于`BPT_SOFT | BPT_EXEC`, 设置指令断点. 若当前不支持软件断点, 则会设置硬件断点. 
+                                * `BPT_SOFT`: 软件断点
+                                * `BPT_EXEC`: 断点
+                                * `BPT_WRITE`
+                                * `BPT_READ`
+                                * `BPT_RDWD`
+                    * 调试
+                        * `continue_process()`: 继续运行程序
+                        * `exit_process()`: 退出程序
+                        * `step_into()`: 单步步入执行一条指令
+                        * `step_over()`: 单步执行一条指令
+                        * `srcdbg_step_into()`: 
+                        * `srcdbg_step_over()`: 
+                        * `step_until_ret()`: 运行至返回
+                        * `read_dbg_memory(ea, buffer, size)`: 
+                        * `write_dbg_memory(ea, py_buf, size=size_t(-1))`: 
+                        * `refresh_debugger_memory()`: 
+
+            * `idautils`
+                * `Heads(start=None, end=None)`: 获取一个head的生成器(head指指令或者数据项)
+                * `XrefsTo(ea, flags=0)`: 获取一个交叉引用的生成器(对每个交叉引用, 调用`frm`函数, 得到其地址)
+            * `idaapi`
+                * `get_byte(ea)`: 获取`ea`处的字节
+                * `get_bytes(ea, size)`: 获取从`ea`处开始`size`个字节. 
+                * `get_word(ea)`: 获取`ea`处的2个字节
+                * `get_dword(ea)`: 获取`ea`处的4个字节
+                * `get_qword(ea)`: 获取`ea`处的8个字节
+                * `patch_byte(ea, byte)`: 写入字节. 
+                * `patch_bytes(ea, bytes)`: 写入一段字节. 
+                * `get_name(ea)`: 获取`ea`地址所属函数的名称
+                * `get_func(ea)`: 获取`ea`地址所属函数
+                * `get_name_ea(_from, name)`: 从`_from`地址开始, 搜索名为`name`的函数. 
+        * 插件的主文件需要定义`PLUGIN_ENTRY`函数. ida启动时加载插件时会寻找这个函数. 在该函数中, 返回一个实例(比如下面定义的`MyPlugin`类的实例)
+        * 自定义插件
+            ```py
+                import idaapi
+                class MyPlugin(idaapi.plugin_t): 
+                    def __init__(self): 
+                        pass
+                    def run(self): 
+                        pass
+                    def term(self): 
+                        pass
+            ```
+        * 动态加载模块: `idaapi.require('<模块名>')`. 如果是子模块, 需要把模块路径打完整, 否则不会重载子模块下的类和函数. 
+        * 获取基本信息:
+            ```py
+                info = idaapi.get_inf_structure()
+                info.start_ip # 文件加载地址
+                info.is_64bit()
+                info.is_dll()
+            ```
+        * 搜索
+            ```py
+                # 搜索特征串可以如下
+                pattern = "<16进制的特征串>"
+                addr = idc.ida_ida.inf_get_min_ea()
+                while addr < idc.ida_ida.inf_get_max_ea(): 
+                    addr = idc.find_binary(addr, SEARCH_DOWN, pattern)
+                    if addr != idc.BADADDR: 
+                        print(hex(addr), idc.GetDisasm(addr))
+            ```
+
+            * `find_binary`的二参可取: 
+                * `SEARCH_UP`: 0, 向上搜索. 
+                * `SEARCH_DOWN`: 1, 向下搜索. 
+                * `SEARCH_NEXT`: 2, 跳过起始地址进行搜索. 只对`search()`, `bin_search2()`, `find_reg_access()`有用. 
+                * `SEARCH_CASE`: 4, 区分大小写. 
+                * `SEARCH_REGEX`: 8, `pattern`为正则表达式.       
+                * `SEARCH_NOBRK`: 16, 用户无法打断搜索. 
+                * `SEARCH_NOSHOW`: 32, 不显示搜索进度, 不刷新屏幕. 
+                * `SEARCH_UNICODE`: 64, 将所有搜索字符串视为Unicode
+                * `SEARCH_IDENT`: 128, 
+                * `SEARCH_BRK`: 256, 
+        * 处理节
+            ```py
+                # 遍历节
+                for s in idautils.Segments():
+                    start = idc.get_segm_start(s)
+                    end = idc.get_segm_end(s)
+                    name = idc.get_segm_name(s)
+                    data = ida_bytes.get_bytes(start, end - start)
+
+                # 添加节
+                max_ea = idaapi.inf_get_max_ea() # 获取最后一个节的结束地址
+                idaapi.add_segm(0, start_ea, end_ea, name, sclass) # sclass可取值: "CODE", "DATA", "BSS", "STACK", "XTRN", "CONST", "ABS" or "COMM"
+            ```
+        * 结构体
+            ```py
+                # 创建结构体
+                name = "my_super_structure"
+                struct_id = idc.add_struc(0, name, 0)
+
+                # 获取结构体
+                struct_id = idaapi.get_struc_id(name) # 通过名字获取id
+                if struct_id == idaapi.BADADDR:
+                    print("Structure {} does not exist".format(name))
+                struct = idaapi.get_struc(struct_id) # 通过id获取结构体
+
+                # 结构体信息
+                for m in struct.members:
+                    m.get_soff() # m.soff, 成员的偏移
+
+                # 向结构体添加一个dword类型成员
+                # 4参: flag
+                # 5参: mt, 成员类型的附加信息. 
+                # 6参: nbytes, 如果为0,则结构体是varstruct. 此时, 该成员必须是结构体的最后一个成员. 
+                idc.add_struc_member(struct_id, member_name, member_offset, idaapi.FF_DWORD, -1, 4) 
+
+                # 设置结构体成员类型
+                tinfo = idaapi.tinfo_t()
+                ... # tinfo操作
+                member = idaapi.get_member_by_name(struct, member_name)
+                if idaapi.set_member_tinfo(struct, member, 0, tinfo, 0) == idaapi.SMT_OK:
+                    print("Member type successfully modified !")
+
+                # 在一个地址ea上应用结构体
+                idaapi.apply_tinfo(ea, tinfo, idaapi.TINFO_DEFINITE)
+            ```
+        * 函数
+            ```py
+                # 在一个函数中找到所有调用函数的指令
+                f = ida_funcs.get_func(ea)
+                for ea in Heads(f.start_ea, f.end_ea): # 遍历函数的每一条指令
+                    insn = idaapi.insn_t()
+                    length = idaapi.decode_insn(insn, ea) # 解析一个地址处的质量你个
+                    if insn.itype == ida_allins.NN_call: # 判断指令类型
+                        print("Call at %x" % ea)
+                
+                    # 另一种写法
+                    if ida_idp.is_call_insn(insn):
+                        print("Call at %x" % ea)
+
+                Get the type and the value of an operand
+                # Get mov instructions to memory adresses
+                f = ida_funcs.get_func(ea)
+                for ea in Heads(f.start_ea, f_end_ea):
+                insn = idaapi.insn_t()
+                length = idaapi.decode_insn(insn, ea)
+                if insn.itype != ida_allins.NN_mov:
+                    continue
+                if insn.ops[1].type == ida_ua.o_mem:
+                    print("Data is moved at addr %x" % insn.ops[1].value)
+                # Types returned by GetOpType:
+
+                # o_void: no operand
+                # o_reg: register
+                # o_mem: known address
+                # o_phrase, o_displ: pointers to adresses
+                # o_imm: constant value
+                # Look for assembly code
+                f = ida_funcs.get_func(ea)
+                for ea in idautils.Heads(f.start_ea, f_end_ea):
+                    insn = idaapi.insn_t()
+                    length = idaapi.decode_insn(insn, ea)
+                    if insn.itype != ida_allins.NN_xor and insn.ops[0].reg == idautils.procregs.ecx and insn.ops[1].reg == idautils.procregs.ecx:
+                        print("Found at addr %x" % ea)
+                # Get prototype of an imported function
+                # get import function prototype
+                import_prototype = idaapi.get_named_type(None, 'WriteFile', 0)
+
+                # deserialize import function prototype
+                import_tif = idaapi.tinfo_t()
+                import_tif.deserialize(None, import_prototype[1], import_prototype[2])
+
+                # create a pointer to the import function type
+                ptr_import_tif = idaapi.tinfo_t()
+                ptr_import_tif.create_ptr(import_tif)
+            ```
+        * 调试
+            ```py
+                # 读取内存或寄存器的值
+                rv = ida_idd.regval_t()
+                ida_dbg.get_reg_val("ECX", rv)
+                print(hex(rv.ival))
+                print(hex(idautils.cpu.ecx))
+
+                # 调用被调试进程中的函数
+                # test check_passwd(char *passwd) -> int
+                passwd = ida_idd.Appcall.byref("MyFirstGuess")
+                res = ida_idd.Appcall.check_passwd(passwd)
+                    if res.value == 0:
+                        print("Good passwd !")
+                    else:
+                        print("Bad passwd...")
+            ```
+* 插件
+    * ipyida
+        * https://github.com/eset/ipyida
+        * 原理: 在ida中使用`qtconsole`库, 显示一个终端窗口, 这个窗口调用`ipykernel`以打开ipython会话. 
+        * 问题: 使用ida7.5, 按官网安装步骤可能不成功, 最后会出现`[WARN] Could not load IpyIDA plugin`. 
+        * 手动安装: 
+            * 首先自己装一个python3.8(可用虚拟环境, 如conda). 
+            * `pip install ipyida`
+            * 将虚拟环境的`lib/site-packages`目录下相关的包拷贝到`ida`任一个保存库文件的路径(可在idapython中通过`print(sys.path)`获知)
+        * 快捷键`shift+.`调出窗口, 或`ipython console --existing`在ida外打开.
+        * 用法同jupyter, 比如可用`%matplotlib inline`(需安装`matplotlib`)
+
+            <img alt="ipyida.jpg" src="./pic/ipyida.jpg" width="50%" height="50%">
+
+* 问题
+    * `Unexpected entries in the plt stub. The file might been modified after linking.`
+        * 这是在导入文件时报的错.
+    * `LoadLibrary(...\IDA\plugins\idapython3.dll) error: 找不到指定的模块。`
+        * 启动ida7.5时出现. 命令行没有python解释器可用. 
+        * 参考: http://scz.617.cn:8/python/202011182246.txt
+    * `DLL load failed while importing sip: 找不到模块`
+        * 在`from PyQt5 import QtGui, QtWidgets, QtCore`时出现. ida版本为7.5. 
+        * 分析: `sip`包是`PyQt`使用的api绑定. 在`python/3/PyQt5`目录下有`python_3.4`和`python_3.8`, 这两个目录下都有`sip.pyd`文件. 
+        * 解决方法: 改用python3.8. 
+    * `No module named 'pkg_resources'`
+        * 再使用嵌入式python的pip时有此问题. 
+        * 在ida中的python命令行中打印`sys.path`, 可看到idapython的库路径. 将需要的pip包拷贝到其中一个路径下即可. 
+## radare2
+* 架构
+    * radare2: 整个框架的核心, 通过命令行交互. 
+    * rabin2: 提取二进制文件信息. 
+    * rasm2: 汇编和反汇编. 
+    * rahash2: 基于块的哈希工具. 
+    * radiff2: 二进制文件或源代码差异性比对. 
+    * rafind2: 在二进制文件中查找字符串. 
+    * ragg2: 轻量级编译器. 
+    * rarun2: 配置运行环境并运行程序. 
+    * rax2: 不同格式数据的转换. 
+* 运行
+    `r2 <二进制文件>`: 
+        `-A`: 分析
+        `-d`: 开启调试器
+* 配置
+    * `~/.radare2rc`
+* 命令
+    * `a`: 分析(analyze)
+        * `aa`: 分析文件
+        * `fl`: 列出分析得到的函数信息
+        * `xt <函数>`: 查看交叉引用
+    * `i`: 文件信息(information)
+        * `a`: 全部信息
+        * `I`: 系统架构, 保护措施(canary, nx等)等
+        * `h`: 头部
+        * `i`: 导入表
+        * `E`: 导出表
+        * `s`: 符号表
+        * `S`: 节表
+        * `r`: 重定位表
+        * `R`: 资源表
+        * `l`: 链接库
+        * `ee`: 入口点和出口点
+        * `z`: 数据节中的字符串
+        * `t`: 文件哈希(md5, sha1, sha256), 可用于判断两个文件是否一致. 
+    * `s`: 搜索(seek)
+        * `<地址|符号名>`: 跳转到地址
+    * `p [arg|len] [@addr]`: 打印(print)
+        * `x`: 16进制
+        * `i`: 指令
+        * `F [len]`: 解码
+            * `a`: ASN1/DER
+            * `A`: 安卓二进制xml
+            * `b`: 原生原型缓存(如, json)
+            * `B`: IOS二进制PLIST
+            * `o`: ASN1 OID
+            * `p`: PKCS7
+            * `x`: X509(数字证书标准, 规定了数字证书的格式)
+            * `X`: xz
+        * `(d|D) [N]`: 反汇编(d则N条指令, D则N个字节)
+            * `f`: 反汇编函数
+    * `d`: 调试(debug)
+        * `b`: 断点(breakpoint)
+            * `<addr>|<sym>`: 设置断点
+            * `c <addr> <cmd>`: 命中断点时运行cmd命令
+            * `i <idx>`: 对第idx个断点作设置
+                * `.`: 列出断点
+                * `-`: 移除断点
+                * `x [expr]`: 条件断点
+            * `t`: 显示调用栈
+                * `v`: 显示局部变量
+                * `t`: json格式
+                * `a`: ascii图格式
+        * `c`: 开始或继续运行(continue)
+            * ` <pid>`: 继续运行pid进程
+            * ` -<pid>`: 停止运行pid进程
+
+    * `v`: 平板模式(panel)
+    * `V`: 可视模式(visual)
+* 插件
+    * r2dec
+        * 安装: `r2pm -i r2dec`
+        * 使用: `pdd`
+            * `a`: 展示汇编和对应的伪代码. 
+## cutter
+* 要点
+    * 基于radare2
+    * 逆向工具, 可以逆elf文件. 
+    * 可以像od那样调试. 可以像ida那样反汇编, 反编译, 并查看各类信息. 
+
+## bindiff
+* 二进制文件对比工具. 可独立使用, 也可在ida或ghidra中使用. 
+
+## frida
+* 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
+
+
+## api monitor
+
+## dnspy
+
+## jeb
+
+## jd
 
 ## 问题
 * 在附加时找不到进程

@@ -1,3 +1,6 @@
+* 参考
+    * 代码: 
+        * http://abcn.cneu.eu/crypto.htm
 * 符号: 
 
     <img alt="require_musl" src="./pic/crypt_symbols.jpg" width="70%" height="70%">
@@ -152,11 +155,12 @@
     ```
 
 # 对称加密
-## DES()
+## 分组密码
+### DES
 * 特征
     * 密钥长度56位, 理论安全强度为$2^56$. 
 
-## AES(Advanced Encryption Standard)
+### AES(Advanced Encryption Standard)
 * 参考: 
     * https://bbs.pediy.com/thread-253884.htm
 
@@ -184,7 +188,79 @@
     CipherArray[2] = (CipherArray[2] << 16) | (CipherArray[2] >> 16); //第三行 右移16Bit
     CipherArray[3] = (CipherArray[3] << 24) | (CipherArray[3] >> 8); //第四行 右移24Bit
     ```
+### 分组密码工作模式
+* 前言
+    * 分组密码不能隐蔽数据模式(相同明文组对应相同密文组)
+    * 错误传播无界: 出现明文或密文错误会引发后续数据全部错误. 
+    * 错误传播有界: ...有限几个错误. 
+* 模式
+    * 参考
+        * https://zhuanlan.zhihu.com/p/128582757
+    1. 电码本模式(ECB): 各分组用同一加密密钥. 
+        * 优点
+            * 适合短数据处理
+            * 适合并行计算
+        * 缺点
+            * **相同的明文块会被加密成相同的密文块**, 易暴露明文的数据模式
 
+                <img alt="" src="./pic/DES_ECB_enc.png" width="50%" height="50%">
+
+                <img alt="" src="./pic/DES_ECB_dec.png" width="50%" height="50%">
+
+    2. 密码分组链接模式(CBC, Cipher-block chaining)
+        1. 密文链接方式: 把**前一组的密文**作为当前组的加密输入之一(与当前组明文异或)
+            * 加密过程: 
+                * $C_i = E_k(P_i \bigoplus C_{i-1})$
+                * $C_0 = IV$
+            * 解密过程: 
+                * $P_i = D_k(C_i) \bigoplus  C_{i-1}$
+                * $C_0 = IV$
+            * 缺点
+                * 当明文中的信息发生微小的改变时, 会导致利用此明文加密所得到的全部密文信息出现误差. 
+                * 在解密时, 从两个邻接的密文块中即可得到一个平文块. 因此, 解密过程可以被并行化. 
+                * 在解密时, 密文中一位的改变只会导致其对应的明文块和下一个明文块中对应位发生改变, 不会影响到其它明文的内容. 
+
+            <img alt="" src="./pic/DES_CBC_enc.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/DES_CBC_dec.png" width="50%" height="50%">
+        2. 明密文链接方式(Propagating cipher-block chaining): 把**前一组的明文和密文**作为当前组的加密输入之一(与当前组明文异或)
+            * 加解密: 
+                * $C_i = E_k(P_i \bigoplus P_{i-1} \bigoplus C_{i-1})$, $P_0 \bigoplus C_0 = IV$
+                * $P_i = D_k(C_i) \bigoplus P_{i-1} \bigoplus C_{i-1}$, $P_0 \bigoplus C_0 = IV$
+
+            <img alt="" src="./pic/DES_PCBC_enc.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/DES_PCBC_dec.png" width="50%" height="50%">
+    3. CFB(Cipher feedback, 密文反馈模式)
+        * 将块密码变为自同步的流密码. CFB的解密过程几乎就是颠倒的CBC的加密过程. 
+        * 加解密: 
+            * $C_i = E_k(C_{i-1}) \bigoplus P_i$
+            * $P_i = E_k(C_{i-1}) \bigoplus C_i$
+            * $C_0 = IV$
+
+            <img alt="" src="./pic/DES_CFB_enc.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/DES_CFB_dec.png" width="50%" height="50%">
+    4. 输出反馈(OFB, Output feedback)
+        * 将块密码变成同步的流密码. 
+        * 由于明文和密文只在最终的异或过程中使用, 因此可以事先对IV进行加密, 最后并行的将明文或密文进行并行的异或处理. 
+        * 加解密: 
+            * $C_i = P_i \bigoplus O_i$
+            * $P_i = C_i \bigoplus O_i$
+            * $O_i = E_k(O_{i-1})$
+            * $O_0 = IV$
+
+            <img alt="" src="./pic/DES_OFB_enc.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/DES_OFB_dec.png" width="50%" height="50%">
+    5. 计数器模式(CTR, Counter mode)
+        * 将块密码变为流密码. 
+        * 通过递增一个加密计数器以产生连续的密钥流. 
+        * 计数器可以是任意保证长时间不产生重复输出的函数, 但使用一个普通的计数器是最简单和最常见的做法. 
+
+            <img alt="" src="./pic/DES_CTR_enc.png" width="50%" height="50%">
+
+            <img alt="" src="./pic/DES_CTR_dec.png" width="50%" height="50%">
 # 非对称加密
 ## RSA
 * 算法描述

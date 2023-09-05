@@ -66,6 +66,8 @@
                 * `encode_block`: 使用的是`Msf::Encoder::XorAdditiveFeedback`中的编码方法. 算法如下图所示. `orig`是原始字节(4字节). `oblock`是输出的编码后的4字节. 将`key`和`orig`相加后截取低4个字节, 作为下一轮编码用的key. 
 
                     <img alt="" src="./pic/msf_XorAdditive_encode.jpg" width="50%" height="50%">
+                    
+                    ![a](./pic/msf_XorAdditive_encode.jpg)
                 
     * `Msf::EncodedPayload#generate_sled`: 生成nop雪橇, 会加在编码后的payload前面. 
         * `modules/nops/x86/single_byte.rb`

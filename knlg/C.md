@@ -9,12 +9,16 @@
 ```
 
 ## 格式字符串
+* `%e, %E`: 以指数形式打印单双精度实数. 
 * `%Z`: ANSI
 * `%wZ`: Unicode
 * `%zx`: 64位16进制
 * `%zd`或`%I64d`: 64位10进制 
 * `%u`: 无符号整数
 * `%lu`: unsigned long, DWORD
+* `%llu`: unsigned long long, QWORD
+* `%hu`: unsigned short
+* `%hhu`: unsigned char
 * `%s`
     * `%ls`: 宽字符串
     * `%hs`: 窄字符串
@@ -247,9 +251,10 @@
     ```
 
 * 调用约定
-    * __stdcall: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
-    * __cdecl: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
-    * __fastcall: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
+    * 参考: https://en.wikipedia.org/wiki/X86_calling_conventions
+    * `__stdcall`: 参数从右往左入栈, 由被调用函数负责栈平衡(如ret 8, 意即esp加8)
+    * `__cdecl`: 参数从右往左入栈, 由调用者负责栈平衡(可支持变参函数)(如add esp, 8)
+    * `__fastcall`: 前二参数放入ecx, edx(x64则是rcx, rdx, r8, r9), 剩余参数从右往左入栈, 由被调用函数负责栈平衡
 
 * 不定长参数
 
@@ -322,11 +327,12 @@
 * 预定义宏
     |宏|描述|
     |-|-|
-    |__FILE__|	这会在程序编译时包含当前文件名. |
-    |__LINE__|	这会在程序编译时包含当前行号. |
-    |__FUNCTION__|	这会在程序编译时包含当前函数名. |
-    |__DATE__|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
-    |__TIME__|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
+    |`__FILE__`|	这会在程序编译时包含当前文件名. |
+    |`__LINE__`|	这会在程序编译时包含当前行号. |
+    |`__FUNCTION__`|	这会在程序编译时包含当前函数名. |
+    |`__DATE__`|	这会包含一个形式为 month/day/year 的字符串, 它表示把源文件转换为目标代码的日期. |
+    |`__TIME__`|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
+    |`__builtin_return_address(LEVEL)`|	gcc支持, `LEVEL`为0时获取当前函数的返回地址. |
 
 * 预编译选项
     * `#pragma execution_character_set("utf-8")`: 告诉msvc编译器, 当前文件以utf8编码编译. 
@@ -449,6 +455,16 @@ char *a = ({
 });
 ```
 
+* 结构体赋值
+```cpp
+struct S1 *s;
+s = malloc(sizeof(s));
+*s = (struct S1) { // 实质是强制类型, 值传递
+    .a = 1,
+    .b = 2
+};
+```
+
 * 编译时打印宏参数的值
     ```cpp
     #define __PRINT_MACRO(x) #x
@@ -460,6 +476,19 @@ char *a = ({
     * `typeof(func1)* f`: 可将指针`f`转为函数`func1`类型的函数指针.     
 
 # C++
+## Cling
+* 一个基于LLVM的C++解释器.
+* 下载已编译的工程: [https://root.cern.ch/download/cling/](https://root.cern.ch/download/cling/). 之后将其bin目录添加到PATH环境变量.
+* 使用:
+  * 直接运行cling.
+  * 执行C++代码: `cling '#include <stdio.h>' 'printf("Hello World!\n")'`
+  * 用Cling运行C++文件: `cat test.cpp | cling`
+* 可在Jupyter Lab中使用, 需先安装kernel:
+  ```sh
+    cd share/cling/Jupyter/kernel/
+    pip3 install -e .
+    jupyter-kernelspec install [--user] cling-cpp17
+  ```
 ## 数据类型
 * 引用
     * `int& r = i;` r 是一个初始化为 i 的整型引用
@@ -467,6 +496,11 @@ char *a = ({
         * 不存在空引用. 
         * 必须在创建时被初始化. 
         * 一旦初始化为一个对象, 就不能指向另一个对象. 
+* 类型转换
+    * `static_cast <type-id> (expression)`: 主要用于非多态类型之间的转换. 
+    * `dynamic_cast <type-id> (expression)`: `type-id`必须是类的指针, 类的引用或者是`void *`. `expression`的类型要与`type-id`对应. 
+    * `const_cast <type-id> (expression)`: 用来将类型的`const`, `volatile`和`__unaligned`属性移除. 
+    * `reinterpret_cast <type-id> (expression)`: 允许将任何指针类型转换为其它的指针类型. 
 
 ## 关键字
 * `const`: 常量声明. 
@@ -1006,3 +1040,4 @@ char *a = ({
         * 在引用静态成员时出现此错误: 除了类内部声明, 在类外部应该对静态变量再定义一次. 
 
     * `C2712`   
+
