@@ -31,7 +31,7 @@
 - [在libc中找函数](./tips.md#在libc中找函数)
 - [在库中找到'/bin/sh'或'sh'](./tips.md#在库中找到'/bin/sh'或'sh')
 - [泄露栈地址](./tips.md#泄露栈地址)
-- [gdb中遇到fork](./tips.md#gdb中遇到fork)
+- [gdb中遇到fork](./tips.md#gdb调试fork产生的程序)
 - [预测随机数](./tips.md#预测随机数)
 - [使栈可执行](./tips.md#使栈可执行)
 - [one-gadget-RCE](./tips.md#one-gadget-RCE)
@@ -74,3 +74,8 @@
 # Windows内核
 - [NT驱动框架](./knlg/win_krnl.md#NT驱动框架)
     - [驱动运行流程](./knlg/win_krnl.md#driverProgress)
+    - [驱动函数分类](./knlg/win_krnl.md#Kernel_Func)
+    - [防范内核漏洞](./knlg/win_krnl.md#Kernel_Vul)
+    - [WDM](./knlg/win_krnl.md#WDM)
+    - [WDF](./knlg/win_krnl.md#WDF)
+- [Windbg](./knlg/win_krnl.md#Windbg)

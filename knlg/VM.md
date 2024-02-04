@@ -134,6 +134,11 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     `docker rmi $(docker images -f "dangling=true" -q)`
 
 # Qemu
+* 在Ubuntu中安装qemu
+    * 参考: https://linux.cn/article-15834-1.html
+    * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
+    * `sudo apt install qemu qemu-kvm virt-manager bridge-utils`
+
 * 快照
     * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
 * 运行
@@ -145,3 +150,13 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
                 -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
                 -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
         ```
+* 网络
+    * 如果没有指定, 默认为用户模式下的一张Intel e1000 PCI卡, 桥接到主机网络. 即等价于: 
+        ```sh
+        qemu -m 256 -hda disk.img -net nic -net user
+        # 或
+        qemu-system-i386 -m 256 -hda disk.img -netdev user,id=network0 -device e1000,netdev=network0,mac=52:54:00:12:34:56 
+        ``` 
+    * user模式
+    * 端口转发
+    * TAP桥接

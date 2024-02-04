@@ -78,7 +78,25 @@
     * 使用不常用指令, 如rcl, sbb, pushf, pushad
 
 # 常见算法
-* Lzw算法: https://www.cnblogs.com/mcomco/p/10475329.html
+* Lzw数据压缩算法: https://www.cnblogs.com/mcomco/p/10475329.html
+
+## VMProtect
+* 万用门`NOR(a, b)`, 用来扩展到所有逻辑运算: 
+    ```cpp
+        NOR(a, b) = ~(a | b)= ~a & ~b
+        Not(a) = NOR(a, a)
+        And(a, b) = NOR(NOR(a, a), NOR(b, b))
+        Or(a, b) = NOR(NOR(a, b), NOR(a, b)
+        Xor(a, b) = NOR(NOR(NOR(a, a), NOR(b, b)), NOR(a, b))
+    ```
+* 除此之外VMProtect使用vAdd Handler来模拟执行add,sub,adc,sbb,cmp,inc,dec等指令的操作在刚出现的时候也着实让人大开眼界。通过vAdd指令同时可以算出与sub等指令一样的标志位操作。
+    ```cpp
+    vAdd(a,b) = a + b
+    Sub = Not(vAdd(Not(a),b))
+    sub_flag(a, b) = and(~(0x815). not_flag(not(a) + b)) + and(0x815, add_flag(not(a). b))
+    ```
+* 其他的还有: 虚拟寄存器轮转算法，寄存器加密，栈混乱代码随机生成，VM寄存器随机化，原始栈开辟新的执行空间解决多线程等等。
+
 
 # 工具
 ## binwalk
@@ -163,6 +181,13 @@
         2. 确保没有安装pydevd, 否则会有path mapping没有正确匹配路径的问题.
         3. 重新加载并调试插件需要重启IDA(仅仅关掉一个项目并重新打开行不通)
 
+* 调试
+    * windows内核调试
+        * 设置pdb符号路径: 在ida的`cfg`目录下的`pdb.cfg`文件, 有一个`_NT_SYMBOL_PATH`项, 赋值: `srv*D:\win_symbols*http://msdl.microsoft.com/download/symbols`
+        * 调试器选`windbg debugger`
+        * `process options` -> `connection string`, 填`com:port=\\.\pipe\my_pipe,baud=115200,pipe`
+        * `debugger options` -> `set specific options`, 选中`kernel mode debugging`
+
 * IDAPython
     * 从7.4开始使用的是python3.
     * 参考资料
@@ -214,9 +239,10 @@
                 * `auto_mark_range(start, end, type)`: 将一个范围内的地址放到一个队列中. 
                     * `auto_mark_range(x, (x)+1, AU_CODE)`: 可用于将`x`地址处的数据转为代码. 
                 * `ida_ida`
-                    * `inf_get_min_ea()`: 获取最小地址. 
-                    * `inf_get_max_ea()`: 获取最小地址. 
-                    * `inf_get_procname()`: 获取处理器名称. (如`PPC`)
+                    * `inf_get_xxx`, `inf_set_xxx`: 获取, 设置文件基本信息
+                        * `inf_get_min_ea()`: 获取最小地址. (即模块的加载基址)
+                        * `inf_get_max_ea()`: 获取最大地址. 
+                        * `inf_get_procname()`: 获取处理器名称. (如`PPC`)
                 * `ida_bytes`
                     * `get_max_strlit_length(ea, strtype, options=0)`: 获取`ea`处字符串的长度. 
                         * `strtype`
@@ -300,17 +326,18 @@
                         print(hex(addr), idc.GetDisasm(addr))
             ```
 
-            * `find_binary`的二参可取: 
-                * `SEARCH_UP`: 0, 向上搜索. 
-                * `SEARCH_DOWN`: 1, 向下搜索. 
-                * `SEARCH_NEXT`: 2, 跳过起始地址进行搜索. 只对`search()`, `bin_search2()`, `find_reg_access()`有用. 
-                * `SEARCH_CASE`: 4, 区分大小写. 
-                * `SEARCH_REGEX`: 8, `pattern`为正则表达式.       
-                * `SEARCH_NOBRK`: 16, 用户无法打断搜索. 
-                * `SEARCH_NOSHOW`: 32, 不显示搜索进度, 不刷新屏幕. 
-                * `SEARCH_UNICODE`: 64, 将所有搜索字符串视为Unicode
-                * `SEARCH_IDENT`: 128, 
-                * `SEARCH_BRK`: 256, 
+            * `find_binary(ea, flag, searchstr, radix=16, from_bc695=False)`
+                * `flag`: 
+                    * `SEARCH_UP`: 0, 向上搜索. 
+                    * `SEARCH_DOWN`: 1, 向下搜索. 
+                    * `SEARCH_NEXT`: 2, 跳过起始地址进行搜索. 只对`search()`, `bin_search2()`, `find_reg_access()`有用. 
+                    * `SEARCH_CASE`: 4, 区分大小写. 
+                    * `SEARCH_REGEX`: 8, `pattern`为正则表达式.       
+                    * `SEARCH_NOBRK`: 16, 用户无法打断搜索. 
+                    * `SEARCH_NOSHOW`: 32, 不显示搜索进度, 不刷新屏幕. 
+                    * `SEARCH_UNICODE`: 64, 将所有搜索字符串视为Unicode
+                    * `SEARCH_IDENT`: 128, 
+                    * `SEARCH_BRK`: 256, 
         * 处理节
             ```py
                 # 遍历节
@@ -472,6 +499,9 @@
         * `aa`: 分析文件
         * `fl`: 列出分析得到的函数信息
         * `xt <函数>`: 查看交叉引用
+        * `g`: 图
+            * `f`: 函数基本块图
+            * `c`: 函数调用图
     * `i`: 文件信息(information)
         * `a`: 全部信息
         * `I`: 系统架构, 保护措施(canary, nx等)等
@@ -521,7 +551,7 @@
     * `v`: 平板模式(panel)
     * `V`: 可视模式(visual)
 * 插件
-    * r2dec
+    * `r2dec`
         * 安装: `r2pm -i r2dec`
         * 使用: `pdd`
             * `a`: 展示汇编和对应的伪代码. 

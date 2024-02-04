@@ -1,3 +1,15 @@
+# 计算机体系架构
+* 数据存储
+    * 在linux/bsd上, 执行`file /bin/ls`, 查看`ls`程序适用的cpu架构. 可看到`MSB`或`LSB`. 
+        * `MSB`(Most Sigificant Bit, 最高有效位): 意味着大端序, 例如数字6, 存储为`00000110`. 
+            * 优点: 
+                * 因为低字节放在低地址, 所以强转数据类型时不需要调整字节顺序. (比如int型转short型, 直接将开头两字节作为short型)
+                * cpu作数值运算时从低位依此取数据, 运算高效. 
+        * `LSB`(Least Significant Bit, 最低有效位): 意味着小端序, 例如数字6, 存储为`01100000`. 
+            * 优点: 
+                * 符号位在数据的第一个字节中, 便于快速判断正负和大小. 
+
+
 # LC-3
 参考: [https://blog.csdn.net/weixin_44176696/article/details/105773303](https://blog.csdn.net/weixin_44176696/article/details/105773303)
 

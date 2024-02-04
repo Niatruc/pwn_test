@@ -106,81 +106,75 @@
 # winsock
 ## 一个简易tcp服务
 ```cpp
-#include<iostream.h>
-#include<winsock2.h>
-#pragma comment(lib, "ws2_32.lib")
-void msg_display(char * buf)
-{
-	char msg[200];
-	strcpy(msg,buf);// overflow here, copy 0x200 to 200
-	cout<<"********************"<<endl;
-	cout<<"received:"<<endl;
-	cout<<msg<<endl;
-}
-void main()
-{
-	int sock,msgsock,lenth,receive_len;
-	struct sockaddr_in sock_server,sock_client;
-	char buf[0x200]; //noticed it is 0x200
-	
-	WSADATA wsa;
-	WSAStartup(MAKEWORD(1,1),&wsa);
-	if((sock=socket(AF_INET,SOCK_STREAM,0))<0)
-	{
-		cout<<sock<<"socket creating error!"<<endl;
-		exit(1);
-	}
-	sock_server.sin_family=AF_INET;
-	sock_server.sin_port=htons(7777);
-	sock_server.sin_addr.s_addr=htonl(INADDR_ANY);
+    #include<iostream.h>
+    #include<winsock2.h>
+    #pragma comment(lib, "ws2_32.lib")
+    void msg_display(char * buf)
+    {
+        char msg[200];
+        strcpy(msg,buf);// overflow here, copy 0x200 to 200
+        cout<<"********************"<<endl;
+        cout<<"received:"<<endl;
+        cout<<msg<<endl;
+    }
+    void main()
+    {
+        int sock, msgsock, lenth, receive_len;
+        struct sockaddr_in sock_server,sock_client;
+        char buf[0x200]; // 
+        
+        WSADATA wsa;
+        WSAStartup(MAKEWORD(1,1), &wsa); // 一参高位字节指定小版本号, 低位字节指定主版本号. 输出的信息存放到wsa. 
+        if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) { // 新建一个套接字
+            cout << sock << "socket creating error!" << endl;
+            exit(1);
+        }
 
-	char host_name[MAXBYTE];
-	gethostname(host_name, MAXBYTE); // 获取主机名称
-	cout<<host_name<<endl;
-	hostent *lv_pHostent;
-	lv_pHostent = (hostent *)malloc(sizeof(hostent));
-	if( NULL == (lv_pHostent = gethostbyname(host_name)))
-	{
-		printf("get Hosrname Fail \n");
-		return ;
-	}
-	// cout<<lv_pHostent<<endl;
-	
-	memcpy(&sock_server.sin_addr.S_un.S_addr, 
-		lv_pHostent->h_addr_list[0], lv_pHostent->h_length);
-	cout<<inet_ntoa(sock_server.sin_addr)<<endl;
+        // 设置协议族, 地址, 端口
+        sock_server.sin_family = AF_INET;
+        sock_server.sin_addr.s_addr = htonl(INADDR_ANY);
+        sock_server.sin_port = htons(7777);
 
-	if(bind(sock,(struct sockaddr*)&sock_server,sizeof(sock_server)))
-	{
-		cout<<"binging stream socket error!"<<endl;
-	}
-	cout<<"**************************************"<<endl;
-	cout<<"     exploit target server 1.0	   "<<endl;
-	cout<<"**************************************"<<endl;
-	listen(sock,4);
-	lenth=sizeof(struct sockaddr);
-	do{
-		msgsock=accept(sock,(struct sockaddr*)&sock_client,(int*)&lenth);
-		if(msgsock==-1)
-		{
-			cout<<"accept error!"<<endl;
-			break;
-		}
-		else 
-			do
-			{
-				memset(buf,0,sizeof(buf));
-				if((receive_len=recv(msgsock,buf,sizeof(buf),0))<0)
-				{
-					cout<<"reading stream message erro!"<<endl;
-					receive_len=0; 
-				}
-				msg_display(buf);//trigged the overflow
-			}while(receive_len);
-			closesocket(msgsock);
-	}while(1);
-	WSACleanup();
-}
+        char host_name[MAXBYTE];
+        gethostname(host_name, MAXBYTE); // 获取主机名称
+        cout << host_name << endl;
+        hostent *lv_pHostent;
+        lv_pHostent = (hostent *) malloc(sizeof(hostent));
+        if( NULL == (lv_pHostent = gethostbyname(host_name))) { // 根据主机名称获取主机IP地址
+            printf("get Hosrname Fail \n");
+            return ;
+        }
+        // cout<<lv_pHostent<<endl;
+        
+        memcpy(&sock_server.sin_addr.S_un.S_addr, lv_pHostent->h_addr_list[0], lv_pHostent->h_length);
+        cout << inet_ntoa(sock_server.sin_addr) << endl; // inet_ntoa将网络地址转为点分十进制字符串
+
+        if(bind(sock, (struct sockaddr*)&sock_server, sizeof(sock_server))) { // 将套接字和地址端口绑定
+            cout << "binging stream socket error!" << endl;
+        }
+        cout << "**************************************" << endl;
+        cout << "     exploit target server 1.0	   " << endl;
+        cout << "**************************************" << endl;
+        listen(sock, 4); // 开始监听端口
+        lenth = sizeof(struct sockaddr);
+        do {
+            msgsock = accept(sock, (struct sockaddr*) &sock_client, (int*)&lenth); // 接收新的TCP连接
+            if(msgsock == -1) {
+                cout<<"accept error!"<<endl;
+                break;
+            } else 
+                do {
+                    memset(buf, 0, sizeof(buf));
+                    if((receive_len = recv(msgsock, buf, sizeof(buf), 0)) < 0) {
+                        cout << "reading stream message erro!" << endl;
+                        receive_len = 0; 
+                    }
+                    msg_display(buf);//trigged the overflow
+                } while(receive_len);
+                closesocket(msgsock);
+        } while(1);
+        WSACleanup();
+    }
 ```
 
 * 问题
@@ -297,11 +291,44 @@ void main()
     ```
 
     * `SizeOfRawData`通常比`VirtualSize`大, **因为在磁盘中的节包含填充的0字节**. 
-    
+
+# windows编程
+* 代码规范: 
+    * 参考
+        * [Windows Coding Conventions](https://learn.microsoft.com/en-us/windows/win32/learnwin32/windows-coding-conventions)
+    * 变量前缀: 
+        * 按属性: 
+            * 全局变量: `g_`
+            * const常量: `c_`
+            * c++类成员变量: `m_`
+            * 静态变量: `s_`
+        * 按数据类型: 
+            * 指针: `p`
+            * 函数: `fn`
+            * 无效: `v`
+            * 句柄: `h`
+            * 长整型: `1`
+            * 布尔: `b`
+            * 浮点型(有时也指文件): `f`
+            * 双字: `dw`
+            * 字符串: `sZ`
+            * 短整型: `n`
+            * 双精度浮点d
+            * 计数: `c` (通常用`cnt`)
+            * 字符: `ch` (通常用`c`)
+            * 整型: `i`(通常用`n`)
+            * 字节: `by`
+            * 字: `W`
+            * 实型: `r`
+            * 无符号: `u`
+
 # win32 api
 
 ## Windows共享库
 * `hal.dll`
+    * 实现了硬件抽象层. 
+    * 介于驱动和硬件(芯片)之间, 在内核地址空间加载, 对硬件提供的接口进行封装. 
+        * 比如, 面对不同芯片的APIC(高级可编程中断处理器)的中断, 需要做出的响应是不同的. HAL则提供了一个简单的函数以应对不同芯片的中断. 
 * `ntdll.dll`
     * `ntdll.dll`及`ntoskrnl.exe`中包含Windows的原生api, 比如那些`NtXxx`, `ZwXxx`, `RtlXxx`函数. 
 * `kernel32.dll`
@@ -312,6 +339,14 @@ void main()
     * 提供创建和管理Windows图形界面的功能, 例如桌面, 视窗. 
 * `comctl32.dll`
     * 提供标准视窗界面组件, 比如打开文件对话框, 另存文件对话框. 依赖`gdi32.dll`及`user32.dll`. 
+* `msvcrt.dll`
+    * C标准库. 提供`printf`等函数. 
+* `ATL*.dll`: 活动模板库. 
+* `MFC*.dll`: 微软基础类库. 
+* `MSVBVM60*.dll`: `Visual Basic 6.0`虚拟机. 
+* `VCOMP*.dll`: 微软`OpenMP`(Open Multi-Processing)运行时. 
+* `VCRUNTIME*.dll`: 微软VC运行时, 用于MSVC 14.0以上. 
+* `MSVCIRT.dll`: 微软基础类库. 
 
 ## 文件操作
 ```cpp
@@ -357,7 +392,11 @@ BOOL WriteFile(
 // 新建目录
 BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes); // 一参为目录的完整路径
 ```
-
+### shlwapi库
+```cpp
+#include <shlwapi.h>
+#pragma comment(lib, "shlwapi")
+```
 ## 注册表操作
 ```cpp
 ```
@@ -394,8 +433,22 @@ DWORD GetModuleFileNameExW(
 
 ## 线程操作
 ```cpp
-CreateThread
-OpenThread
+#include <processthreadsapi.h>
+
+HANDLE CreateThread(
+    IN OPTIONAL  LPSECURITY_ATTRIBUTES   lpThreadAttributes,
+    IN            SIZE_T                  dwStackSize,
+    IN            LPTHREAD_START_ROUTINE  lpStartAddress, // 线程入口函数
+    IN OPTIONAL  __drv_aliasesMem LPVOID lpParameter, // 传给线程的参数
+    IN            DWORD                   dwCreationFlags,
+    OUT OPTIONAL LPDWORD                 lpThreadId
+); // 若失败, 返回NULL
+// 例
+HANDLE hThrd = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) MyFunc, (LPVOID) paramx, 0, &tid);
+
+HANDLE hThrd = OpenThread(SYNCHRONIZE, FALSE, tid); // 成功则返回线程句柄
+WaitForSingleObject(hThrd, INFINITE); // 阻塞, 等待线程退出
+
 ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数以退出线程
 ```
 
@@ -406,40 +459,67 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 ```
 
 # cmd
-* `net`
-    * `share`: 查看开启的共享. (包括`ipc$`)
-    * `use \\<ip地址>\ipc$ /u:<用户名> <密码>`: 建立IPC连接. 
-    * `user`: 新增用户. 
-        * `/add <用户名> <口令>`
-    * `<start|stop> <服务名>`
-* `tasklist`: 查看进程列表
-    * `tasklist /S <ip地址> /U <用户名> -P <密码>`: 建立IPC连接. 
-* `sc`: 服务管理工具. 
-    * `delete <服务名>`
-    * `delete <服务名>`
-* `whoami`
-    * `/priv`: 查看用户权限. (如, `SeDebugPriviledge`)
-    * `/user`: 查看用户信息. 
-* `winver`: 查看系统版本号. 
-    * 系统版本号: 主版本号, 子版本号, 修正版本号, 编译版本号
-* `sysinfo`: 系统信息, 其中包括系统版本号. 
-* `wmic`: Windows Management Instrumentation, 可用于获取系统信息, 安装软件, 启动服务, 管理进程等操作. 
-    * `os get name,version,buildnumber,caption`: 获取操作系统的名称, 版本号, 构建号, 标题. 
-    * `memorychip get devicelocator,capacity,speed`: 获取内存条的设备定位器、容量、速度等信息。
-    * `cpu get name, maxclockspeed, numberofcores, numberoflogicalprocessors`: 获取CPU的型号、最大时钟速度、核心数、逻辑处理器数量等信息
-    * `diskdrive get index, model, size, interfacetype`: 获取硬盘的索引号、型号、大小和接口类型等信息
-    * `nic get index, name, macaddress`: 获取网卡信息，如网卡索引号、网卡名称、MAC地址等
-    * `/node:<IP地址> nicconfig where IPEnabled=TRUE get IPAddress`: 获取远端计算机的所有IP地址. 
-    * `process list brief`：列出所有运行中的进程信息，包括进程ID、名称、执行路径和在内存中的使用情况等
-    * `service get name, state`：获取系统中的服务状态，包括服务名称和当前状态。
-    * `service where name=<服务名称>`
-        * `call stopservice`：停止服务
-        * `call startservice`：启动服务
-    * `useraccount get name, sid`: 获取用户的名称和sid
-    * `group get name, sid`: 获取组的名称和sid
+* 进程
+    * `tasklist`: 查看进程列表
+        * `tasklist /S <ip地址> /U <用户名> -P <密码>`: 建立IPC连接. 
+* 文件
+    * `attrib`: 用于修改文件或目录属性
+        * `+h|-h`: 显示/隐藏文件. 
+        * `+r|-r`: 只读文件属性. 
+        * `+a|-a`: 存档文件属性. 
+        * `+s|-s`: 系统文件属性. 
+* 网络
+    * `route`
+        * `print`: 打印路由表. (开头有网卡列表)
+        * `add`: 添加路由
+            * `192.168.29.0 mask 255.255.255.0 10.0.0.1 metric 6 if 8`: 表示将`192.168.29.0/24`网段路由到`10.0.0.1`接口. `if`进一步指定接口编号为8. `metric`指定最大跳数. 
+        * `change`
+        * `delete`
+            * `192.168.29.0 mask 255.255.255.0`: 表示删除`192.168.29.0/24`网段路由. 
+* 用户, 服务
+    * `net`
+        * `share`: 查看开启的共享. (包括`ipc$`)
+        * `use \\<ip地址>\ipc$ /u:<用户名> <密码>`: 建立IPC连接. 
+        * `user`: 新增用户. 
+            * `/add <用户名> <口令>`
+        * `<start|stop> <服务名>`
+    * `sc`: 服务管理工具. 
+        * `create <服务名> `
+            * `binpath= "C:\xxx.exe"` 
+            * `displayname= "mysrv"` 
+            * `depend= Tcpip` 
+            * `start= <boot|system|auto|demand|disabled>`: 默认`demand`
+        * `<start|stop|delete> <服务名>`
+    * `shutdown`
+        * `\r \t 0`: 立即重启
+    * `winsat`: 系统评估工具
+        * `disk -drive <盘符>`: 磁盘测速
+* 系统信息
+    * `whoami`
+        * `/priv`: 查看用户权限. (如, `SeDebugPriviledge`)
+        * `/user`: 查看用户信息. 
+    * `ver`: 查看系统版本号. 
+        * 系统版本号: 主版本号, 子版本号, 修正版本号, 编译版本号
+    * `winver`: 查看系统版本号(图形窗口). 
+    * `sysinfo`: 系统信息, 其中包括系统版本号. (?)
+    * `wmic`: Windows Management Instrumentation, 可用于获取系统信息, 安装软件, 启动服务, 管理进程等操作. 
+        * `os get name,version,buildnumber,caption`: 获取操作系统的名称, 版本号, 构建号, 标题. 
+        * `memorychip get devicelocator,capacity,speed`: 获取内存条的设备定位器、容量、速度等信息。
+        * `cpu get name, maxclockspeed, numberofcores, numberoflogicalprocessors`: 获取CPU的型号、最大时钟速度、核心数、逻辑处理器数量等信息
+        * `diskdrive get index, model, size, interfacetype`: 获取硬盘的索引号、型号、大小和接口类型等信息
+        * `nic get index, name, macaddress`: 获取网卡信息，如网卡索引号、网卡名称、MAC地址等
+        * `/node:<IP地址> nicconfig where IPEnabled=TRUE get IPAddress`: 获取远端计算机的所有IP地址. 
+        * `process list brief`：列出所有运行中的进程信息，包括进程ID、名称、执行路径和在内存中的使用情况等
+        * `service get name, state`：获取系统中的服务状态，包括服务名称和当前状态。
+        * `service where name=<服务名称>`
+            * `call stopservice`：停止服务
+            * `call startservice`：启动服务
+        * `useraccount get name, sid`: 获取用户的名称和sid
+        * `group get name, sid`: 获取组的名称和sid
 
+    
 # powershell
-* 管道: 命名管道的所有实例拥有相同的名称, 但是每个实例都有其自己的缓冲区和句柄, 用来为不同客户端通许提供独立的管道. 
+* 管道: 命名管道的所有实例拥有相同的名称, 但是每个实例都有其自己的缓冲区和句柄, 用来为不同客户端通讯提供独立的管道. 
     * 列出当前计算机所有命名管道: 
         * V3以下版本: `[System.IO.Directory]::GetFiles("\\.\\pipe\\")`
         * V3以上: `Get-ChildItem \\.\pipe\`
@@ -448,8 +528,8 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 
 # 注册表
 * `HKEY_LOCAL_MACHINE\`
-    * `SAM\`
-        * `SAM\`: `C:\Windows\System32\config\SAM`文件中关于用户和组的部分会映射到这里. 默认情况下Administrator也看不了这里的内容, 需要右键该项 -> `权限`, 点击`Administrator`, 在下面的`权限`中勾选`完全控制`, 然后F5刷新注册表. 
+    * `SAM\`: 
+        * `SAM\`: `C:\Windows\System32\config\SAM`文件中关于用户和组的部分会映射到这里. 默认情况下Administrator也看不了这里的内容, 需要右键该项 -> `权限`, 点击`Administrator`, 在下面的`权限`中勾选`完全控制`, 然后F5刷新注册表. 另一种方法是使用`psexec`运行`regedit`程序(`psexec –s –i –d c:\windows\regedit.exe`), 即以本地system用户的方式运行. 
             * `Domains\`: \
                 * `Account\`: 
                     * `Users\`: 
@@ -459,53 +539,117 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
                             * `<用户名>\`: 每一项都有一个默认值, 该值即为用户的RID. 
     * `SECURITY\`
         * `SAM\`: 同上面的`SAM\SAM`. 
-    * `SYSTEM\`
-        * `CurrentControlSet\`
-            * `Services\`: 其下每一项对应一个服务
-                * `<服务>\`
-                    * `ImagePath`: sys文件路径或`%SyStemRoot%\System32\svchost.exe -k <服务组>`
-                    * `Parameters\`
-                        * `ServiceDll`: dll文件路径
     * `SOFTWARE\`
         * `Microsoft\`
             * `Windows\`
                 * `CurrentVersion\`
                     * `Policies\`
                         * `System\`
-                            * `EnableLUA`: LUA表示首先用户账户, 现在称为UAC. 为0时, 禁用UAC. QT程序以admin运行时不能拖文件进去, 因为这个值为1, 而`explorer.exe`的权限较低. 此时可将该值改为0, 并重启系统, 解决此问题. 
+                            * `EnableLUA`: LUA表示受限用户账户, 现在称为UAC. 为0时, 禁用UAC. QT程序以admin运行时不能拖文件进去, 因为这个值为1, 而`explorer.exe`的权限较低. 此时可将该值改为0, 并重启系统, 解决此问题. 
             * `Windows NT\`
                 * `CurrentVersion\`
                     * `AeDebug\`
                         * `Debugger`: 可以设置系统默认调试器, 如: `"C:\debuggers\windbg.exe" -p %ld -e %ld -g`
-                    * `ProfileList`
-                        * `<SID>`: 用户的sid
+                    * `Image File Execution Options\`
+                        * `<应用程序>\`: 如`svchost.exe`
+                            * `debugger`: 设置调试器路径及参数, 则应用程序启动时会通过该调试器启动. 
+                    * `ProfileList\`
+                        * `<SID>\`: 用户的sid
                             * `ProfileImagePath`: 用户的主目录
+    * `SYSTEM\`
+        * `CurrentControlSet\`
+            * `Control\`: 
+                * `Lsa\`: 
+                    * `Security Packages`: 一个`REG_MULTI_SZ`值, 指定LSASS进程启动时加载的一系列SSP包的名称. 
+            * `Services\`: 其下每一项对应一个服务
+                * `<服务>\`
+                    * `ImagePath`: sys文件路径或`%SyStemRoot%\System32\svchost.exe -k <服务组>`
+                    * `Parameters\`
+                        * `ServiceDll`: dll文件路径
 
 
-# svchost
+
+# 系统进程, 服务
+* `smss.exe`
+    * 会话管理子系统(session manager subsystem), 它是内核启动的第一个用户模式的进程. 
+    * 负责: 
+        * 根据`HKLM\SYSTEM\CurrentControlSet\Control\Session Manager`下的键值, 做以下初始化: 
+            * 创建额外的分页文件(根据`Memory Management`键)
+            * 创建环境变量(根据`Environment`键)
+            * 创建DOS设备映射(如`CON:`, `NUL;`, `AUX`, `COM1:`等)(根据`Dos Devices`键). 
+            * 启动`SubSystems`下记录的子系统. 
+        * 启动内核及用户模式的Win32子系统. Win32子系统包含`win32k.sys`(内核模式), `winsrv.dll`(用户模式), `csrss.exe`(用户模式). 
+        * 从Vista开始, smss会创建一个它自身的子实例, 以为`session0`启动`wininit.exe`(Windows开机程序)和`csrss.exe`. Windows开机程序则启动`services.exe`和`lsass.exe`. 在Vista之前则是Winlogon负责这些工作. 
+    * smss在引导程序完成后会驻留在内存中, 等待`winlogon`和`csrss`结束, 然后关机. 
+* `lsass.exe`
+    * Local Security Authority Service, 用于本地安全和登陆策略. 
+* `csrss.exe`
+    * Client/Server Runtime Subsystem, 微软客户端/服务端运行时子系统. 该进程管理Windows图形相关任务. 
+* `winlogon.exe`
+    * 用于处理用户登录操作. 
+    * 每次发起远程桌面连接成功后, 都会有一个新的`winlogon`进程出现. 
+* `explorer.exe`
+    * 为用户提供了图形用户界面. 
+    * 没一个用户只有一个`explorer`进程实例. 
+* `services.exe`
+    * 即SCM(service control manager). `svchost.exe`进程一般都会以其子进程的形式出现. 
+
+## svchost
 * svchost.exe本身并不实现任何服务功能, 需要成为服务的dll可由svchost加载成为服务. 这些dll内部需要实现`ServiceMain`函数, 并且**要把它导出**. 
 * svchost.exe根据注册表项`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost`下面的键值分组管理DLL申请的服务, 每一键值对应一个独立的Svchost.exe进程. 
     * `svchost`键本身存多个项, 各个项的名称是服务名, 值是服务所属分组. 
 * 服务的注册表项
     * `HKEY_LOCAL_MACHINE\SYSTEM\CurrentVersion\Services\<服务名>`
+        * `ImagePath`: 值为`svchost.exe -k <组名>`. 
         * `Parameters`子键: 
             * `ServiceDll`: 指出dll文件路径
-            * `ImagePath`: 值为`svchost.exe -k <组名>`. 
 * `tasklist /svc`: 可以显示每个进程主持的服务
 * `tasklist /M`: 可以显示每个进程用的模块(dll)
 * 调试: 
     * 调试主函数`ServiceMain`: 
         * 如果有源码, 可以在函数开头放一个`Sleep`, 睡眠比较长一段时间. 启动服务后, 记录下进程id, 并在其睡眠结束前通过windbg附加到进程, 在`Sleep`后设置断点. 
 
-# 系统进程, 服务
-* `lsass.exe`
-    * Local Security Authority Service, 用于本地安全和登陆策略. 
-* `csrss.exe`
-    * Client/Server Runtime Subsystem, 微软客户端/服务端运行时子系统. 该进程管理Windows图形相关任务. 
-* `explorer.exe`
-    * 为用户提供了图形用户界面. 
+# 用户, 授权机制
+* 启用`administrator`
+    * 非家庭版
+        * 方法一: `计算机管理` -> `本地用户和组` -> `用户` -> `administrator`, 右键`属性`, 把账户`已禁用`的勾去掉. 
+        * 方法二: 运行`lusrmgr.msc`, 类似上述操作. 
+    * 家庭版
+        * `net user administrator /active:yes`
+* SIDs: 安全标识符
+    * 组成: `S-R-X-Y1-Y2-Yn-1-Yn`
+        * `S`: 表示这是SID. 
+        * `R`: 修订级. 
+        * `X`: 标识符的授权值. (identifier authority)
+        * `Y`: 一系列子授权值. 前面1到n-1个组成的序列表示域标识符, 最后一个则是相对标识符`RID`(用于区分用户或组). 
+        * 例子: 
+            * `S-1-5-32-544`: 这个是特权组`Builtin\Administrators`的sid. 
+                * 1: 修订级为1. 
+                * 5: NT Authority. 
+                * 32: Builtin. (内置账号和组的SID都有这个域标识符32)
+                * 544: Administrators. 
+    * `Well-known SIDs`
+        * `Everyone`, `World`: 包含所有用户
+        * `CREATOR_OWENER`: 作为ACE的占位符. 当ACE被继承时, 系统会将此占位符替换为创建对象者的SID. 
+        * `Administrators`
+        * `SECURITY_LOCAL_SYSTEM_RID`: `S-1-5-18`, 提权至system时可能会用到此sid. 
+        * `SECURITY_NT_NON_UNIQUE`: `S-1-5-21`, 普通用户登录时可看到此sid. 
+        * `SECURITY_BUILTIN_DOMAIN_RID`: `S-1-5-32`, 内置系统域. 
+            * `DOMAIN_ALIAS_RID_ADMINS`(544): 内置管理员组(`Builtin\Administrators`)
 
-## 认证
+* 登录会话(`LogonSessions`)
+    * 用户账号或服务账号通过验证后, Windows就会创建一个登录会话. 登录情形: 
+        * 通过控制台或远程桌面的交互式登录
+        * SCM使用保存的凭据来开启一个服务
+        * `runas`
+    * 每个会话都有一个LUID(本地唯一标识符). 预设的有: 
+        * system账号会话: 999(0x3e7)
+        * 网路服务会话: 996(0x3e4)
+        * 本地服务会话: 997(0x3e5)
+    * 只要还有复用的安全令牌(duplicated token), 引用该令牌的会话就会存在. 
+    * LSA登录会话和终端服务(TS)会话是正交关系(互不相干). TS会话包括终端用户会话和远程桌面用户会话, 以及包含所有服务进程的会话0. 一个进程的安全令牌既指明了其来源的LSA会话, 也指明了其所在的TS会话. 注意, 大部分以system运行的进程在会话0中, 但有两个例外, `winlogon`和`csrss`, 它们存在于每一个交互式TS会话中. 
+    * 使用`WinObj`工具, 在`\Sessions\0\DosDevices\<LUID>`下查看各会话. 
+    * 使用`sysinternal`中的`logonsessions`工具, 查看各会话的详情. 
 * 凭据管理
 * LSA身份验证
 * 网络提供商接口
@@ -526,33 +670,64 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
         * Microsoft Digest SSP
         * Secure Channel
 * Winlogon和凭据提供者
+* 安全系统组件
+    * 安全引用监视器(SRM)
+        * 在`Ntoskrnl.exe`中
+        * 负责定义访问令牌, 对象的安全访问检查, 特权管理, 生成安全审计信息. 
+        * lsass启动时, 会创建一个ALPC端口`SeLsaCommandPort`. SRM会连接到此端口(因此其自身也会产生一个端口). 
+    * LSASS
+        * 大部分功能在`Lsasrv.dll`中实现. 
+        * 用户登录，密码策略，赋予用户和组的特权，系统安全审计设置. 
+    * LSASS策略数据库
+        * 存在`HKLM\SECURITY`下, 由ACL保护的区域。
+        * 保存一些信息: 
+            * 域登录在本地的缓存信息。
+            * windows服务的用户-账户登录信息。
+    * 安全账户管理器(SAM)服务
+    * SAM数据库
+        * `HKLM\SAM`
+        * 包含本地用户和用户组以及它们的口令和属性
+        * 在域控中，SAM不保存域定义用户，但保存系统管理员恢复账号的定义和口令。
+    * 活动目录
+        * `System32\Ntdsa.dll`, 该服务运行于lsass进程. 
+        * 一个目录服务，包含一个数据库，数据库中保存了域中对象的信息。
+    * Winlogon
+        * 回应SAS
+        * 管理交互式登录会话
+        * 在用户登录时创建用户的第一个进程
+    * LogonUI
+        * 向凭据提供者查询用户凭据. 
+        * 提供登录界面
+    * 凭据提供者(CPs)
+        * `System32\authui.dll`, `System32\SmartcardCredentialProvider.dll`
+        * 是运行于LogonUI进程的com组件, 在SAS执行时, 由Winlogon按需开启. 
+        * 用于获取用户名, 密码，智能卡pin码，生物测量数据(如指纹)。
+    * 网络登录服务(Netlogon)
+        * `System32\Netlogon.dll`
+        * 为域控制器设置一条安全信道，以传输交互式登录信息，LAN管理器和NT LAN管理器的认证校验信息。也用于活动目录的登录。
+    * 内核安全设备驱动(`KSecDD`)
+        * `System32\Drivers\Ksecdd.sys`
+        * 实现了高级本地过程调用(ALPC), 其它内核模式的安全组件(包括加密文件系统EFS)会通过ALPC来和LSASS通信。
+    * 认证包(authentication package): 
+        * 封装了验证功能和安全协议的dll, 为用户的登录提供验证. LSA将请求发送给认证包来验证用户的登录操作. 
+        * 负责: 
+            * 分析登录数据, 确定过一个`安全主体`(security principal)是否可被允许登录到系统. 
+            * 建立新的登录会话, 为成功验证的主体创建logonId. 
+            * 将安全信息传给LSA, 以获取主体的安全令牌. 
+        * 提供一组SID以及LSA创建的安全令牌中的其它信息. 安全令牌在后续访问Windows的操作中用于表示主体的安全上下文. 
+        * 如下认证包: 
+            * `msv1_0`
+                * 在SAM数据库中查找用户名和哈希处理过的密码, 进行匹配, 确定是否允许登录. 
+            * `kerberos`
+    * AppLocker
+        * `System32\Drivers\AppId.sys`驱动, 加载`\System32\AppIdSvc.dll`的svchost。
+        * 让管理员可以管理用户可用的exe, dll和脚本文件. 
 
-# 用户, 授权机制
-* 启用`administrator`
-    * 非家庭版
-        * 方法一: `计算机管理` -> `本地用户和组` -> `用户` -> `administrator`, 右键`属性`, 把账户`已禁用`的勾去掉. 
-        * 方法二: 运行`lusrmgr.msc`, 类似上述操作. 
-    * 家庭版
-        * `net user administrator /active:yes`
-* SIDs: 安全标识符
-    * 组成: `S-R-X-Y1-Y2-Yn-1-Yn`
-        * `S`: 表示这是SID. 
-        * `R`: 修订级. 
-        * `X`: 标识符的授权值. (identifier authority)
-        * `Y`: 一系列子授权值. 前面1到n-1个组成的序列表示域标识符, 最后一个则是相对标识符(用于区分用户或组). 
-        * 例子: 
-            * `S-1-5-32-544`
-                * 1: 修订级为1. 
-                * 5: NT Authority. 
-                * 32: Builtin. (内置账号和组的SID都有这个域标识符32)
-                * 544: Administrators. 
-    * Well-known SIDs
-        * `Everyone`, `World`: 包含所有用户
-        * `CREATOR_OWENER`: 作为ACE的占位符. 当ACE被继承时, 系统会将此占位符替换为创建对象者的SID. 
-        * `Administrators`
-        * `SECURITY_LOCAL_SYSTEM_RID`: `S-1-5-18`, 提权至system时可能会用到此sid. 
-        * `SECURITY_NT_NON_UNIQUE`: `S-1-5-21`, 普通用户登录时可看到此sid. 
-* 
+        <img alt="" src="./pic/Windows Security Component.png" width="50%" height="50%">
+
+* 工具
+    * 本地安全策略
+    * 组策略管理器
 
 # 开发
 * 在编译阶段判断系统版本: 
@@ -586,6 +761,7 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 * 判断目标平台的位数: 根据宏`_WINX64`
 * 调试: 
     * `OutputDebugStringA(LPCSTR lpOutputString)`: 可将调试信息输出到调试器(`Windbg`, `DdgView`). 在`DdgView`中, 要把`Capture Global Win32`勾上, 才能打印出来. 
+* 
 
 ## VS
 * 编译选项
@@ -606,9 +782,20 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 # Win11
 * 安装
     * Vmware
-        * `设置` -> `硬件`, 添加可信平台模块. 
         * `设置` -> `选项` -> `访问控制`, 加密. 
-    * `ctrl + shift + f3` 跳过登录. 
+        * `设置` -> `硬件`, 添加可信平台模块. 
+        * 如果iso镜像不支持uefi引导, 则如下操作: 
+            * `设置` -> `选项` -> `高级`, 改为bios引导. 
+            * 进入安装界面后, `shift + f10`打开cmd, 然后`regedit`打开注册表. 
+            * 在`HKLM\SYSTEM\Setup`下, 新建`LabConfig`项, 在其中创建两个dword值`BypassTPMCheck`和`BypassSecureBootCheck`, 值都设置为1. 然后退出cmd, 继续后序操作. 
+    * 跳过微软账号登录: 
+        * 参考: https://www.aqwu.net/wp/?p=1523
+        * `ctrl + shift + f3` 跳过登录. 
+            * 在新版本(22h2)中, 即使能进administrator账号, 但一旦登录其他用户, administrator就会被禁用, 且普通用户不能以管理员权限运行程序. 
+        * 另一种方法: 
+            * 断开网络
+            * `shift + f10`进入cmd, 运行`oobe\bypassnro.cmd`.
+            * 电脑重启并再次进入开机向导(但是老版本的向导), 这是在网络设置界面会多一个`我没有Internet连接`的选项, 点击该选项继续后序操作即可. 
 
 # 杂项
 * 重命名文件卡死的解决方法(以及删文件时卡在99%很长时间)
@@ -641,3 +828,7 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 
 * 打开事件管理器
     * `eventvwr`
+
+* rdp服务配置
+    * 配置单用户多开: 参考`https://support.huaweicloud.com/hecs_faq/hecs_faq_0806.html`
+

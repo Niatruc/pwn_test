@@ -83,7 +83,7 @@ heap viewer如下, 可使用快捷键`ctrl+h`调出, 调出时需要程序处于
 
 
 ## 远程调试docker容器中的程序
-* vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用ssh-keygen生成密钥文件, 并把pub文件改名为authorized_keys, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
+* vscode中安装插件: remote-ssh(**vscodium中使用会报错说"未认证的客户端", vscode中则不会**). 要先在本地用`ssh-keygen`生成密钥文件, 并把pub文件改名为`authorized_keys`, 放到容器的用户目录下. 虚拟机中`/etc/ssh/sshd_config`文件中添加如下配置:
   ```
     PermitRootLogin yes
     RSAAuthentication yes

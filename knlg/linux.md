@@ -135,6 +135,8 @@
     * `n`: 单步跳过
     * `s`: 步入
         * `si`: 执行单条指令
+    * `until`: 退出循环体
+    * ``: 
     * `finish`: 跳出函数
     * `bt`: 调用栈
     * `l`: 查看源代码
@@ -164,6 +166,7 @@
             * `registers`: 显示所有寄存器
             * `sh`: 显示所有共享库
             * `inferior`: 可查看你调试的进程的信息, 包括pid和路径等. 
+        * `shell <bash命令>`: 可执行bash命令
     * 断点
         * `b` 
             * ` <filename>:<function name>`: 函数断点
@@ -845,30 +848,30 @@ typedef struct {
         * `-x`: 运行时, 将使用到的部分显示. 
 * 示例
     ```sh
-    # 判断语句
-    if [ 条件表达式 ]; then
-        ...
-    fi
+        # 判断语句
+        if [ 条件表达式 ]; then
+            ...
+        fi
 
-    # while循环
-    a=1 # 等号两边不能有空格
-    while [ $a -gt 0]; do
-        a=$[$a - 1]
-        echo $a
-    done
+        # while循环
+        a=1 # 等号两边不能有空格
+        while [ $a -gt 0]; do
+            a=$[$a - 1]
+            echo $a
+        done
 
-    # until循环, 格式同while循环
+        # until循环, 格式同while循环
 
-    # 遍历数组
-    # for var in ${arr[*]}
-    for var in con1 con2 con3; do 
-        echo $var
-    done
+        # 遍历数组
+        # for var in ${arr[*]}
+        for var in con1 con2 con3; do 
+            echo $var
+        done
 
-    # for循环
-    for ((i=0; i<5; i=i+1)); do
-        echo $i
-    done
+        # for循环
+        for ((i=0; i<5; i=i+1)); do
+            echo $i
+        done
     ```
 
 
@@ -934,6 +937,8 @@ typedef struct {
         * `%ipc`: 进程通信相关调用, 如`shmget`等. 
     * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
 * `pidof <程序名>`: 列出正在运行的该程序的进程号. 
+* `pmap <进程id>`
+    * `-x`: 加上该选项, 展示更多信息. 
 
 ### 文件和目录
 * `nautilus`: 打开文件管理器(gnome)
@@ -946,6 +951,7 @@ typedef struct {
         * `|`: 目录
 * `lsof <文件路径>`: list opened files, 可以查看打开该文件的进程. 
     * 在查找`fork`产生的孤儿进程时有用. 
+    * `-p <pid>`: 可以查看进程中打开的文件描述符的详细信息, 包括大小, 类型等. 
 * `find <目录>`: 在目录下寻找符合条件的文件
     * `-name <通配符表达式>`: 查找符合名称的文件
     * `-type l`: 列出所有符号链接
@@ -1011,8 +1017,26 @@ typedef struct {
 * `uname`
     * `-r`: 查看内核版本. 
 ### 文本
+* `echo`
+    * 要将一个多行字符串变量输出到一个文件且保持换行, 要这样写: `echo "$str1" > myfile`, **一定要加双引号才会换行**. 
 * `grep`
     * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
+* `sed`: stream editor
+    * 参数
+        * `-n`: 仅显示处理后的结果(可防重复打印)
+    * 动作
+        * `p`: 打印
+        * `s`: 替换
+        * `d`: 删除
+    * 用例
+        ```sh
+            # 过滤出两个模式的匹配行及它们之间的内容: 
+            sed -n '/<pattern1>/,/<pattern1>/p' myfile
+
+            # 仅对第2行至末行进行删除操作
+            sed -n '2,$d'
+        ```
+* `awk`
 * `watch`
     * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
 * `tail <文件>`: 默认显示文件后10行. 
@@ -1046,21 +1070,20 @@ typedef struct {
     * `-h`: 打印节头
     * `-s`: 打印节内容
     * `-S`: 打印汇编代码
-* `objcopy`: 可以用来分析和修改任意类型的ELF目标文件, 还可以修改ELF节, 或将ELF节复制到ELF二进制中(或从ELF二进制中复制ELF节). 
-    * `–only-section=.data <infile> <outfile>`: 将`.data`节从一个ELF文件复制到另一个文件中. 
+* `objcopy <infile> <outfile>`: 把一种目标文件中的内容复制到另一种类型的目标文件中. 可以用来分析和修改任意类型的ELF目标文件, 还可以修改ELF节, 或将ELF节复制到ELF二进制中(或从ELF二进制中复制ELF节). 
+    * `–only-section=.data`: 将`.data`节从一个ELF文件复制到另一个文件中. 
+    * `-j .text`: 指定提取`.text`节. 
+    * `-O `: 指定转换后的格式. 
+        * `binary`: 转成bin文件(可看到elf文件头没了, 新文件从代码节开始). 
 * `ltrace`: 会解析共享库, 即一个程序的链接信息, 并打印出用到的库函数. 
     * `<elf文件> -o <输出文件>`
 * `ftrace`: https://github.com/elfmaster/ftrace
 * `nm xx.so`: 列出object文件的符号
     * `-c`: 查看导出函数表
     * `-D`: 查看动态库的符号
-* `ar`
-    * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
-        * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
-    
 
-* 编译工具
-    * gcc
+* 编译链接工具
+    * `gcc`
         * `-c <源程序文件名>`: 编译成`.o`文件(不链接)
         * `-o <输出文件名>`
         * `-g`: 带上调试符号. 
@@ -1113,6 +1136,8 @@ typedef struct {
             s = { ... };
             ```
     * `make`
+        * 参考
+            * `https://www.zhaixue.cc/makefile/makefile-intro.html`
         * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
         * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
         * Makefile
@@ -1173,12 +1198,17 @@ typedef struct {
                 * `$<`: 表示第一个依赖文件. 
                 * `$?`: 表示比目标还新的依赖文件列表. 
             * 符号
-                * `:=`: 表示变量的值决定于它在makefile中的位置, 而不是整个makefile展开后的最终值
-                * `?=`: 如果没有被赋值过就赋予等号后面的值. 
-                * `+=`: 添加等号后面的值. 
+                * 赋值符号
+                    * `=`: 给变量赋值. 会在整个makefile展开后，再决定变量的值. 
+                    * `:=`: 表示变量的值取决于它在makefile中的位置, 而不是整个makefile展开后的最终值
+                    * `?=`: 如果没有被赋值过就赋予等号后面的值. 
+                    * `+=`: 添加等号后面的值. 
+                    * `override VAR:= $(VAR)_blabla`: 使用override关键字, 可对已经赋值的变量追加赋值. 
     * `ar`
         * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
         * `-x`: 从静态库文件中抽取文件 objfile
+            * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
+            * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
         * `-t`: 打印静态库的成员文件列表
         * `-d`: 从静态库中删除文件 objfile
         * `-s`: 重置静态库文件索引
@@ -1201,12 +1231,18 @@ typedef struct {
             * `--author=<用户名>`: 
             * `(--before|--since|--until|--after)=({1.weeks.ago}|{2022|11|22})`: 
     * 提交
+        * `git log <某次提交操作对应的哈希值>`: 查看提交信息
+        * `git show <某次提交操作对应的哈希值> --name-only`: 只列出涉及的文件
         * 去除某个文件的历史提交记录: 
             1. `git filter-branch -f --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
             2. `git push origin --force --all`
         * 将一个分支的提交合并到另一个分支. 
             1. 首先checkout到目标分支. 
             2. `git cherry-pick <commit的哈希值>`
+        * 在拉取前先暂存代码, 之后再应用回自己的修改: 
+            1. `git stash`
+            2. `git pull`
+            3. `git stash pop`
     * 放弃修改及回滚:
         * `checkout`
             * 会导致`HEAD detached`
@@ -1244,6 +1280,17 @@ typedef struct {
     * 设置UTC时间
         * `sudo cp /usr/share/zoneinfo/UTC /etc/localtime`, 之后执行`date`命令可看到效果. 
 
+
+# 软件
+* 远程桌面
+    * `xrdp`
+        ```sh
+            # 安装并启动, 将监听3389端口
+            apt install xrdp
+            systemctl enable xrdp --now
+        ```
+
+        * 默认不支持多会话, 若要远程登录, 需先注销原登录账户. 
 
 # 设置
 * sudo

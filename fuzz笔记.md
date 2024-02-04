@@ -78,3 +78,4 @@ shared_mem[cur_location ^ prev_location]++;
 prev_location = cur_location >> 1;
 ```
 `shared_mem`是SHM共享内存中的一个64KB大小的区域, (branch_src, branch_dst) 
+

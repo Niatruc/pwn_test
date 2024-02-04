@@ -441,13 +441,12 @@
             <img alt="" src="./pic/dbi.jpg" width="50%" height="50%">
         
     * 框架, 项目
-        * Inter Pin
+        * `Inter Pin`
             * pin读取和实时编译代码的粒度叫踪迹(trace)
             * 类似基本块, 但只能从顶部进入, 且可能包含多个出口. 
             * Pin 总是以踪迹粒度实时编译代码, 但它支持在多种粒度上插桩代码, 包括指令, 基本块, 踪迹, 函数及映像
-
-        * valgrind
-        * github.com/angorafuzzer/libdft64
+        * `valgrind`
+        * `github.com/angorafuzzer/libdft64`
 
 * 动态污点分析(DTA): 也称数据流追踪(DFT), 通常在动态插桩平台上实现. 
     * 过程: 污点数据(攻击数据)从网络, 磁盘的系统调用或指令进入内存(污点源), 经过移动/拷贝/计算, 到达攻击点(污点槽), 被插桩代码检测到. 

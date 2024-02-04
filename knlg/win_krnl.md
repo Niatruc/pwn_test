@@ -1,21 +1,20 @@
 # Windows内核调试
 ## 虚拟机中新增用于调试的引导项
-以管理员运行cmd, 执行:
-```bat
-bcdedit  /dbgsettings serial baudrate:115200 debugport:1
+* 以管理员运行cmd, 执行:
+    ```bat
+        bcdedit  /dbgsettings serial baudrate:115200 debugport:1
 
-<!-- 产生新引导项DebugEntry, 执行后会打印新的guid -->
-bcdedit  /copy {current} /d DebugEntry
+        <!-- 产生新引导项DebugEntry, 执行后会打印新的guid -->
+        bcdedit  /copy {current} /d DebugEntry
 
-bcdedit  /displayorder {current} {<新guid>}
-bcdedit  /debug {<新guid>} ON
+        bcdedit  /displayorder {current} {<新guid>}
+        bcdedit  /debug {<新guid>} ON
 
-<!-- 如果要用网络调试, 则:  -->
-bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
-```
-可通过`Windows+R`运行`msconfig`看到引导设置.
-
-若是用串口通信, 则虚拟机需要添加串口, 选com1口, 并添加管道文件路径.
+        <!-- 如果要用网络调试, 则:  -->
+        bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
+    ```
+    * 可通过`Windows+R`运行`msconfig`看到引导设置.
+    * 若是用串口通信, 则虚拟机需要添加串口, 选com1口, 并添加管道文件路径.
 
 ## 开发和调试工具设置
 * vs2019
@@ -161,15 +160,15 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * `DeviceType`: 设备对象的类型.
             * `Function`: 自定义的IO控制码, 取0x800到0xFFF. (0x0到0x7FF为微软保留)
             * `Method`: 数据的操作模式(`DeviceObject->Flags`域)
-                * `METHOD_BUFFERED`: `缓冲区模式`. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
+                * `缓冲区模式`: `METHOD_BUFFERED`. 用户的输入输出都经过`pIrp->AssociatedIrp.SystemBuffer`来缓冲. (输入缓冲区中的数据被复制到系统缓冲区, 驱动写到系统缓冲区的数据则又会被复制到用户缓冲区.) `pIrp->UserBuffer` 为用户模式的输出缓冲区地址.  `IoGetCurrentIrpStackLocation (Irp)` 得到io栈位置`lpIrpStack`, `lpIrpStack->Parameters.DeviceIoControl`中的`InputBufferLength`和`OutputBufferLength`分别为输入和输出缓冲区的长度. 在内核模式上操作对用户数据的拷贝.  
                     * 仍可能存在安全问题: IO 管理器并不会在发出请求前对输出缓冲区做清零初始化. 驱动程序要以`Irp->IoStatus.Information`指定的长度对输出缓冲清零或写入合法数据, 不然可能返回内核模式下的私有数据(来自其他用户的数据)
                 * `直接模式`: 
                     * **系统依然对Ring3的输入缓冲区进行缓冲, 但没对Ring3的输出缓冲区进行缓冲, 而是在内核中进行锁定, 这样Ring3输出缓冲区在驱动程序完成IO请求前, 都是无法访问的.** 
-                    * 通过内存描述元列表(`MDL`, Memory Descriptor List, 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个MDL列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 
+                    * 通过内存描述元列表(`MDL`(Memory Descriptor List), 由`Irp->MdlAddress`指出)以及内核模式的指针直接访问用户数据. 这个MDL列出了**用户的输入/输出缓冲区**的虚拟地址和尺寸, 连同相应缓冲区中的物理页表. IO管理器会在将请求发送给驱动之前锁定这些物理页(**用户缓冲区被锁定, 操作系统将这段缓冲区在内核模式地址再映射一遍. 这样, 用户模式缓冲区和内核模式缓冲区指向的是同一块物理内存**), 并在请求完成的过程中解锁. 
                     * 驱动程序调用`MmGetSystemAddressForMdlSafe(pIrp->MdlAddress, NormalPagePriority)` 来得到 MDL 所描述的缓冲区的内核指针(这个宏将指定 MDL 描述的物理页面映射到系统地址空间中的虚拟地址). `Irp->AssociatedIrp.SystemBuffer`保存请求发出者的缓冲区的内核模式拷贝.
                     * `METHOD_IN_DIRECT`: 直接写模式. IO 管理器读取上述缓冲区给驱动去读. 
                     * `METHOD_OUT_DIRECT`: 直接读模式. IO 管理器获取上述缓冲区给驱动去写.
-                * `METHOD_NEITHER`: Neither模式. 通过用户模式的指针访问用户数据. 
+                * `Neither模式`: `METHOD_NEITHER`. 通过用户模式的指针访问用户数据. 
                     * `irpStack->Parameters.DeviceIoControl.Type3InputBuffer` 为输入缓冲区的地址. 
                     * `pIrp->UserBuffer` 为输出缓冲区地址. 因为这个缓冲区在用户地址空间上, 驱动程序必须在用之前使相应的地址合法化. 
                         * 驱动程序在 try/except 块里调用 `ProbeForRead`(检查一个用户模式缓冲区地址是否真的是Ring3中的地址, 并且是否正确对齐) 或者 `ProbeForWrite`(在ProbeForRead的基础上, 再检查是否可写) 函数来合法化特定的指针. 
@@ -180,8 +179,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 * `FILE_READ_DATA`: 表明权限为只读
                 * `FILE_WRITE_DATA`: 表明权限为可写
             
-* `DriverUnload`: 要清除设备对象(`IoDeleteDevice`).
-* 驱动函数分类
+* 驱动函数分类<a id="Kernel_Func"></a>
     * `ExXxx`: Executive, 管理层
     * `KeXxx`: Kernel
     * `HALXxx`: Hardware Abstraction Layer, 硬件抽象层
@@ -221,17 +219,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 不可用: `printf, scanf, fopen, fclose, fwrite, fread, malloc, free`
     * 可用: `sprintf, strlen, strcpy, wcslen(返回宽字符串中的字符数), wcscpy, memcpy, memset`
 
-* 驱动编写过程
-    * `IoCreateDevice`
-    * 指定R3和R0间读写的通信协议, `pDeviceObject->Flags = ...`
-        * `DO_BUFFERED_IO`: 优点安全, 缺点效率低
-        * `DO_DIRECT_IO`: 内存映射, 内核层和应用层操作同一块物理内存
-        * `DO_NEITHER_IO`: R0直接访问R3处内存的数据. 可能产生提权漏洞.
-    * 创建符号链接`IoCreateSymbolicLink`
-    * `pDeviceObject->MajorFunction[...] = ...`, 注册分发函数.
-    * `pDeviceObject->DriverUnload = ...`, 注册卸载函数. 
-
-* 防范内核漏洞
+* 防范内核漏洞<a id="Kernel_Vul"></a>
     * 不要使用 `MmIsAddressValid` 函数, 这个函数对于校验内存结果是不可靠的. 
         * 攻击者只需要传递第一个字节在有效页, 而第二个字节在无效页的内存就会导致系统崩溃, 例如 0x7000 是有效页, 0x8000 是无效页, 攻击者传入 0x7fff. 
         * 分页中的异常
@@ -266,41 +254,43 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 设备控制尽量使用`BUFFERED IO`, 而且一定要使用 `SystemBuffer`,如果不能用`BUFFERED IO`,对于 `UserBuffer` 必须非常小心地 `Probe`,同时注意 `Buffer` 中指针, 字符串引发的严重问题, 如果可能, 尽量禁止程序调用自己的驱动. 
     * 使用 `verifier`(内核校验器, windows自带, 将驱动添加到其中, 设置检查选项, 一旦发生异常, 就蓝屏)和 Fuzz 工具检查和测试驱动. 对于挂钩内核函数的驱动, 可以使用 `BSOD HOOK` 一类的 FUZZ 工具, 来检查内核函数的缺陷和漏洞.
 
-# WDF(windows driver foundation)
-* 在WDM(windows driver model)的基础上发展而来, 支持面向对象, 事件驱动的驱动程序开发. WDF框架管理了大多数与操作系统相关的交互, 实现了公共的驱动程序功能(如电源管理, PnP支持). 分KMDF(内核模式驱动程序框架)和UMDF(用户模式驱动程序框架). 
-* 框架定义的主要对象: 
-    * `WDFDRIVER`: 对应`DRIVER_OBJECT`. 其为根对象, 其他对象都是其子对象. 
-    * `WDFDEVICE`: 对应`DEVICE_OBJECT`. 
-    * `WDFREQUEST`: 对IRP的封装. 
-    * `WDFQUEUE`: 与一个`WDFDEVICE`对象关联, 描述一个特殊的IO请求队列. 有一系列事件处理回调函数, 当IO请求进入队列时, 框架将自动调用驱动程序中对应的callback. 
-        * 根据网上说法, 将
-    * `WDFINTERRUPT`: 表示设备中断. 
-* 引用计数
-    * WDF框架维护每个对象的引用计数. 
-        * 创建对象时引用计数为1. 
-        * 调用`WdfObjectReference`时引用计数加1. 
-        * 调用`WdfObjectDereference`时引用计数减1. 
-* 卸载驱动时的取消操作
-    * 参考: https://www.osr.com/nt-insider/2017-issue2/handling-cleanup-close-cancel-wdf-driver/
-    * 应用调用`CloseHandle`关闭驱动句柄, 驱动调用`EvtFileCleanup`回调, 并对还在WDFQUEUE中的request发起取消操作. 
-        * 一般不应该自己实现`EvtFileCleanup`. 
-    * 当文件对象的引用计数减到零时(**意味着已经没有pending的io操作了**), windows会产生close请求, WDF会在`EvtFileCleanup`之后调用`EvtFileClose`函数. 
-    * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
-    * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
-    * 如果要对已经标记为`cancelable`的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
+* WDM(Windows Driver Model)驱动模型<a id="WDM"></a>
+    * `IoCreateDevice`
+        * 指定R3和R0间读写的通信协议, `pDeviceObject->Flags = ...`
+            * `DO_BUFFERED_IO`: 优点安全, 缺点效率低
+            * `DO_DIRECT_IO`: 内存映射, 内核层和应用层操作同一块物理内存
+            * `DO_NEITHER_IO`: R0直接访问R3处内存的数据. 可能产生提权漏洞.
+        * 创建符号链接`IoCreateSymbolicLink`
+        * `pDeviceObject->MajorFunction[...] = ...`, 注册分发函数.
+        * `pDeviceObject->DriverUnload = ...`, 注册卸载函数. 
+            * 要清除设备对象(`IoDeleteDevice`).
+
+* WDF(windows driver foundation)<a id="WDF"></a>
+    * 在WDM(windows driver model)的基础上发展而来, 支持面向对象, 事件驱动的驱动程序开发. WDF框架管理了大多数与操作系统相关的交互, 实现了公共的驱动程序功能(如电源管理, PnP支持). 分KMDF(内核模式驱动程序框架)和UMDF(用户模式驱动程序框架). 
+    * 框架定义的主要对象: 
+        * `WDFDRIVER`: 对应`DRIVER_OBJECT`. 其为根对象, 其他对象都是其子对象. 
+        * `WDFDEVICE`: 对应`DEVICE_OBJECT`. 
+        * `WDFREQUEST`: 对IRP的封装. 
+        * `WDFQUEUE`: 与一个`WDFDEVICE`对象关联, 描述一个特殊的IO请求队列. 有一系列事件处理回调函数, 当IO请求进入队列时, 框架将自动调用驱动程序中对应的callback. 
+            * 根据网上说法, 将
+        * `WDFINTERRUPT`: 表示设备中断. 
+    * 引用计数
+        * WDF框架维护每个对象的引用计数. 
+            * 创建对象时引用计数为1. 
+            * 调用`WdfObjectReference`时引用计数加1. 
+            * 调用`WdfObjectDereference`时引用计数减1. 
+    * 卸载驱动时的取消操作
+        * 参考: https://www.osr.com/nt-insider/2017-issue2/handling-cleanup-close-cancel-wdf-driver/
+        * 应用调用`CloseHandle`关闭驱动句柄, 驱动调用`EvtFileCleanup`回调, 并对还在WDFQUEUE中的request发起取消操作. 
+            * 一般不应该自己实现`EvtFileCleanup`. 
+        * 当文件对象的引用计数减到零时(**意味着已经没有pending的io操作了**), windows会产生close请求, WDF会在`EvtFileCleanup`之后调用`EvtFileClose`函数. 
+        * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
+        * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
+        * 如果要对已经标记为`cancelable`的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
 
 # Windbg
 * 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
-* 线程
-    * `.attach <pid>`: 附加到进程
-    * `.detach`: 断开调试
-    * `~*`: 显示所有线程
-    * `~<数字>`: 显示第<数字>个线程
-    * `~.`: 显示活动线程
-    * `~#`: 显示引起异常的线程
-    * 注: `~`相关指令用户模式在用户模式下是切换线程, 在内核模式下则是切换处理器, 如`~0`
-    * `!runaway`: 扩展显示有关每个线程使用的时间的信息
-* 进程, 线程
+* 进程
     * `!process`
         * `/m <名称加通配符>`
         * `!process 0 0`: 系统所有进程(简). 第一个0可替换为别的进程ID(16进制). 后面可以加要查找的程序的全称.
@@ -310,11 +300,25 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `!process @$proc 0x1f`: 进程详细信息, 包括其中所有线程的线程栈A.
     * `.process /p <EPROCESS>`: 进入进程上下文. (`<EPROCESS>`表示进程的EPROCESS块的地址)
     * `!peb`: 查看当前进程的peb. 
+    * `!irql`: 显示当前进程的irql. 
+    * `!token <addr>`: 获取分配给进程的安全令牌(token)的详细信息. 
+        * 使用`!process <pid> 1`获取的信息中就有token的地址. 
+    * `!handle <句柄值>`: 查看句柄信息
+    * `!cs`: 查看关键区信息
+        * `-l`: 仅列出已锁定的关键区信息. 
+* 线程
+    * `.attach <pid>`: 附加到进程
+    * `.detach`: 断开调试
+    * `~*`: 显示所有线程
+    * `~<数字>`: 显示第<数字>个线程
+    * `~<数字>s`: 切换到第<数字>个线程
+    * `~.`: 显示活动线程
+    * `~#`: 显示引起异常的线程
+    * 注: `~`相关指令用户模式在用户模式下是切换线程, 在内核模式下则是切换处理器, 如`~0`
+    * `!runaway`: 扩展显示有关每个线程使用的时间的信息
     * `!thread <ETHREAD>`: 查看线程.
         * `!thread @$thread 0x1f`: 获取线程信息, 其中包括一个从线程开始运行到切换上下文(`SwapContext`或通过`syscall`进入R0时发生上下文切换)之前的线程栈. 
-    * `.thread <ETHREAD>`: 进入线程上下文.
-    * `!irql`: 显示当前进程的irql. 
-
+    * `.thread <ETHREAD>`: 进入线程上下文. 
 * 内存和寄存器
     * `dt [nt!]_EPROCESS [<字段>] [<addr>]`: 查看`nt`模块的`_EPROCESS`结构. 加`-r`参数可以递归打印. 带`<addr>`则用该结构打印某地址块. 带`<字段>`则只打印该字段.
     * `<db(1字节)|dw(2)|dd(4)|dq(8)|dp|dD|df> <addr> <L20>`: 打印数字, 打印0x20个单位. 在`db`等前面加感叹号, 即`!db`, 则后面可接物理地址. 
@@ -349,7 +353,6 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `rX`: 打印xmm寄存器
         * `r <寄存器>:[f|d|ub|uw|ud|uq]`: 以 浮点|双精度浮点|字节|字|双字|四字 形式打印寄存器值. 
     * `dg [cs|ds|ss|gs|fs]`: 显示段选择符信息
-
 * 调试
     * alt + del: 中断, 进入调试器. 
     * `g`: 继续运行
@@ -369,6 +372,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * `be <*|n|n1-n2>`: 启用断点
         * `bp <addr|model!func|<文件名>:<行号>>`: 设置断点. `bp`要求模块已加载, 失败则转化为`bu`断点. 
             * `/p <eprocess>`: 设置只有对应进程能触发此断点. 
+            * `/t <ethread>`: 设置只有对应线程能触发此断点. 比如使用`@$thread`, 则只会在当前线程触发该断点. 
             * 注意 **bp \`src.c\`:66** , 文件名要用反引号包起来. 
         * `bu model!func`: u是unresolved.
         * `bm model!fu*c`: 
@@ -378,9 +382,13 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * `bp <addr> "j (poi(var1) = 0n123) ''; 'gc'"`: 若`var1`为123, 则中断, 否则继续运行. 
             * `bp <addr> ".if (@eax != 5) { gc; }"`, eax寄存器值为5时中断, 否则继续运行. 后面还可以接`else`, `elsif`
             * `gc`: 从断点恢复执行. 
+        * 在达到条件时中断(无需指定断点地址)
+            * `.if (@rax == 0x1234) {.echo 1234} .else { p "$<eaxstep" }`
+                * 将文件命名为`eaxstep`
+                * 当`rax`值不为`0x1234`时, 这行代码执行`p "$<eaxstep"`, 即单步跳过并再次调用本脚本文件. 
+                * 速度较慢. 
     * `z(<条件>)`: 作为循环条件使用
         * `reax = eax - 1; z(eax)`: 对eax作清零. 当eax不为0时, 重复执行分号前的表达式. 
-
 * 监控调试事件和异常
     * `sx`: 列出所有事件. 下面`<e>`表示事件名称或事件代码数字
         * `sxe <e>`: 为该事件打开断点
@@ -393,7 +401,6 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `!drvobj <驱动名称, 如\Driver\AFD>`: 打印驱动对象的详情
     * `!devobj`: 
     * ``: 
-
 * 其他命令
     * `.ofilter /! <通配符表达式>`: 在windbg控制台中隐藏不想输出的内容
     * `.expr`: 查看使用的表达式求值语法(MASM还是C++)
@@ -427,6 +434,8 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `#`: 搜索某个反汇编模式
     * `.cls`: 清理调试器输出窗口
     * `.echo myVar`: 如果`myVar`是已赋值的别名, 则打印其值, 否则打印"myVar". 
+    * `.symopt`
+        * `.symopt +0x40`: `SYMOPT_LOAD_ANYTHING`, 跳过pdb文件的GUID检查. 
     
 * 其他语法
     * 数值: 不加前缀时, 默认是十六进制
@@ -457,7 +466,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * `$ip`: 当前指令指针
             * `$exentry`: 当前进程第一个可执行体的入口地址
         * 自定义伪寄存器
-            * $t0 ~ $t19, 使用r命令为它们赋值: `r? $t0 = 1`
+            * `$t0` ~ `$t19`, 使用r命令为它们赋值: `r? $t0 = 1`
     * 别名(alias)
         * 用户命名别名
             * 创建和管理用户命名别名
@@ -546,7 +555,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 * `.foreach /s (myVar "ntdll kernel32 kernelbase") { x ${myVar}!*CreateFile* }` 字符串分词. 如这条指令, 是在字符串指定的三个模块中找形如`*CreateFile*`的函数. 
                 * `.foreach /pS 5 (myVar {.dvalloc 0x1000}) { r $t0 = ${myVar}; .break }` 命令输出结果分词. 如这条指令, 把`.dvalloc 0x1000`指令产生的前5个token跳过, 取最后一个值, 赋予$t0. 
                 * `.foreach /f (line "<文件路径>") {.printf "${line}\n"}` 文件分词. 读取文件的每一行. 
-                * 扩展的.foreach
+                * 扩展的`.foreach`
                     * `!for_each_frame`: 为当前线程栈的每个帧执行命令. 
                     * `!for_each_function`: 对给定模块作模式匹配, 对其中匹配到的每个函数执行命令. 
                     * `!for_each_local`: 为当前帧的每个局部变量执行命令. 
@@ -566,9 +575,11 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
             * `.if $${/d:$arg1} `
 
 * 快捷键
-    * f9: 断点
-    * f10: 单步执行
-    * f11: 单步步入
+    * `alt + delete`: 中断
+    * `f5`: 继续运行
+    * `f9`: 断点
+    * `f10`: 单步执行
+    * `f11`: 单步步入
 
 * 使用经验记录
     * 调试物理机应用层程序时不能下断点: 
@@ -653,6 +664,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     // 初始化方式2: 栈上buffer
     UNICODE_STRING uStr = {0};
     WCHAR sz[512] = L"Hello";
+    // PWCHAR sz = (PWCHAR) ExAllocatePoolWithTag(NonPagedPool, 512 * 2, 'TSET');
     uStr.Buffer = sz;
     uStr.Length = wcslen(L"Hello");
     uStr.MaximumLength = sizeof(sz);
@@ -840,9 +852,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * 流程
         * 启动电源, 硬件初始化检查.
         * 根据`CMPS`的设置, BIOS加载启动盘, 将`MBR`的引导代码载入内存, 然后启动过程由`MBR`来执行.
-        * 搜索`MBR`中的分区表DPT, 找到活动分区, 将其`VBR`中的引导代码载入内存`0x07c00`处.
+        * 搜索`MBR`中的分区表`DPT`, 找到活动分区, 将其`VBR`中的引导代码载入内存`0x07c00`处.
         * 引导代码检测当前使用的文件系统, 查找`ntldr`文件, 启动之.
-        * BIOS将控制权转交给`ntldr`, 由它完成操作系统的启动. (Win7是BootMgr)
+        * BIOS将控制权转交给`ntldr`, 由它完成操作系统的启动. (Win7是`BootMgr`) (Linux则是`GRUB`)
     * `MBR`: 物理硬盘第一扇区0柱面0磁头.
     * `VBR`: 卷引导记录, 为每个非扩展分区及逻辑分区的第一个扇区.
     * `DBR`(DOS Boot Record): 操作系统进入文件系统后可以访问的第一个扇区. 包括一个引导程序和一个被称为`BPB`(BIOS Parameter Block)的本分区参数记录表.
@@ -855,7 +867,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     * `LBA`(64位), 分区数量无限制, MS128个分区.
     * `UEFI`相当于一个微型操作系统. 具备文件系统的支持, 能直接读取`FA`T分区中的文件, 可开发处直接在UEFI下运行的应用程序(以`efi`结尾). 可将windows安装程序做成`efi`程序, 然后把它放任意分区中直接运行.
     * 不需要主引导记录, 不需要活动分区, 只要复制一个安装文件到一个`FAT32`(主)分区或U盘中, 然后从中启动.
-    * `PMB`R的作用: 使用不支持`GPT`的分区工具时, 整个影片将显示为一个受保护的分区, 以防分区表及硬盘数据遭到破坏.
+    * `PMBR`的作用: 使用不支持`GPT`的分区工具时, 整个影片将显示为一个受保护的分区, 以防分区表及硬盘数据遭到破坏.
     * `SecureBoot`(防恶意软件): 主板出厂的时候, 可内置一些可靠的公钥. 任何要在这块主板上加载的操作系统或硬件驱动, 都要用对应的私钥签署过.
 
         <img alt="" src="./pic/uefi.jpg" width="20%" height="20%">
@@ -1687,9 +1699,9 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
                 // mov eax, 0xc0000022
                 // ret
                 ```
-            * 问题: 用instDrv.exe加载驱动时, 得到的当前进程是"service.exe"
-                * 原因: 通过`NdrClientCall`来发送RPC请求给 Services.exe
-                * 解决: 挂钩`NtAlpcSendWaitReceivePort`. instDrv.exe会通过该函数向service.exe发LPC请求.
+            * 问题: 用`instDrv.exe`加载驱动时, 得到的当前进程是`services.exe`
+                * 原因: 通过`NdrClientCall`来发送RPC请求给 `Services.exe`
+                * 解决: 挂钩`NtAlpcSendWaitReceivePort`. instDrv.exe会通过该函数向`service.exe`发LPC请求.
         * 注册表监控
         * 锁主页
             * `HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main`, `"Start Page"="http://www.hao123.com"`
@@ -1914,156 +1926,156 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
         * r3为什么需要dll注入才能hook其它进程
             * r3进程是私有地址空间, 在自己进程hook了api, 无法影响其它进程中的api. 
 
-* 文件过滤驱动
-    * 分层驱动框架和过滤
-        * IRP经过: 文件过滤驱动设备 -> 文件卷设备 -> 磁盘设备
-        * 过滤: 在上述分层驱动中再加一层, 对它们之间的数据或行为进行安全控制.
+# 文件过滤驱动
+* 分层驱动框架和过滤
+    * IRP经过: 文件过滤驱动设备 -> 文件卷设备 -> 磁盘设备
+    * 过滤: 在上述分层驱动中再加一层, 对它们之间的数据或行为进行安全控制.
         
-            <img alt="" src="./pic/api_flow.jpg" width="30%" height="30%">
+        <img alt="" src="./pic/api_flow.jpg" width="30%" height="30%">
 
-    * 设备栈绑定: `PDEVICE_OBJECT IoAttachDeviceToDeviceStack(IN PDEVICE_OBJECT SourceDevice, IN PDEVICE_OBJECT TargetDevice );` 将驱动生成的设备对象`SourceDevice`绑定到目标设备上, 返回在绑定之前目标设备所在设备栈的最顶层设备.
-    * 设备对象类型
-        * 控制设备
-            * DriverEntry中创建
-            * 接收自己客户端的IRP
-        * 过滤设备
-            * 绑定时创建
-            * 在设备栈上接收其它R3程序的IRP
-            * 区分自己的进程和其它进程
-                ```cpp
-                #define IS_MY_DEVICE_OBJECT(_devObj) \
-                    (((_devObj) != NULL) && \
-                    ((_devObj)->DriverObject == gSFilterDriverObject) && \
-                    ((_devObj)->DeviceExtension != NULL))
-                
-                // gSFilterControlDeviceObject是自己创建的控制设备
-                #define IS_MY_CONTROL_DEVICE_OBJECT(_devObj) \
-                    (((_devObj) == gSFilterControlDeviceObject) ? \
-                            (ASSERT(((_devObj)->DriverObject == gSFilterDriverObject) && \
-                                    ((_devObj)->DeviceExtension == NULL)), TRUE) : \
-                            FALSE)
-                ```
-            * 对应于分发函数DispatchXxx, 这里叫过滤分发函数FilterXxx
-            * 简单放行(对irp没任何改动)如下:
-                ```cpp
-                IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
-                IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject,
-                          Irp ); // 会将(Irp)->CurrentLocation减1
-                ```
-            * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 完成例程
-            * 注意
-                * 过滤设备对象的通信方式要和目标设备一致
-                * 用`ClearFlag`清除初始化标志
-    * irp注意事项
-        * 直接下发irp后, 本层无权再访问irp了.
-        * 下发irp后(`IoCallDriver`后), 如果后续想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`, 以将irp的所有权返回给分发例程. 
-    * 文件系统过滤框架
-        * Filemon
-        * Sfilter
-            * 总体流程
-                * 创建控制设备
-                * 创建控制设备符号链接
-                * 过滤分发函数
-                    * FilterCreate: 创建
-                    * FilterRead: 一般不拦, 除非防别人读隐私文件, 另外隐私保护器的话则有加解密.
-                    * FilterWrite: 修改; 加解密
-                    * FilterSetInfo:
-                        * IRP_MJ_SET_INFORMATION: 删; 重命名
-                    * FilterClose: 一般不拦
-                    * FilterClean: 写完文件后关闭等操作 
-                * fastio
-                * 过滤与绑定
-                    * 生成一个过滤设备
-                    * `IoRegisterFsRegistrationChange( DriverObject, SfFsNotification );` 文件系统设备绑定
-                    * `DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = SfFsControl;` 卷设备绑定. `IRP_MJ_FILE_SYSTEM_CONTROL`对应mount irp请求
-        * Minifilter 
-            * 特性
-                * 可卸载(不用重启电脑)
-                * 不怕patch guard
-            * 安装和启动
-                * inf文件
-                * `net start <服务名>`
-            * altitude标识符(20000~429999)
-                * 定义一个minifilter驱动加载时在I/O栈中相对其它minifilter驱动的位置
-                * 值越小, 栈中位置越低
-                * 反病毒: 320000~329999, 在文件i/o期间探测并杀毒的过滤驱动
-                * 加解密: 140000~149999, 在文件i/o期间加解密数据的过滤驱动
-            * minifilter架构
+* 设备栈绑定: `PDEVICE_OBJECT IoAttachDeviceToDeviceStack(IN PDEVICE_OBJECT SourceDevice, IN PDEVICE_OBJECT TargetDevice );` 将驱动生成的设备对象`SourceDevice`绑定到目标设备上, 返回在绑定之前目标设备所在设备栈的最顶层设备.
+* 设备对象类型
+    * 控制设备
+        * DriverEntry中创建
+        * 接收自己客户端的IRP
+    * 过滤设备
+        * 绑定时创建
+        * 在设备栈上接收其它R3程序的IRP
+        * 区分自己的进程和其它进程
             ```cpp
-            const FLT_REGISTRATION MiniMonitorRegistration = {
-                sizeof( FLT_REGISTRATION ),         //  Size
-                FLT_REGISTRATION_VERSION,           //  Version
-                0,                                  //  Flags
-                MiniMonitorContext,					//  ContextRegistration, 上下文
-                MiniMonitorCallbacks,               //  Operation callbacks, 结构体数组, 存回调函数
-                MiniMonUnload,						//  FilterUnload, 卸载时调用
-                MiniMonInstanceSetup,				//  InstanceSetup, 实例绑定到卷设备对象上时使用, 可在其中将卷设备的一些属性存到一个缓存(上下文)中
-                NULL,								//  InstanceQueryTeardown
-                MiniMonInstanceTeardownStart,       //  InstanceTeardownStart
-                NULL,                               //  InstanceTeardownComplete
-                NULL,                               //  GenerateFileName
-                NULL,                               //  GenerateDestinationFileName
-                NULL                                //  NormalizeNameComponent
-            };
+            #define IS_MY_DEVICE_OBJECT(_devObj) \
+                (((_devObj) != NULL) && \
+                ((_devObj)->DriverObject == gSFilterDriverObject) && \
+                ((_devObj)->DeviceExtension != NULL))
+            
+            // gSFilterControlDeviceObject是自己创建的控制设备
+            #define IS_MY_CONTROL_DEVICE_OBJECT(_devObj) \
+                (((_devObj) == gSFilterControlDeviceObject) ? \
+                        (ASSERT(((_devObj)->DriverObject == gSFilterDriverObject) && \
+                                ((_devObj)->DeviceExtension == NULL)), TRUE) : \
+                        FALSE)
             ```
-            * 返回状态
-                * 在PreXxx函数中的返回值:
-                    * `FLT_PREOP_SUCCESS_WITH_CALLBACK`: 后续要调用PostXxx函数 
-                    * `FLT_PREOP_SUCCESS_NO_CALLBACK`: 
-                    * `FLT_PREOP_COMPLETE`: 完成后不下发
-                    * `FLT_PREOP_PENDING`: 挂起
-                    * `FLT_PREOP_DISALLOW_FASTIO`: 禁用fastio
-                    * `FLT_PREOP_SYNCHRONIZE`: 同步
-                * 在PostXxx函数中的返回值:
-                    * `FLT_POSTOP_FINISHED_PROCESSING`
-                    * `FLT_POSTOP_MORE_PROCESSING_REQUIRED`: 一般发生在post操作的irql比较高时(如dispatch级别), 这时要开一个工作者线程
-            * 判断Data是什么操作的宏
-                * `FLT_IS_IRP_OPERATION`: 
-                * `FLT_IS_FASTIO_OPERATION`: 
-                * `FLT_IS_FS_FILTER_OPERATION`: 
-            * API
-                * FltXxx: 如FltCreateFile
-                * `FltGetFileNameInformation`: 获取文件或目录的名称信息
-                * `FltParseFileNameInformation`: 引用计数加一
-                * `FltReleaseFileNameInformation`: 引用计数减一
-                * ``: 
-            * 回调函数的IRQL
-                * pre操作的回调函数在passive或apc级. (通常为前者)
-                * 若pre操作的回调函数返回FLT_PREOP_SYNCHRNIZE, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
-                * 若post操作的回调函数处理fast io, 则其在passive级, 与pre操作处于同一线程上下文.
-                * post-create的回调函数是在passive级, 和初始化IRP_MJ_CREATE的线程处于同一上下文.
-            * Minifilter上下文
-                * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`
-                * 类型
-                    * Stream Context(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
-                    * Stream Handle Context(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
-                    * Instance Context(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
-                    * Volume Context(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用Instance Context 代替 Volume Context
-                    * (文件上下文): 
-            * 通信
-                * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
-                ```cpp
-                FltCreateCommunicationPort( 
-                    gp_Filter,
-                    &g_pServerPort,
-                    &oa,
-                    NULL,
-                    HandleConnectFromClient,
-                    HandleDisconnectFromClient,
-                    HandleMessageFromClient, // 处理从R3来的消息
-                    1
-                );
-                ```
-            * 沙盒
-                * Sandboxie
-                * 目录
-                    * 沙盒根目录: `\device\harddiskvolume1\sandbox`
-                    * 文件源路径: `\device\harddiskvolume2\doc\hi.txt`
-                    * 文件内部路径: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt`
-                    * 文件删除标记: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt.del`
-                * 判断自己是否被沙盒
-                    * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
-        * Filespy
+        * 对应于分发函数DispatchXxx, 这里叫过滤分发函数FilterXxx
+        * 简单放行(对irp没任何改动)如下:
+            ```cpp
+            IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
+            IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject,
+                        Irp ); // 会将(Irp)->CurrentLocation减1
+            ```
+        * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 完成例程
+        * 注意
+            * 过滤设备对象的通信方式要和目标设备一致
+            * 用`ClearFlag`清除初始化标志
+* irp注意事项
+    * 直接下发irp后, 本层无权再访问irp了.
+    * 下发irp后(`IoCallDriver`后), 如果后续想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`, 以将irp的所有权返回给分发例程. 
+* 文件系统过滤框架
+    * `Filemon`
+    * `Sfilter`
+        * 总体流程
+            * 创建控制设备
+            * 创建控制设备符号链接
+            * 过滤分发函数
+                * `FilterCreate`: 创建
+                * `FilterRead`: 一般不拦, 除非防别人读隐私文件, 另外隐私保护器的话则有加解密.
+                * `FilterWrite`: 修改; 加解密
+                * `FilterSetInfo`:
+                    * `IRP_MJ_SET_INFORMATION`: 删; 重命名
+                * `FilterClose`: 一般不拦
+                * `FilterClean`: 写完文件后关闭等操作 
+            * `fastio`
+            * 过滤与绑定
+                * 生成一个过滤设备
+                * `IoRegisterFsRegistrationChange( DriverObject, SfFsNotification );` 文件系统设备绑定
+                * `DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = SfFsControl;` 卷设备绑定. `IRP_MJ_FILE_SYSTEM_CONTROL`对应mount irp请求
+    * `Minifilter` 
+        * 特性
+            * 可卸载(不用重启电脑)
+            * 不怕patch guard
+        * 安装和启动
+            * inf文件
+            * `net start <服务名>`
+        * altitude标识符(高度值)(20000~429999)
+            * 定义一个minifilter驱动加载时在I/O栈中相对其它minifilter驱动的位置
+            * 值越小, 栈中位置越低
+            * 反病毒: 320000~329999, 在文件i/o期间探测并杀毒的过滤驱动
+            * 加解密: 140000~149999, 在文件i/o期间加解密数据的过滤驱动
+        * minifilter架构
+        ```cpp
+        const FLT_REGISTRATION MiniMonitorRegistration = {
+            sizeof( FLT_REGISTRATION ),         //  Size
+            FLT_REGISTRATION_VERSION,           //  Version
+            0,                                  //  Flags
+            MiniMonitorContext,					//  ContextRegistration, 上下文
+            MiniMonitorCallbacks,               //  Operation callbacks, 结构体数组, 存回调函数
+            MiniMonUnload,						//  FilterUnload, 卸载时调用
+            MiniMonInstanceSetup,				//  InstanceSetup, 实例绑定到卷设备对象上时使用, 可在其中将卷设备的一些属性存到一个缓存(上下文)中
+            NULL,								//  InstanceQueryTeardown
+            MiniMonInstanceTeardownStart,       //  InstanceTeardownStart
+            NULL,                               //  InstanceTeardownComplete
+            NULL,                               //  GenerateFileName
+            NULL,                               //  GenerateDestinationFileName
+            NULL                                //  NormalizeNameComponent
+        };
+        ```
+        * 返回状态
+            * 在PreXxx函数中的返回值:
+                * `FLT_PREOP_SUCCESS_WITH_CALLBACK`: 后续要调用PostXxx函数 
+                * `FLT_PREOP_SUCCESS_NO_CALLBACK`: 
+                * `FLT_PREOP_COMPLETE`: 完成后不下发
+                * `FLT_PREOP_PENDING`: 挂起
+                * `FLT_PREOP_DISALLOW_FASTIO`: 禁用fastio
+                * `FLT_PREOP_SYNCHRONIZE`: 同步
+            * 在PostXxx函数中的返回值:
+                * `FLT_POSTOP_FINISHED_PROCESSING`
+                * `FLT_POSTOP_MORE_PROCESSING_REQUIRED`: 一般发生在post操作的irql比较高时(如dispatch级别), 这时要开一个工作者线程
+        * 判断Data是什么操作的宏
+            * `FLT_IS_IRP_OPERATION`: 
+            * `FLT_IS_FASTIO_OPERATION`: 
+            * `FLT_IS_FS_FILTER_OPERATION`: 
+        * API
+            * FltXxx: 如FltCreateFile
+            * `FltGetFileNameInformation`: 获取文件或目录的名称信息
+            * `FltParseFileNameInformation`: 引用计数加一
+            * `FltReleaseFileNameInformation`: 引用计数减一
+            * ``: 
+        * 回调函数的IRQL
+            * pre操作的回调函数在passive或apc级. (通常为前者)
+            * 若pre操作的回调函数返回FLT_PREOP_SYNCHRNIZE, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
+            * 若post操作的回调函数处理fast io, 则其在passive级, 与pre操作处于同一线程上下文.
+            * post-create的回调函数是在passive级, 和初始化IRP_MJ_CREATE的线程处于同一上下文.
+        * Minifilter上下文
+            * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`
+            * 类型
+                * Stream Context(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
+                * Stream Handle Context(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
+                * Instance Context(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
+                * Volume Context(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用Instance Context 代替 Volume Context
+                * (文件上下文): 
+        * 通信
+            * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
+            ```cpp
+            FltCreateCommunicationPort( 
+                gp_Filter,
+                &g_pServerPort,
+                &oa,
+                NULL,
+                HandleConnectFromClient,
+                HandleDisconnectFromClient,
+                HandleMessageFromClient, // 处理从R3来的消息
+                1
+            );
+            ```
+        * 沙盒
+            * Sandboxie
+            * 目录
+                * 沙盒根目录: `\device\harddiskvolume1\sandbox`
+                * 文件源路径: `\device\harddiskvolume2\doc\hi.txt`
+                * 文件内部路径: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt`
+                * 文件删除标记: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt.del`
+            * 判断自己是否被沙盒
+                * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
+    * Filespy
 
 # 防火墙
 * 概要
@@ -2309,7 +2321,7 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
 
             <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
 
-        * x64: 用了低48位, 每级页表占9位, 共4级, 缩写分别为PML4, PDP, PD, PT. cr3指向顶级页表的基址. 
+        * x64: 用了低48位, 每级页表占9位, 共4级, 缩写分别为PML4, PDPT, PD, PT. cr3指向顶级页表的基址. 
             
             虚拟地址结构如下. 
 
@@ -2605,13 +2617,17 @@ bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
     > 注: 需要确保程序加载的PE模块与其pdb文件对应(**即二者由编译器同时生成**). 如果对不上, windbg进不了断点. 
     > 注: 需要确保windbg中当前进程上下文为目标进程的上下文(`!process -1 0`), 因为有时候执行了上面的`.process`命令后, 发现上下文还是`System`进程的上下文. 
 
-* vs2019编译的程序无法运行, 报0xc000007b的错
+* vs2019编译的程序无法运行, 报`0xc000007b`的错
 
     > `配置属性` -> `高级` -> `使用调试库` -> `否`
 
 * 在windbg中, 无法对vs2019编译的程序的源代码设置断点
 
     > `配置属性` -> `C/C++` -> `常规` -> `调试信息格式` -> `程序数据库(/Zi)`
+
+    * 提示`Warning: Unable to verify checksum for xxx`
+        
+        > `配置` -> `链接器` -> `高级` -> `设置校验和`, 选择`是`
 
 * 运行程序时提示缺少某dll文件(如`ucrtbased.dll`, `vcruntime140d.dll`等)
 

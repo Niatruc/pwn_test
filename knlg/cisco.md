@@ -63,7 +63,7 @@
         * `copy running-config startup-config`: 用更新的配置文件覆盖启动配置文件
         * `show startup-config`: 显示配置
         * `upgrade rom-monitor`
-            * SREC(Motorola S-record): 用ASCII文字表示十六进制的文本文档
+            * `SREC`(Motorola S-record): 用ASCII文字表示十六进制的文本文档
                 * 每一行格式: |S|记录种类|字节数量|地址|数据|检查码|
                     * 每一行开头为`S`
                     * 记录种类: 0-9
