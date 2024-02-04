@@ -61,46 +61,6 @@
         ```
         <img alt="" src="./pic/cmake_gui.jpg" width="60%" height="60%">
 
-* 配置vscode以开发windows程序
-    * 参考: https://code.visualstudio.com/docs/cpp/config-msvc
-        * `Terminal` -> `Configure Default Build Task` -> `cl.exe build active file`, 生成`task.json`文件, 各个配置项的含义: 
-            * `type`:
-                * `cppbuild`
-                * `shell`: 使用cmd
-                    * 若`cl.exe`等工具没有预先添加到系统路径, 可添加如下选项预先运行`VsDevCmd`: 
-                    ```json
-                    "options": {
-                        "cwd": "${fileDirname}",
-                        "shell": {
-                            "executable": "cmd.exe",
-                            "args": [
-                                "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
-                                "echo %cd% && ",
-                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录, 则生成目录
-                                "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
-                            ]
-                        }
-                    },
-                    ```
-            * `command`: 要运行的程序(如`cl.exe`)
-            * `args`: 传给`cl.exe`的参数
-                * `${file}`: 活动文件
-                * `${fileDirname}`: 当前目录的**完整路径**
-                * `${fileBasenameNoExtension}`: 生成的exe文件的名字
-            * `group`: 
-                * `"isDefault": true`: 表示该任务会在按`ctrl+shift+b`时运行
-            * `options`: 
-                * `cwd`: 指定工作目录
-                * `env`: 配置环境变量
-                * `shell`: 
-                    * `executable`: 指定要用的shell程序(如`cmd.exe`)
-                    * `args`: 参数列表
-            * ``: 
-        * 按f5时, 若没有`launch.json`, 则会生成
-            * `program`: 指定要调试的程序
-        * `c_cpp_properties.json`: 配置c/c++扩展
-            * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
-
 ## 其他
 * 需要禁用驱动程序强制签名
     * Win7: 
@@ -142,20 +102,22 @@
 * 应用层调用驱动的相关接口
     * 安装驱动: `OpenSCManager`打开服务控制管理器, `CreateService`安装驱动, `OpenService`打开驱动服务, `StartService`启动服务. 关闭管理器和驱动服务的句柄用`CloseServiceHandle`.
     * 卸载驱动: 先`OpenSCManager`, `OpenService`; 用`ControlService`(带`SERVICE_CONTROL_STOP`参数)停止驱动; `DeleteService`卸载驱动.
-* 设备对象接收IRP(I/ORequest Packets))
+* `IRP`(`I/O Request Packets`)
     * 可以理解为: 
         * 一个放置 I/O 请求的容器
         * 一个与线程无关的调用栈
+    * IRP注意事项
+        * 直接下发IRP后, 本层无权再访问IRP了.
+        * 下发IRP后(`IoCallDriver`后), 如果后续想再次访问IRP, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`, 以将IRP的所有权返回给分发例程. 
     * API
         * `IoMarkIrpPending(pIrp)`: 挂起Irp请求(驱动程序的分发函数中则返回`STATUS_PENDING`)
         * `IoSetCancelRoutine(Irp, CancelRoutine)`: 若二参是NULL, 则取消Irp请求. 如果Irp有设置了取消例程, 则返回该取消例程(`Irp->CancelRoutine`), 否则返回NULL.
-
 * 驱动创建的所有设备对象会放在一条链上(`NextDevice`); 所有设备对象都会指向该驱动对象.
 * 分发函数: `(PDEVICE_OBJECT pObj, PIRP pIrp)`
     * `read`: 应用层从内核层读取数据: 从`pIrp`拿缓存的地址和长度; 读写; 完成IRP.
     * `write`: 应用层向内核层写数据: 分配缓存(`ExAllocatePoolWithTag`), 拷贝数据(`RtlCopyMemory`).
     * `ioCtl`: 拿到应用层传来的控制码(控制码自己定义), 判断并执行相关操作.
-        * 自定义CTL_CODE: `#define MY_CODE_1 CTL_CODE(DeviceType, Function, Method, Access)`
+        * 自定义`CTL_CODE`: `#define MY_CODE_1 CTL_CODE(DeviceType, Function, Method, Access)`
             * `MY_CODE_1`: 生成的IRP的`MinorFunction`
             * `DeviceType`: 设备对象的类型.
             * `Function`: 自定义的IO控制码, 取0x800到0xFFF. (0x0到0x7FF为微软保留)
@@ -193,21 +155,42 @@
     * `CmXxx`: Configuration Manager, 系统配置管理
     * `PpXxx`: PnP, 即插即用管理
     * `RtlXxx`: Runtime Library
-    * `ZwXxx`: 和`NtXxx`一样, 不过在内核编程中调用的都是`ZwXxx`. `ZwXxx`会先将Previous Mode设置为Kernel Mode, 再调用相应的`NtXxx`.
-        * 在x64中Zw函数的汇编如下, 其中有一条`syscall`
+    * `ZwXxx`: 和`NtXxx`一样, 不过在内核编程中调用的都是`ZwXxx`. `ZwXxx`会先将`Previous Mode`设置为`Kernel Mode`, 再调用相应的`NtXxx`.
+        * 在x64中ntdll库中的Nt函数及内核中的Zw函数/Nt函数的汇编如下: 
 
             ```x86asm
+                ; ntdll!NtReadVirtualMemory, 会执行syscall指令
+                mov     r10, rcx
+                mov     eax, 3Fh
+                test    byte ptr [7FFE0308h], 1
+                jne     ntdll!NtReadVirtualMemory+0x15 (7ffe5b4ed7c5) ; 即跳转到下面的`int 2Eh`
+                syscall 
+                ret     
+                int     2Eh
+                ret     
+                nop     dword ptr [rax+rax]
+
+                ; nt!ZwReadVirtualMemory
                 mov     rax, rsp
                 cli     
                 sub     rsp, 10h
                 push    rax
                 pushfq  
                 push    10h
-                lea     rax, [ntkrnlmp!KiServiceLinkage (fffff80261dfb700)]
+                lea     rax, [ntkrnlmp!KiServiceLinkage (fffff80039802310)]
                 push    rax
-                mov     eax, 23h ; ssdt索引
-                jmp     ntkrnlmp!KiServiceInternal (fffff80261e08d40) ;     
-                ret   
+                mov     eax, 3Fh
+                jmp     ntkrnlmp!KiServiceInternal (fffff80039810980) ; 这个函数会跳转到`ntkrnlmp!KiSystemServiceStart`
+                ret     
+                nop
+
+                ; nt!NtReadVirtualMemory
+                mov     rax, qword ptr [rsp+60h]
+                mov     dword ptr [rsp+28h], 10h
+                mov     qword ptr [rsp+20h], rax
+                call    ntkrnlmp!MiReadWriteVirtualMemory (fffff80039a3a690)
+                add     rsp, 38h
+                ret
             ```
     * `FltXxx`: MiniFilter框架
     * `NdisXxx`: Ndis框架
@@ -306,6 +289,10 @@
     * `!handle <句柄值>`: 查看句柄信息
     * `!cs`: 查看关键区信息
         * `-l`: 仅列出已锁定的关键区信息. 
+    * 检测死锁
+        * `!deadlock`
+        * `!locks`: 列出锁的信息, `LockCount`大于0的锁对应的线程比较可疑.
+        * 用 `~` 列出线程, `~<tid> kb` 查看调用栈, 找到`RtlWaitForCriticalSection`之类的函数的参数
 * 线程
     * `.attach <pid>`: 附加到进程
     * `.detach`: 断开调试
@@ -631,6 +618,46 @@
         DbgPrint("%wZ\n", &uStr);
         ExFreePool(uStr.Buffer); // 导致蓝屏
     ```
+* bsod记录: 
+    * `IRQL_NOT_LESS_OR_EQUAL`
+        * 因为在高irql(如dispatch级)中访问了分页内存
+            * 在wfp框架的callout的classifyfn回调中, irql是dispatch级. 这时有一些函数不能用, 或不能访问分页内存: 
+                * `KeWaitForSingleObject` 内部在访问 FastMutex时是会把IRQL提升到DPC的
+        * 某些函数
+            * `ExAcquireResourceExclusiveLite`等操作`ERESOURCE`锁的函数, 要求在 <=APC_LEVEL 下运行
+        * 调用`ExAllocatePoolWithTag`时传了错误的缓冲区大小参数, 后续其他地方调用`ExAllocatePoolWithTag`时可能引起该bsod. 推测是因为破坏了堆栈. 
+    * `DRIVER_IRQL_NOT_LESS_OR_EQUAL`
+        * WDF框架中: 在对某个request调用`WdfRequestForwardToIoQueue`后, 又对其调用`WdfRequestComplete`, 之后在另一个线程中取出`WdfIoQueueRetrieveNextRequest`对该request进行操作.
+    * `INVALID_PROCESS_ATTACH_ATTEMPT`
+        * 在wfp框架的callout的classifyFn回调函数中使用`ZwOpenProcess`或用`ObOpenObjectByPointer`获取进程句柄时出现此bsod. 调用`ZwQueryInformationProcess`并传入-1作为句柄值则没有此问题. 
+    * `IRQL_UNEXPECTED_VALUE`
+        * 在wfp框架的callout的classifyFn回调函数中使用`PsCreateSystemThread`创建系统线程时出错. 官方文档说`PsCreateSystemThread`要在passive级别执行. 
+    * `SYSTEM_SCAN_AT_RAISED_IRQL_CAUGHT_IMPROPER_DRIVER_UNLOAD`
+        * 驱动卸载的时候, 没有取消`lookaside`列表, DPC, 工作者线程等
+        * 驱动卸载的时候, 没有对已经创建的`ERESOURCE`资源调用`ExDeleteResourceLite`也会引起此问题. 
+        * 使用`PsCreateSystemThread`创建的线程, 要在线程的运行函数中调用`PsTerminateSystemThread`, 并确保卸载驱动时该函数被执行. 
+        * 对于workitem: 对于由`IoAllocateWorkItem`分配得到的workitem, 在其例程结束时要调用`IoFreeWorkItem`. 
+    * `PAGE_FAULT_IN_NONPAGED_AREA`
+        * 引用了非法的系统内存. 通常是因为地址错误或指向了已经释放的内存. 
+    * `INTERNAL_POWER_ERROR`
+        * 调用`NtQueueApcThread`时出现
+    * `DRIVER_UNLOADED_WITHOUT_CANCELLING_PENDING_OPERATIONS`
+        * 驱动卸载时, 没有取消某些计时器, DPC例程, 工作者线程等. Windows不会允许进程在它的io操作完成之前完全退出. 这样做可以防止驱动因处理另一个合法请求而无意地破坏内存
+    * `KERNEL_SECURITY_CHECK_FAILURE` 
+        * A LIST_ENTRY has been corrupted: 调用`RemoveEntryList`清除链表节点时出现此异常. 原因是在调用此函数后才使用被移除节点的Flink成员找下一个链表节点. 
+        * 调用`WdfRequestMarkCancelable`时引起, 根据 `https://stackoverflow.com/questions/12522441/wdfrequestiscanceled-vs-wdfrequestmarkcancelable` 的说法, 把request放入人工队列(`WdfRequestForwardToIoQueue`)就已把request设成可取消了, 这时如果还对接收到的request调用`WdfRequestMarkCancelable`就会出此问题. 
+    * `TIMER_OR_DPC_INVALID`
+        * 内核计时器或延迟过程出现在不允许的内存地址. 
+    * `SYSTEM_THREAD_EXCEPTION_NOT_HANDLED`
+        * 错误码`c0000005`: 内存访问冲突
+            * 调用某些函数时要注意参数类型. 如果传的是引用参数, 则一般要取地址. 如, `ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, (PVOID*) &pKThread, NULL);`, 其中pKThread是PKThread类型的. 若传给该函数的倒数第二参数是pKThread而没有取地址, 则会有该访问冲突的错误. 
+    * `BAD_POOL_CALLER`
+    * `INVALID_KERNEL_HANDLE`
+        * 试图对非法句柄(如, -1)调用`ZwClose`会发生. 
+    * `APC_INDEX_MISMATCH`
+        * 调用`KeEnterCriticalRegion`后没有调用`KeLeaveCriticalRegion`, 会出现此bsod. 
+    * `INVALID_PROCESS_DETACH_ATTEMPT`
+        * 调用`ZwClose`时出现. 调试发现在并发环境下, 当同一文件被多次打开并写入内容时, 出现此bsod. 去掉了`ZwCreateFile`中的共享写参数后未再出现该bsod. 
 
 # 字符串
 * Unicode字符串数据类型(https://blog.csdn.net/aishuirenjia/article/details/88996228). L表示long, P表示指针,C表示constant, T表示指针指向的字符占的字节数取决于Unicode是否定义, W表示wide, STR就是string的意思. 
@@ -873,25 +900,6 @@
         <img alt="" src="./pic/uefi.jpg" width="20%" height="20%">
 
 # 注册表
-* 路径
-    * `"\\Registry\\Machine\\software"` -> HKEY_LOCAL_MACHINE
-    * `"\\REGISTRY\\User\\"` -> HKEY_USERS
-* 数据类型
-    * `REG_SZ`: 字符串
-    * `REG_BINARY`: 二进制数据
-    * `REG_DWORD`: 4字节无符号整数
-    * `REG_EXPAND_SZ`: 扩展字符串, 其中带环境变量, 如"%systemtoor%\c.doc". 应用层函数`ExpandEnvironmentStrings`可展开之.
-    * `REG_MULTI_SZ`: 多字符串(每个字符串间用NULL隔开)
-        * 构造: `sprintf(buf, "%s%c%s%c%c%", "1.1.1.1", 0, "1.1.1.1", 0, 0)`
-        * 用于删除和重命名: `MoveFileEx(szTemp, NULL, MOVEFILE_DELAY_UNTIL_REBOOT)`, 重启后`szTemp`文件会被替换为二参表示的文件. (二参为NULL则表示删除文件) 比如替换dll文件. 每次调用, 一参和二参会被写到`\\Registry\\Machine\\SYSTEM\CurrentContrilSet\Control\Session Manager\PendingFileRenameOperations`.
-        * UNC(Universal Naming Convention, 通用命名规则)
-            * 用于局域网共享文件夹
-            * `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares` 记录本机共享的文件夹的信息. 
-* 存储
-    * HIVE文件
-        * 由多个巢箱(BIN)组成
-        * 注册表解析: https://www.52pojie.cn/thread-41492-1-1.html
-        * 缺省放在`%systemroot%/System32/config`下, 6个文件: DEFAULT, SAM, SECURITY, SOFTWARE, USERDIFF, SYSTEM
 * 注册表操作
     * 参考: http://www.lcx4.com/?post=112
     * 创建: `ZwCreatKey`. `InitializeObjectAttributes`时, 其四参指定父键的handle(可由`ZwOpenKey`获得)
@@ -905,320 +913,343 @@
     * 删除: `ZwDeleteKey`, `ZwDeleteValueKey`
     * 设置: `ZwSetValueKey`新增键值对
 
-# 线程的IRQL(Interrupt Request Level)
-* 如果某个中断产生了, 且IRQL <= 目前处理器的IRQL, 那么将不会影响目前程序的运行; 否则执行中断程序.
-* 中断: 硬件产生的一个电信号
-    * 异常: 由CPU产生. IF(中断标志位, 用来开关中断)维持不变, 不会关闭中断
-        * 故障(FALT): 除零, 缺页, 越界, 堆栈段错误等
-        * 陷阱(TRAP): 程序员用的, 如int 3, 溢出
-    * 中断: IF标志清零, 关中断
-        * 非屏蔽中断: 计算机内部硬件出错引起的异常
-        * 屏蔽中断: 外围设备产生
-    * 中断描述符表`IDT`
+# 线程
+* 线程的IRQL(Interrupt Request Level)
+    * 如果某个中断产生了, 且IRQL <= 目前处理器的IRQL, 那么将不会影响目前程序的运行; 否则执行中断程序.
+    * 中断: 硬件产生的一个电信号
+        * 异常: 由CPU产生. IF(中断标志位, 用来开关中断)维持不变, 不会关闭中断
+            * 故障(FALT): 除零, 缺页, 越界, 堆栈段错误等
+            * 陷阱(TRAP): 程序员用的, 如int 3, 溢出
+        * 中断: IF标志清零, 关中断
+            * 非屏蔽中断: 计算机内部硬件出错引起的异常
+            * 屏蔽中断: 外围设备产生
+        * 中断描述符表`IDT`
 
-        <img alt="" src="./pic/idtr_idt.jpg" width="20%" height="20%">
+            <img alt="" src="./pic/idtr_idt.jpg" width="20%" height="20%">
 
-        * `idtr`寄存器: 记录`idt`的位置和大小. 通过`lidt`和`sidt`加载和存储. 在x86中是48位, x64中是80位.  
-            ```cpp
-            IA32_IDT_INFO idt_info;
-            __asm sidt idt_info
-            ```
-        * 中断门描述符(interrupt_entry)(256项): 即`idt`中每个表项(8字节), 含中断向量或异常的服务例程地址. 
-
-            <img alt="" src="./pic/interrupt_entry.jpg" width="20%" height="20%">
-
-            * 0~31: 异常和非屏蔽中断
-            * 32(0x20)~47(0x2f): IO引起的屏蔽中断
-            * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
-    * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程中断
-        * 相关文章
-            * [Windows DPC, APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
-            * [Windows APC mechanism & alertable thread waiting state](https://blog.fireheart.in/a?ID=00550-4b95f022-ecfd-415b-8b3b-20b03a4d17fe)
-            * [IRQL interrupt request level and APC_LEVEL discussion](https://blog.actorsfit.com/a?ID=00300-d2276e30-b233-4de0-a814-ad5d63f6b827)
-        * 无中断
-            * `PASSIVE_LEVEL`(0): **用户模式的代码**及**大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)**运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
-        * 软中断
-            * `APC_LEVEL`(1): 
-                * **异步过程调用**和**缺页故障**发生在该级别上. 
-                * 屏蔽APC中断. **可访问分页内存**. **分页调度管理**就运行在这个级别上.
-                * 关于APC(Asynchronous Procedure Call): 
-                    * APC是附属于线程的, 一个线程有一个APC队列. 
-                    * 相关api: 
-                        * `KeInitializeApc`: 初始化一个`KAPC`对象
-                        * `KeInsertQueueApc`: 将APC插入队列
-                    * 用户APC被插入队列后, 要等到线程变成可警告状态(alertable state)时它才会被线程调用. 
-                        * alertable: 
-                            * 表示可警告, 可唤醒的. 如果当前线程没事干, 就是这个状态. 这时候它就会去调用apc函数. 
-                            * 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
-                        * `SleepEx`, `SignalObjectAndWait`, `MsgWaitForMultipleObjectsEx`, `WaitForMultipleObjectsEx`, `WaitForSingleObjectEx`, 线程调用了它们后就会进入`alertable wait`状态, APC队列中的就会被调用. 
-                        * `ReadFileEx`, `SetWaitableTimer`, `SetWaitableTimerEx`, `WriteFileEx`, 它们的实现方式就是用APC作为完成通知例程. 
-                    * 优先级: 特殊APC > 普通APC > 用户APC. 
-                        * 前两者是内核APC
-                        * 特殊APC运行在APC级别, 后两者运行在Passive级. 
-                * 编程: 
-                    * 实验发现, 在APC级别中调用`ZwReadFile`会不返回. 相同的代码在Passive级别下运行没问题. 事实上, 官方文档中这些文件操作函数都要求在Passive级别下使用. 
-            * `DISPATCH_LEVEL`(2): 
-                * **线程调度**和**DPC例程**运行在该级别上. 
-                * 屏蔽DPC(Deferred Procedure Call)及以下级别中断. **不能访问分页内存**. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
-                * 内核为每一个处理器保持一个**DPC队列**, 并且在相应的处理器的IRQL降低到`DISPATCH_LEVEL`之下时运行DPC. 
-                * 在任务管理器有一个伪线程`系统中断`(`interrupts`), 可显示花费在 IRQL >= 2 时的CPU时间. 
-                * DPC: 
-                    * 硬件驱动程序通过DPC来处理设备中断. 
-        * 硬中断
-            * `DIRQL`(Device IRQL): 设备中断请求级. 在该级别上, 所有中断均被忽略.
-            * `PROFILE_LEVEL`: 配置文件定时器
-            * `CLOCK2_LEVEL`: 时钟
-            * `SYNCH_LEVEL`: 同步级
-            * `IPI_LEVEL`: 处理器之间中断级
-            * `POWER_LEVEL`: 电源故障级
-        * 遵守中断级别要求
-            * `PASSIVE`级别可访问任何函数和内存
-            * `DISPATCH`级别只能访问运行在DISPATCH级别的API和非分页内存(`NONPAGEDPOOL`)
-            * `NONPAGEDPOOL`可在任何级别使用
-            * `PAGEDPOOL`只能在PASSIVE和APC级别使用
-                * 在这两个级别的代码中用`PAGED_CODE`宏(其调用`KeGetCurrentIrql`), 其会检测当前代码IRQL是否高于APC, 是则异常.
-            * 补充
-                * 系统在APC_LEVEL处理缺页中断, 所以, 执行在>=APC_LEVEL上的代码必须存放在NON-PGAE内存中
-                * 许多具有复杂功能的内核api都运行在passive级, 只有比较简单的函数能在dispatch级运行.
-        
-        |调用源|一般的运行中断级|运行环境|
-        |-|-|-|
-        |`DriverEntry`, `DriverUnload`|Passive级|单线程|
-        |各种分发函数`DispatchXxx`|Passive级|多线程|
-        |完成函数|Dispatch级|多线程|
-        |各种NDIS回调函数|Dispatch级|多线程|
-* 多线程
-    * 内核创建多线程: `PsCreateSystemThread`, 创建一个内核模式的线程, 没有TEB
-        ```cpp
-        NTSTATUS
-        PsCreateSystemThread(
-            OUT PHANDLE  ThreadHandle, //新创建的线程句柄
-            IN ULONG  DesiredAccess, //创建的权限
-            IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性, 一般设为NULL
-            IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程. 如果为NULL, 则为系统进程, 如果该值是一个进程句柄, 则新创建的线程属于这个指定的进程. DDK提供的NTCurrentProcess可以得到当前进程的句柄. 
-            OUT PCLIENT_ID  ClientId  OPTIONAL,
-            IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
-            IN PVOID  StartContext //新线程接收的参数
-        );
-        ```
-    * 同步(A告诉B发生了什么事)
-        * KEVENT: 用于线程同步
-            * Event两个状态: Signaled, Non-signaled
-            * Event两个类别: 
-                * `NotificationEvent`(不自动恢复, 比如从Signaled转为Non-Signaled要手动设置). 
-                * `SynchronizationEvent`(自动恢复). **如果有多个线程在等待这个事件, 则只会有一个线程恢复执行**. 
-            * 在windbg中查看event是否为signaled状态: `dt myEvent`得到事件的Header, 点击Header找到`SignalState`成员. 
-            * 代码
-                ```c
-                // 线程A
-                KEVENT waitEvent;
-
-                // 初始化事件, 三参为FALSE表示事件初始时为non-signaled状态
-                KeInitializeEvent(&waitEvent, NotificationEvent, FALSE);
-
-                // 内核中创建自命名事件则如下
-                RtlInitUnicodeString(&EventName, L"\\BaseNamedObjects\\ProcEvent");
-                PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle); // 生成的事件的句柄放到Handle中
-                KeClearEvent(Event); // 将事件设为non-signaled状态
-
-                // 触发事件. 三参如果为TRUE, 则后面必须接KeWaitXxx函数
-                KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
-
-                // 线程B
-                
-                KeWaitForSingleObject(&waitEvent, Executive, KernelMode, FALSE, NULL); // NULL无限等待, 0立即返回
-                ... 
-                KeClearEvent(&waitEvent); // 将事件设为non-signaled状态
-                KeResetEvent(&waitEvent);
-
-                // 应用层等待事件则如下
-                HANDLE hProcessEvent = ::OpenEventW(SYNCHRONIZE, FALSE, L"Global\\ProcEvent");  // 注意得到的句柄为0时会让下面的代码死循环, 所以要判断0, 为0就不要进入下面的语句了, 直接退出程序
-                while (true) {
-                    ::WaitForSingleObject(hProcessEvent, INFINITE)
-                    ...
-                }
-                ```
-        * `KeWaitForSingleObject`, `KeWaitForMultiObjects`
-            * `KeWaitForSingleObject`:
-                * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中 **. 
-            * 可等待的对象: `KEVENT`, `KMUTEX/KMUTANT`, `KPROCESS`, `KQUEUE`, `KSEMAPHORE`, `KTHREAD`, `KTIMER`(它们都带dispatcher header). 
-            * 不可等待: `fileobject`/`driverobject`
-                * 微软不建议对一个文件句柄调用`XxWaitForSingleObject`, 因为当该文件上有很多`pending`的IO操作时, 任何一个操作的完成都会让文件对象变成`signaled`状态. (参考 https://stackoverflow.com/questions/775014/waitforsingleobject-on-a-file-handle) . 
-        * R0到R3同步通信
-            * 内核层
-                * 创建Event: `IoCreateNotificationEvent`, `L"\\BaseNamedObjects\\ProcEvent"`
-                * (z: 1:24)
-            * 应用层
-                * 事件名: `L"Global\\ProcEvent"`
-    * 互斥(A和B只能一个访问)
-        * KSPIN_LOCK: 自旋锁
-            * 代码
+            * `idtr`寄存器: 记录`idt`的位置和大小. 通过`lidt`和`sidt`加载和存储. 在x86中是48位, x64中是80位.  
                 ```cpp
-                KIRQL OldIrql;
-                KSPIN_LOCK mySpinLockProc; // 需要定义为静态变量或全局变量, 或在堆中分配, 这样才能确保所有访问临界区代码的线程共用一个自旋锁
+                IA32_IDT_INFO idt_info;
+                __asm sidt idt_info
+                ```
+            * 中断门描述符(interrupt_entry)(256项): 即`idt`中每个表项(8字节), 含中断向量或异常的服务例程地址. 
 
-                KeInitializeSpinLock(&mySpinLockProc);
+                <img alt="" src="./pic/interrupt_entry.jpg" width="20%" height="20%">
 
-                // 获得自旋锁. KeAquireSpinLock会提高当前中断级别, 旧的中断级别则暂存于OldIrql
-                KeAquireSpinLock(&mySpinLockProc, &OldIrql);
-                
-                
-                // 访问数据, 这里一次只有一个线程执行, 其它线程等待
-                g_i++;
+                * 0~31: 异常和非屏蔽中断
+                * 32(0x20)~47(0x2f): IO引起的屏蔽中断
+                * 48(0x30)~255(0xff): 软中断, 如linux的0x80系统调用`system_call`进入内核
+        * 中断优先级: 在同一处理器上, 线程只能被更高级别IRQL的线程中断
+            * 相关文章
+                * [Windows DPC, APC的作用和区别](https://osfva.com/20210810000027-windows_dpc_apc%E7%9A%84%E4%BD%9C%E7%94%A8%E5%92%8C%E5%8C%BA%E5%88%AB/)
+                * [Windows APC mechanism & alertable thread waiting state](https://blog.fireheart.in/a?ID=00550-4b95f022-ecfd-415b-8b3b-20b03a4d17fe)
+                * [IRQL interrupt request level and APC_LEVEL discussion](https://blog.actorsfit.com/a?ID=00300-d2276e30-b233-4de0-a814-ad5d63f6b827)
+            * 无中断
+                * `PASSIVE_LEVEL`(0): **用户模式的代码**及**大多数内核模式下的操作(比如和文件, 注册表读写相关的操作)**运行在该级别上. 可访问分页内存. 在这个级别, 对所有中断都作出响应(没有中断会被屏蔽)
+            * 软中断
+                * `APC_LEVEL`(1): 
+                    * **异步过程调用**和**缺页故障**发生在该级别上. 
+                    * 屏蔽APC中断. **可访问分页内存**. **分页调度管理**就运行在这个级别上.
+                    * 关于APC(Asynchronous Procedure Call): 
+                        * APC是附属于线程的, 一个线程有一个APC队列. 
+                        * 相关api: 
+                            * `KeInitializeApc`: 初始化一个`KAPC`对象
+                            * `KeInsertQueueApc`: 将APC插入队列
+                        * 用户APC被插入队列后, 要等到线程变成可警告状态(alertable state)时它才会被线程调用. 
+                            * alertable: 
+                                * 表示可警告, 可唤醒的. 如果当前线程没事干, 就是这个状态. 这时候它就会去调用apc函数. 
+                                * 如果线程设置了这个状态, 那么线程睡眠时可被唤醒. 
+                            * `SleepEx`, `SignalObjectAndWait`, `MsgWaitForMultipleObjectsEx`, `WaitForMultipleObjectsEx`, `WaitForSingleObjectEx`, 线程调用了它们后就会进入`alertable wait`状态, APC队列中的就会被调用. 
+                            * `ReadFileEx`, `SetWaitableTimer`, `SetWaitableTimerEx`, `WriteFileEx`, 它们的实现方式就是用APC作为完成通知例程. 
+                        * 优先级: 特殊APC > 普通APC > 用户APC. 
+                            * 前两者是内核APC
+                            * 特殊APC运行在APC级别, 后两者运行在Passive级. 
+                    * 编程: 
+                        * 实验发现, 在APC级别中调用`ZwReadFile`会不返回. 相同的代码在Passive级别下运行没问题. 事实上, 官方文档中这些文件操作函数都要求在Passive级别下使用. 
+                * `DISPATCH_LEVEL`(2): 
+                    * **线程调度**和**DPC例程**运行在该级别上. 
+                    * 屏蔽DPC(Deferred Procedure Call)及以下级别中断. **不能访问分页内存**. 因线程调度由时钟中断来保证, 所以该级别中断就是调度中断.
+                    * 内核为每一个处理器保持一个**DPC队列**, 并且在相应的处理器的IRQL降低到`DISPATCH_LEVEL`之下时运行DPC. 
+                    * 在任务管理器有一个伪线程`系统中断`(`interrupts`), 可显示花费在 IRQL >= 2 时的CPU时间. 
+                    * DPC: 
+                        * 硬件驱动程序通过DPC来处理设备中断. 
+            * 硬中断
+                * `DIRQL`(Device IRQL): 设备中断请求级. 在该级别上, 所有中断均被忽略.
+                * `PROFILE_LEVEL`: 配置文件定时器
+                * `CLOCK2_LEVEL`: 时钟
+                * `SYNCH_LEVEL`: 同步级
+                * `IPI_LEVEL`: 处理器之间中断级
+                * `POWER_LEVEL`: 电源故障级
+            * 遵守中断级别要求
+                * `PASSIVE`级别可访问任何函数和内存
+                * `DISPATCH`级别只能访问运行在DISPATCH级别的API和非分页内存(`NONPAGEDPOOL`)
+                * `NONPAGEDPOOL`可在任何级别使用
+                * `PAGEDPOOL`只能在PASSIVE和APC级别使用
+                    * 在这两个级别的代码中用`PAGED_CODE`宏(其调用`KeGetCurrentIrql`), 其会检测当前代码IRQL是否高于APC, 是则异常.
+                * 补充
+                    * 系统在APC_LEVEL处理缺页中断, 所以, 执行在>=APC_LEVEL上的代码必须存放在NON-PGAE内存中
+                    * 许多具有复杂功能的内核api都运行在passive级, 只有比较简单的函数能在dispatch级运行.
+            
+            |调用源|一般的运行中断级|运行环境|
+            |-|-|-|
+            |`DriverEntry`, `DriverUnload`|Passive级|单线程|
+            |各种分发函数`DispatchXxx`|Passive级|多线程|
+            |完成函数|Dispatch级|多线程|
+            |各种NDIS回调函数|Dispatch级|多线程|
+    * 多线程
+        * 内核创建多线程: `PsCreateSystemThread`, 创建一个内核模式的线程, 没有TEB
+            ```cpp
+            NTSTATUS
+            PsCreateSystemThread(
+                OUT PHANDLE  ThreadHandle, //新创建的线程句柄
+                IN ULONG  DesiredAccess, //创建的权限
+                IN POBJECT_ATTRIBUTES  ObjectAttributes  OPTIONAL,//线程的属性, 一般设为NULL
+                IN HANDLE  ProcessHandle  OPTIONAL,//指定创建用户线程还是系统线程. 如果为NULL, 则为系统进程, 如果该值是一个进程句柄, 则新创建的线程属于这个指定的进程. DDK提供的NTCurrentProcess可以得到当前进程的句柄. 
+                OUT PCLIENT_ID  ClientId  OPTIONAL,
+                IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
+                IN PVOID  StartContext //新线程接收的参数
+            );
+            ```
+        * 同步(A告诉B发生了什么事)
+            * `KEVENT`: 用于线程同步
+                * Event两个状态: Signaled, Non-signaled
+                * Event两个类别: 
+                    * `NotificationEvent`(不自动恢复, 比如从Signaled转为Non-Signaled要手动设置). 
+                    * `SynchronizationEvent`(自动恢复). **如果有多个线程在等待这个事件, 则只会有一个线程恢复执行**. 
+                * 在windbg中查看event是否为signaled状态: `dt myEvent`得到事件的Header, 点击Header找到`SignalState`成员. 
+                * 代码
+                    ```c
+                    // 线程A
+                    KEVENT waitEvent;
+
+                    // 初始化事件, 三参为FALSE表示事件初始时为non-signaled状态
+                    KeInitializeEvent(&waitEvent, NotificationEvent, FALSE);
+
+                    // 内核中创建自命名事件则如下
+                    RtlInitUnicodeString(&EventName, L"\\BaseNamedObjects\\ProcEvent");
+                    PKEVENT Event = IoCreateNotificationEvent(&EventName, &Handle); // 生成的事件的句柄放到Handle中
+                    KeClearEvent(Event); // 将事件设为non-signaled状态
+
+                    // 触发事件. 三参如果为TRUE, 则后面必须接KeWaitXxx函数
+                    KeSetEvent(&waitEvent, IO_NO_INCREMENT, FALSE); 
+
+                    // 线程B
+                    
+                    KeWaitForSingleObject(&waitEvent, Executive, KernelMode, FALSE, NULL); // NULL无限等待, 0立即返回
+                    ... 
+                    KeClearEvent(&waitEvent); // 将事件设为non-signaled状态
+                    KeResetEvent(&waitEvent);
+
+                    // 应用层等待事件则如下
+                    HANDLE hProcessEvent = ::OpenEventW(SYNCHRONIZE, FALSE, L"Global\\ProcEvent");  // 注意得到的句柄为0时会让下面的代码死循环, 所以要判断0, 为0就不要进入下面的语句了, 直接退出程序
+                    while (true) {
+                        ::WaitForSingleObject(hProcessEvent, INFINITE)
+                        ...
+                    }
+                    ```
+            * `KeWaitForSingleObject`, `KeWaitForMultiObjects`
+                * `KeWaitForSingleObject`:
+                    * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中 **. 
+                * 可等待的对象: `KEVENT`, `KMUTEX/KMUTANT`, `KPROCESS`, `KQUEUE`, `KSEMAPHORE`, `KTHREAD`, `KTIMER`(它们都带dispatcher header). 
+                * 不可等待: `fileobject`/`driverobject`
+                    * 微软不建议对一个文件句柄调用`XxWaitForSingleObject`, 因为当该文件上有很多`pending`的IO操作时, 任何一个操作的完成都会让文件对象变成`signaled`状态. (参考 https://stackoverflow.com/questions/775014/waitforsingleobject-on-a-file-handle) . 
+            * R0到R3同步通信
+                * 内核层
+                    * 创建Event: `IoCreateNotificationEvent`, `L"\\BaseNamedObjects\\ProcEvent"`
+                * 应用层
+                    * 事件名: `L"Global\\ProcEvent"`
+        * 互斥(A和B只能一个访问)
+            * `KSPIN_LOCK`: 自旋锁
+                * 代码
+                    ```cpp
+                    KIRQL OldIrql;
+                    KSPIN_LOCK mySpinLockProc; // 需要定义为静态变量或全局变量, 或在堆中分配, 这样才能确保所有访问临界区代码的线程共用一个自旋锁
+
+                    KeInitializeSpinLock(&mySpinLockProc);
+
+                    // 获得自旋锁. KeAquireSpinLock会提高当前中断级别, 旧的中断级别则暂存于OldIrql
+                    KeAquireSpinLock(&mySpinLockProc, &OldIrql);
+                    
+                    
+                    // 访问数据, 这里一次只有一个线程执行, 其它线程等待
+                    g_i++;
+
+                    // 释放
+                    KeReleaseSpinLock(&mySpinLockProc, OldIrql);
+
+                    // 如果线程已经在dpc级别, 则调用如下函数, 以避免性能损失
+                    KeAquireSpinLockAtDpcLevel(&mySpinLockProc);
+                    KeAquireSpinLockFromDpcLevel(&mySpinLockProc);
+                    ```
+                * 注意事项
+                    * 多CPU共享安全
+                    * 自旋锁常用于**IRQL大于Dispatch级时**的数据和资源共享中. 
+                    * **提升IRQL到DPC**
+                    * 禁止访问分页内存
+                    * 获得时间越短越好
+                * 队列自旋锁
+                * 和`Mutex`的区别: 
+
+                    |SpinLock|Mutex|
+                    |-|-|
+                    |忙等, 不会睡眠(不阻塞). 忙等线程会占着CPU, 一直轮询. 适用于等待时间不长的情况(如小于**25微秒**)|会阻塞请求线程. 若要长时间串行化访问一个对象, 应首先考虑使用互斥量而非自旋锁|
+                    |SpinLock请求成功之后, CPU的执行级别会提升到Dispatch级别. DL及以下级别可请求SpinLock|Mutex通常在PL请求, 在DL上Timeout要设为0|
+                    |非递归锁(不能递归获得该锁)|递归锁|
+                    |主要用于多CPU, 但效率不高, 使用ERESOURCE较好|-|
+
+            * `ERESOURCE`(读写共享锁)(2:14)
+                ```cpp
+                // 获取独占锁. 
+                // lpLock是 ERESOURCE* 变量. 二参为True, 则调用者会一直等待, 直到资源可被获取, 为False则直接返回(无论有没有获取资源). 
+                // 如果获得资源, 则函数返回True
+                ExAcquireResourceExclusiveLite(lpLock, TRUE);
 
                 // 释放
-                KeReleaseSpinLock(&mySpinLockProc, OldIrql);
+                ExReleaseResourceLite(lpLock);
 
-                // 如果线程已经在dpc级别, 则调用如下函数, 以避免性能损失
-                KeAquireSpinLockAtDpcLevel(&mySpinLockProc);
-                KeAquireSpinLockFromDpcLevel(&mySpinLockProc);
+                // 获取共享锁. 二参为TRUE, 则当无法获得锁时, 线程会一直等待
+                ExAcquireResourceSharedLite(lpLock, TRUE); 
+
+                ExReleaseResourceLite(lpLock);
                 ```
-            * 注意事项
-                * 多CPU共享安全
-                * 自旋锁常用于**IRQL大于Dispatch级时**的数据和资源共享中. 
-                * **提升IRQL到DPC**
-                * 禁止访问分页内存
-                * 获得时间越短越好
-            * 队列自旋锁
-            * 和Mutex的区别: 
+                * **独占锁**是指同一时刻只能被一个线程持有, 也叫**写锁**. **共享锁**则可被多个线程同时持有, 也叫**读锁**. 
+                * 根据官方文档, 这些获取和释放锁的操作只能在APC及以下级别中访问. 
 
-                |SpinLock|Mutex|
-                |-|-|
-                |忙等, 不会睡眠(不阻塞). 忙等线程会占着CPU, 一直轮询. 适用于等待时间不长的情况(如小于25微秒)|会阻塞请求线程. 若要长时间串行化访问一个对象, 应首先考虑使用互斥量而非自旋锁|
-                |SpinLock请求成功之后, CPU的执行级别会提升到Dispatch级别. DL及以下级别可请求SpinLock|Mutex通常在PL请求, 在DL上Timeout要设为0|
-                |非递归锁(不能递归获得该锁)|递归锁|
-                |主要用于多CPU, 但效率不高, 使用ERESOURCE较好|-|
+            * `FAST_MUTEX`
+                * 用于互斥
+                * APC级别
+                * 非递归锁
+                * 代码
+                    ```c
+                    FAST_MUTEX fm;
+                    ExInitializeFastMutex(&fm);
+                    ```
 
-        * ERESOURCE(读写共享锁)(2:14)
-            ```cpp
-            // 获取独占锁. 
-            // lpLock是 ERESOURCE* 变量. 二参为True, 则调用者会一直等待, 直到资源可被获取, 为False则直接返回(无论有没有获取资源). 
-            // 如果获得资源, 则函数返回True
-            ExAcquireResourceExclusiveLite(lpLock, TRUE);
-
-            // 释放
-            ExReleaseResourceLite(lpLock);
-
-            // 获取共享锁. 二参为TRUE, 则当无法获得锁时, 线程会一直等待
-            ExAcquireResourceSharedLite(lpLock, TRUE); 
-
-            ExReleaseResourceLite(lpLock);
-            ```
-            * **独占锁**是指同一时刻只能被一个线程持有, 也叫**写锁**. **共享锁**则可被多个线程同时持有, 也叫**读锁**. 
-            * 根据官方文档, 这些获取和释放锁的操作只能在APC及以下级别中访问. 
-
-        * FAST_MUTEX
-            * 用于互斥
-            * APC级别
-            * 非递归锁
-            * 代码
-                ```c
-                FAST_MUTEX fm;
-                ExInitializeFastMutex(&fm);
-                ```
-
-        * KSEMAPHORE(信号量)(2:24)
-            * 相当于资源池
-            * 代码
-                ```cpp
-                KSEMAPHORE ks;
-                KeInitializeSemaphore(
-                    &ks,
-                    1, // 信号量的初始值, 资源数
-                    2 // 信号量的最大值
-                );
+            * `KSEMAPHORE`(信号量)(2:24)
+                * 相当于资源池
+                * 代码
+                    ```cpp
+                    KSEMAPHORE ks;
+                    KeInitializeSemaphore(
+                        &ks,
+                        1, // 信号量的初始值, 资源数
+                        2 // 信号量的最大值
+                    );
+                    
+                    LARGE_INTEGER waitTime = {0};
+                    waitTime.QuadPart = -1 * 10000000i64;
+                    KeWaitForSingleObject(&ks, Executive, KernelMode, FALSE, &waitTime); // 0立即返回, 
+                    KeReleaseSemaphore(&ks, IO_NO_INCREMENT, 1, FALSE); // 0立即返回, 
+                    ```
+            * R0同步互斥总结
+                * `Dispatch`级别: `SpinLock`
+                * `APC`/`PASSIVE级别`:
+                    * 互斥: `ERESOURCE`/`FAST_MUTEX`
+                    * 同步: `KEVENT`/`KSEMAPHORE`
+                * R3和R0同步通信: `KEVENT`
+                * 整数增减: `InterlockedExchanged`, `Interlockedincrement(&i)`可对整数i进行原子性加
                 
-                LARGE_INTEGER waitTime = {0};
-                waitTime.QuadPart = -1 * 10000000i64;
-                KeWaitForSingleObject(&ks, Executive, KernelMode, FALSE, &waitTime); // 0立即返回, 
-                KeReleaseSemaphore(&ks, IO_NO_INCREMENT, 1, FALSE); // 0立即返回, 
-                ```
-        * R0同步互斥总结
-            * Dispatch级别: SpinLock
-            * APC/PASSIVE级别:
-                * 互斥: ERESOURCE/FAST_MUTEX
-                * 同步: KEVENT/KSEMAPHORE
-            * R3和R0同步通信: KEVENT
-            * 整数增减: `InterlockedExchanged`, `Interlockedincrement(&i)`可对整数i进行原子性加
+            * `critical_section`(临界区)(2:50)
+            ```cpp
+            typedef struct _RTL_CRITICAL_SECTION {
+                PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
+                LONG LockCount; // 初始为-1, 大于等于0时表示被临界区占用. 它跟RecursionCount的差值表示有多少其他线程在等待获得临界区
+                LONG RecursionCount; // 所有者线程递归获取的次数
+                HANDLE OwningThread;        // 所有者线程的id ClientId->UniqueThread
+                HANDLE LockSemaphore; // 这是一个自复位事件而非信号量. 用于通知操作系统, 临界区已空闲. 临界区被占时, 若有另一个线程尝试获取, os会创建之. 最后要用DeleteCriticalSection释放.
+                ULONG_PTR SpinCount;        // 仅用于多处理器. 若临界区不可用, 调用线程将在对与该临界区相关的信号执行等待操作前, 选择SpinCount次. 若期间临界区变为可用, 调用线程就避免了等待操作. 默认为0.
+            } RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION;
+            RTL_CRITICAL_SECTION cs;
+            EnterCriticalSection(&cs);
+                ...
+                //   操作dwTime
+                ...
+            LeaveCriticalSection(&cs);
+            ```
+
+            * 用临界区实现CAutoClock(自动锁)
+            ```c
+            class CLock
+            {
+            public:
+                CLock()
+                {
+                    InitializeCriticalSection(&m_cs);
+                }
+                ~CLock()
+                {
+                    DeleteCriticalSection(&m_cs);
+                }
+                void Lock()
+                {
+                    EnterCriticalSection(&m_cs);
+                }
+                void UnLock()
+                {
+                    LeaveCriticalSection(&m_cs);
+                }
+
+            private:
+                CRITICAL_SECTION m_cs;
+
+            };
+            class CAutoLock
+            {
+            public:
+                CAutoLock(CLock *pLock):m_pLock(pLock)
+                {
+                    m_pLock->Lock();
+                }
+                ~CAutoLock()
+                {
+                    m_pLock->UnLock();
+                }
+            private:
+                CLock *m_pLock;
+            };
+
+            CLock g;
+            {
+                CAutoClock a(&g);
+
+                // 从这个单元出去后a的析构函数被调用, 即可解锁
+            }
+            ```
             
-        * critical_section(临界区)(2:50)
+            * 死锁
+                * Dijkstra哲学家用餐问题解决方法
+                    * 服务生同意才能拿
+                    * 资源分级: 筷子编号, 每个哲学家总是先试图拿编号最小的筷子
+
+* `TLS`(thread local storage): 
+
+    <img alt="" src="./pic/tls.jpg" width="60%" height="60%">
+
+    * 一个进程中所有线程共享它们所属进程的虚拟地址空间(其中包含静态变量和全局变量), 若线程要独享某些变量, 则可用TLS来存储. 
+    * 使用索引来找存储在TLS的变量
+    * `TLS_MINIMUM_AVAILABLE`: 指定每个进程可使用的TLS索引的最小数目(至少64, 最大则是1088). 
+    * API
+        * 首先, 在程序声明一个全局变量, 如`DWORD dwIndex`. 
+        * `(dwIndex = TlsAlloc()) == TLS_OUT_OF_INDEXES`: 分配得到新的tls索引
+        * `TlsFree(dwIndex)`: 释放tls索引
+        * `lpvData = (LPVOID) LocalAlloc(LPTR, 256)`: 
+        * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
+        * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
+
+* 系统工作者线程`workitem`(system worker threads)
+    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队，系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池，其中每个线程一次执行一个工作项. 
+    * workitem写法
         ```cpp
-        typedef struct _RTL_CRITICAL_SECTION {
-            PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
-            LONG LockCount; // 初始为-1, 大于等于0时表示被临界区占用. 它跟RecursionCount的差值表示有多少其他线程在等待获得临界区
-            LONG RecursionCount; // 所有者线程递归获取的次数
-            HANDLE OwningThread;        // 所有者线程的id ClientId->UniqueThread
-            HANDLE LockSemaphore; // 这是一个自复位事件而非信号量. 用于通知操作系统, 临界区已空闲. 临界区被占时, 若有另一个线程尝试获取, os会创建之. 最后要用DeleteCriticalSection释放.
-            ULONG_PTR SpinCount;        // 仅用于多处理器. 若临界区不可用, 调用线程将在对与该临界区相关的信号执行等待操作前, 选择SpinCount次. 若期间临界区变为可用, 调用线程就避免了等待操作. 默认为0.
-        } RTL_CRITICAL_SECTION, *PRTL_CRITICAL_SECTION;
-        RTL_CRITICAL_SECTION cs;
-        EnterCriticalSection(&cs);
-            ...
-            //   操作dwTime
-            ...
-        LeaveCriticalSection(&cs);
+
         ```
 
-        * 用临界区实现CAutoClock(自动锁)
-        ```c
-        class CLock
-        {
-        public:
-            CLock()
-            {
-                InitializeCriticalSection(&m_cs);
-            }
-            ~CLock()
-            {
-                DeleteCriticalSection(&m_cs);
-            }
-            void Lock()
-            {
-                EnterCriticalSection(&m_cs);
-            }
-            void UnLock()
-            {
-                LeaveCriticalSection(&m_cs);
-            }
-
-        private:
-            CRITICAL_SECTION m_cs;
-
-        };
-        class CAutoLock
-        {
-        public:
-            CAutoLock(CLock *pLock):m_pLock(pLock)
-            {
-                m_pLock->Lock();
-            }
-            ~CAutoLock()
-            {
-                m_pLock->UnLock();
-            }
-        private:
-            CLock *m_pLock;
-        };
-
-        CLock g;
-        {
-            CAutoClock a(&g);
-
-            // 从这个单元出去后a的析构函数被调用, 即可解锁
-        }
-        ```
-        
-        * 死锁
-            * Dijkstra哲学家用餐问题解决方法
-                * 服务生同意才能拿
-                * 资源分级: 筷子编号, 每个哲学家总是先试图拿编号最小的筷子
-            * windbg检测死锁
-                * `!deadlock`
-                * `!locks`: 列出锁的信息, `LockCount`大于0的锁对应的线程比较可疑.
-                * 用 `~` 列出线程, `~<tid> kb` 查看调用栈, 找到`RtlWaitForCriticalSection`之类的函数的参 数
+* 线程相关API
+    * `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
+    * `PsGetCurrentThread()`: 获取指向当前线程的EThread的指针. 
+    * `PsLookupThreadByThreadId(thrdId, &pEthread)`: 给定线程id, 获取线程的EThread. 
 
 # 内核数据结构
-* LIST_ENTRY结构体(构成双向循环链表)
+* `LIST_ENTRY`结构体(构成双向循环链表)
     * 在结点结构体中添加该结构体类型的成员
     * `CONTAINING_RECORD(addr, type, field)`: 返回一个结构实例的基地址, 该结构的类型和结构所包含的一个域(成员)地址已知
         ```c
@@ -1252,7 +1283,7 @@
     * `RTL_AVL_TABLE`
     * `RtlInitializeGenericTableAvl`
 
-* LookAside结构: 用于在频繁申请相同大小的情形中, 防止内存碎片化的机制
+* `LookAside`结构: 用于在频繁申请相同大小的情形中, 防止内存碎片化的机制
     * 类别
         * `PAGED_LOOKASIDE_LIST`
         * `NPAGED_LOOKASIDE_LIST`
@@ -1269,11 +1300,12 @@
         );
         ```
         1. 初始化一个`PNPAGED_LOOKASIDE_LIST`结构. 
-        2. 将`Lookaside->L.ListEntry`插入到全局的look aside 表ExNPagedLookasideListHead中. 
+        2. 将`Lookaside->L.ListEntry`插入到全局的 look aside 表`ExNPagedLookasideListHead`中. 
     * `ExAllocateFromNPagedLookasideList(PNPAGED_LOOKASIDE_LIST Lookaside)`: 分配内存. 其会在`Lookaside`中找一个空闲节点, 如果找不到, 则使用`Lookaside->L.Allocate`指定的分配函数分配一块内存. 
     * `ExFreeToNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside, IN PVOID Entry)`: 释放内存, 放到`Lookaside`
 
-# 强杀进程
+# 进程
+## 强杀进程
 * `NtTerminateProcess` -> `PsTerminateProcess`(系统未导出) -> `PspTerminateProcess`  ->`PspTerminateThreadByPointer` -> `PspExitThread` 
 * 暴力搜索未导出函数`PsTerminateProcess`
     * 获取特征值
@@ -1281,7 +1313,7 @@
     * 内核地址空间
         * `NtQuerySystemInformation`(win8以后不支持了)或`AnuKlibQueryModuleInformation`: 查内核起始地址
 
-# 进程相关API
+## 进程相关API
 * `PsGetCurrentProcessId`: 获取当前线程所属进程的pid. 在DispatchIoControl函数中实际是获得向驱动发出请求的进程的id.
 * `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的EPROCESS结构的指针.
 * `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取指向进程EPROCESS结构的指针. 
@@ -1292,94 +1324,6 @@
     * `objAttr`: 可设为`{0}`. 
     * `clientId`: `CLIENT_ID`结构体变量. 其中`UniqueProcess`设为进程id, `UniqueThread`可设为0. 
 * ``: 
-
-# 线程
-* TLS(thread local storage): 
-
-    <img alt="" src="./pic/tls.jpg" width="60%" height="60%">
-
-    * 一个进程中所有线程共享它们所属进程的虚拟地址空间(其中包含静态变量和全局变量), 若线程要独享某些变量, 则可用TLS来存储. 
-    * 使用索引来找存储在TLS的变量
-    * `TLS_MINIMUM_AVAILABLE`: 指定每个进程可使用的TLS索引的最小数目(至少64, 最大则是1088). 
-    * API
-        * 首先, 在程序声明一个全局变量, 如`DWORD dwIndex`. 
-        * `(dwIndex = TlsAlloc()) == TLS_OUT_OF_INDEXES`: 分配得到新的tls索引
-        * `TlsFree(dwIndex)`: 释放tls索引
-        * `lpvData = (LPVOID) LocalAlloc(LPTR, 256)`: 
-        * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
-        * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
-
-* 系统工作者线程(system worker threads)
-    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队，系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池，其中每个线程一次执行一个工作项. 
-    * workitem写法
-    ```cpp
-
-    ```
-
-* 线程相关API
-    * `PsGetContextThread(pThread, &ctx, <mode>)`: 返回指定线程的用户模式上下文. 
-    * `PsGetCurrentThread()`: 获取指向当前线程的EThread的指针. 
-    * `PsLookupThreadByThreadId(thrdId, &pEthread)`: 给定线程id, 获取线程的EThread. 
-
-# 运行时API(RtlXxx)
-* `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
-
-# 一些全局变量
-* `KeLoaderBlock`: 该指针指向一个由OS的加载器构造的一个"加载器参数块". 
-
-# 其他API
-* 时间
-    * `VOID KeQueryTickCount(OUT PLARGE_INTEGER TickCount);`: 系统自启动后的时间计数. `TickCount->QuadPart * <每个计数所需百纳秒数> / 10000`可得到系统启动后经过的毫秒时间. 
-    * `VOID KeQueryTimeIncrement();`: 一个计数所需时间, 单位为100纳秒(nanosecond). 
-    * 获取时间:
-    ```cpp
-    KeQuerySystemTime(&GelinTime); // 得到格林威治时间
-    ExSystemTimeToLocalTime(&GelinTime, &LocalTime); // 转成本地时间
-    RtlTimeToTimeFields(&LocalTime, &NowFields);
-    KdPrint(("系统当前时间 : %4d年%2d月%2d日 %2d:%2d:%2d\n",
-        NowFields.Year, 
-        NowFields.Month,
-        NowFields.Day,
-        NowFields.Hour,
-        NowFields.Minute,
-        NowFields.Second));
-    ```
-* object: 
-    * `ObOpenObjectByPointer`: 获取所给对象的句柄
-    * `ObReferenceObject(pObj)`: 对象的引用计数加一. (引用计数为0时, 内核组件可以将对象移出系统)
-    * `ObDereferenceObject(pObj)`: 对象的引用计数减一. 
-
-* 事件
-    * `ZwCreateEvent`, `KeInitializeEvent`: 前者只能在passive级别调用. 后者则可在任意irql中使用. 
-        ```cpp
-        NTSYSAPI NTSTATUS ZwCreateEvent(
-            OUT          PHANDLE            EventHandle, // 用于保存返回的事件句柄
-
-            // 访问类型. 
-            // EVENT_QUERY_STATE:	查询事件对象的状态.
-            // EVENT_MODIFY_STATE:	修改事件对象的状态.
-            // EVENT_ALL_ACCESS:	所有对事件对象的操作权限.
-            IN           ACCESS_MASK        DesiredAccess,
-
-            IN OPTIONAL POBJECT_ATTRIBUTES ObjectAttributes, // 包含对象名称和安全描述符. 可以为NULL
-            IN           EVENT_TYPE         EventType, // SynchronizationEvent或NotificationEvent.
-            IN           BOOLEAN            InitialState // 事件的初始状态
-        );
-        
-        ```
-    * `ZwWaitForSingleObject`, `KeWaitForSingleObject`: 
-        * 前者只能在passive级别调用. 
-        * 后者: 运行的IRQL <= DPC; 若timeout指针为NULL或timeout值不为0, 运行的IRQL <= APC
-        ```cpp
-        NTSTATUS
-        KeWaitForSingleObject (
-            PVOID Object,
-            KWAIT_REASON WaitReason, // 在驱动中, 其一般设为Executive, 除非它代表用户工作, 并且在用户线程上下文中运行, 此时设为UserRequest
-            KPROCESSOR_MODE WaitMode, // KernelMode或UserMode. 低层和中间层驱动设为KernelMode. 若给定对象是mutex, 则也是设为KernelMode
-            BOOLEAN Alertable,
-            PLARGE_INTEGER Timeout // 以100纳秒为单位, 负数表示相对于当前时间, 正数则相对于1601/01/01,  0则不等待, 若提供了NULL指针, 则无限等待. 
-        );
-        ```
 
 # 内存
 * [官方文档](https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/managing-memory-for-drivers)
@@ -1532,6 +1476,64 @@
     * 同步非阻塞: 虽然和同步阻塞一样IO不会立即返回, 但它是有数据时才IO. 实现方式包括IO多路复用.
 
 
+# 其他API
+* 运行时API(`RtlXxx`)
+    * `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
+* 时间
+    * `VOID KeQueryTickCount(OUT PLARGE_INTEGER TickCount);`: 系统自启动后的时间计数. `TickCount->QuadPart * <每个计数所需百纳秒数> / 10000`可得到系统启动后经过的毫秒时间. 
+    * `VOID KeQueryTimeIncrement();`: 一个计数所需时间, 单位为100纳秒(nanosecond). 
+    * 获取时间:
+    ```cpp
+    KeQuerySystemTime(&GelinTime); // 得到格林威治时间
+    ExSystemTimeToLocalTime(&GelinTime, &LocalTime); // 转成本地时间
+    RtlTimeToTimeFields(&LocalTime, &NowFields);
+    KdPrint(("系统当前时间 : %4d年%2d月%2d日 %2d:%2d:%2d\n",
+        NowFields.Year, 
+        NowFields.Month,
+        NowFields.Day,
+        NowFields.Hour,
+        NowFields.Minute,
+        NowFields.Second));
+    ```
+* object: 
+    * `ObOpenObjectByPointer`: 获取所给对象的句柄
+    * `ObReferenceObject(pObj)`: 对象的引用计数加一. (引用计数为0时, 内核组件可以将对象移出系统)
+    * `ObDereferenceObject(pObj)`: 对象的引用计数减一. 
+
+* 事件
+    * `ZwCreateEvent`, `KeInitializeEvent`: 前者只能在passive级别调用. 后者则可在任意irql中使用. 
+        ```cpp
+        NTSYSAPI NTSTATUS ZwCreateEvent(
+            OUT          PHANDLE            EventHandle, // 用于保存返回的事件句柄
+
+            // 访问类型. 
+            // EVENT_QUERY_STATE:	查询事件对象的状态.
+            // EVENT_MODIFY_STATE:	修改事件对象的状态.
+            // EVENT_ALL_ACCESS:	所有对事件对象的操作权限.
+            IN           ACCESS_MASK        DesiredAccess,
+
+            IN OPTIONAL POBJECT_ATTRIBUTES ObjectAttributes, // 包含对象名称和安全描述符. 可以为NULL
+            IN           EVENT_TYPE         EventType, // SynchronizationEvent或NotificationEvent.
+            IN           BOOLEAN            InitialState // 事件的初始状态
+        );
+        
+        ```
+    * `ZwWaitForSingleObject`, `KeWaitForSingleObject`: 
+        * 前者只能在passive级别调用. 
+        * 后者: 运行的`IRQL` <= `DPC`; 若timeout指针为NULL或timeout值不为0, 运行的IRQL <= APC
+        ```cpp
+        NTSTATUS
+        KeWaitForSingleObject (
+            PVOID Object,
+            KWAIT_REASON WaitReason, // 在驱动中, 其一般设为Executive, 除非它代表用户工作, 并且在用户线程上下文中运行, 此时设为UserRequest
+            KPROCESSOR_MODE WaitMode, // KernelMode或UserMode. 低层和中间层驱动设为KernelMode. 若给定对象是mutex, 则也是设为KernelMode
+            BOOLEAN Alertable,
+            PLARGE_INTEGER Timeout // 以100纳秒为单位, 负数表示相对于当前时间, 正数则相对于1601/01/01,  0则不等待, 若提供了NULL指针, 则无限等待. 
+        );
+        ```
+* 一些全局变量
+    * `KeLoaderBlock`: 该指针指向一个由OS的加载器构造的一个"加载器参数块". 
+
 # 主防
 * 弹窗
     * R3某进程发生某操作
@@ -1585,7 +1587,7 @@
     * 找到该函数
     * 实现一个新的函数替换之
     * 恢复该函数
-* ssdt(system service dispatch table) hook
+* `ssdt`(system service dispatch table) hook
     * 在windbg中打印
         * `dps KeServiceDescriptorTable`: 可以得到ssdt表的元数据, 包括其基址和表项数目
         * `dps KiServiceTable`: 打印ssdt表项(在x64下不显示, 因为在x64下KeServiceDescriptorTable表不导出, 而且**表项不是直接存地址, 而是存相对ssdt的偏移**)
@@ -1598,7 +1600,7 @@
             * 一个x64的ssdt表项长为4字节, 其中前28位才是例程相对ssdt基址的偏移地址, 后4位为对应例程的参数个数. 
     * 或者用这个宏根据Zw函数获取Nt函数的地址: `#define SYSTEMSERVICE(_function) KeServiceDescriptorTable.ServiceTableBase[ *(PULONG)((PUCHAR)_function+1)]`. `_function`是NtXxx对应的ZwXxx. `(PUCHAR)_function+1`的目的是取ZwXxx函数开始处的第二个字节(注意ZwXxx函数的第一条指令是`mov eax, <索引号>`), 这个数字即是其在ssdt中的序号.
     * 用`typedef`定义一个目标Nt函数的原型, 然后声明一个函数指针变量, 存放原Nt函数.
-    ```cpp
+    ```c
     #define SDT SYSTEMSERVICE
 
     typedef NTSTATUS (*ZWOPENPROCESS)(
@@ -1722,7 +1724,7 @@
 
 
 
-* shadow ssdt: 多为和图形相关的函数
+* `shadow ssdt`: 多为和图形相关的函数
     * 窗口保护
 
         <img alt="" src="./pic/shadow_ssdt_protect_window.jpg" width="40%" height="40%">
@@ -1768,43 +1770,20 @@
 * idt
 * object
 * r3
-    * dll开发和劫持
-        * win32系统保证内存只有一份dll. 其先被调入win32系统的全局堆. 通过文件映射, 给多个进程使用.
-        * 工程生成的文件
-            * dll文件: 包含实际的函数和数据
-            * lib文件: 包含被dll导出的函数的名称和位置. exe程序可使用之链接到dll文件.
-        * 开发dll
-            ```cpp
-            // 导出函数的定义形式, 注意顺序, 名称都不能写错. 
-            extern "C" _declspec(dllexport) int myFunc1(int v) {
-                return v + 1;
-            }
-            ```
-        * 调用dll
-            * 隐式链接(可直接调用函数)
-                * 把dll文件拷贝到exe的目录下
-                * `#include "myDll.h"`
-                * `#pragma comment(lib, "myDll.lib")`
-            * 显式链接
-                * 定义函数指针类型: `typedef int (*MYFUNC)(void);`
-                * `HMODULE hMod = LoadLibrary(_T("myDll.dll"));`
-                * `if(hMod) {MYFUNC myFunc = (MYFUNC)GetProcess(hMod, "fnMyFunc"); myFunc();}`
-                * 注意  
-                    * 如果dll是cpp编译, 注意name mangling(c++为支持函数重载, 会改函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
-                    * `LoadLibrary`使用的是相对路径, windows会按一定顺序找目录, 有劫持漏洞. 
-                        * 搜索顺序: 
-                            * 程序所在目录
-                            * **加载dll时所在当前目录**
-                            * system32
-                            * windows
-                            * PATH环境变量中目录
-                        * 可构造一个同名dll, 执行恶意代码后再执行原始代码. 可用于提权(绕过UAC).
-                        * 防范
-                            * 启用安全DLL查找模式: 设置`HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\SafeDllSearchMode`, 会把"加载dll时所在当前目录"的搜索优先级降到第4.
-                            * 规定只能在system32中加载的dll: `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs`. 但`ExcludeFromKnownDlls`可排除部分DLL, 不从system32加载.
-                            * 使用绝对路径
-                            * 白名单, 签名
-                            * `SetDllDirectory()`把当前目录从搜索范围内去掉. 打KB2533623补丁的系统才可用.
+    * `LoadLibrary`使用的是相对路径, windows会按一定顺序找目录, 有劫持漏洞. 
+        * 搜索顺序: 
+            * 程序所在目录
+            * **加载dll时所在当前目录**
+            * system32
+            * windows
+            * PATH环境变量中目录
+        * 可构造一个同名dll, 执行恶意代码后再执行原始代码. 可用于提权(绕过UAC).
+        * 防范
+            * 启用安全DLL查找模式: 设置`HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\SafeDllSearchMode`, 会把"加载dll时所在当前目录"的搜索优先级降到第4.
+            * 规定只能在system32中加载的dll: `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\KnownDLLs`. 但`ExcludeFromKnownDlls`可排除部分DLL, 不从system32加载.
+            * 使用绝对路径
+            * 白名单, 签名
+            * `SetDllDirectory()`把当前目录从搜索范围内去掉. 打KB2533623补丁的系统才可用.
     * 全局钩子
         * 用`SetWindowsHookEx`监控一些消息
             * `HHOOK SetWindowsHookEx( int idHook, HOOKPROC lpfn,HINSTANCEhMod,DWORD dwThreadId );` 参数: 钩子类型, 回调函数, 包含lpfn的实例句柄, 线程ID(0则监控所有线程)
@@ -1861,11 +1840,11 @@
                 }
                 ```
             * 防护
-                * shadow ssdt中的`NtUserSetWindowsHookEx`
+                * `shadow ssdt`中的`NtUserSetWindowsHookEx`
                 
-    * 示例: Robert Kuster的libspy(dll注入), hookspy(通过`SetWindowsHook`注入), winspy(直接代码注入)
+    * 示例: Robert Kuster的`libspy`(dll注入), hookspy(通过`SetWindowsHook`注入), winspy(直接代码注入)
     * dll注入: 强制目标进程调用`LoadLibrary`, 载入目标dll
-        * PE共享节: 其中变量可供同一PE文件的多个实例访问. 可在**不同进程间传数据**. 在dll注入中, 可利用共享节的技术, 把窃取的数据存到其中
+        * PE共享节: 其中变量可供同一PE文件的多个实例访问. 可在**不同进程间传数据**. 在dll注入中, 可利用共享节的技术, 把窃取的数据存到其中. 
 
             ```cpp
             #pragma data_seg(".shared")
@@ -1897,12 +1876,12 @@
             * 将自己实现的LoadLibrary功能函数保存为shellcode. 
                 * 注: 在shellcode中使用的系统api都要事先通过`GetProcAddress`获取(使用`GetModuleHandleA`获取模块句柄, 传入的模块名不用后缀), 并作为参数传进去. 
                 * 注意注入器保存的shellcode是否是真实的函数体. 调试发现在vs2019中, 按默认选项编译**得到的函数地址处一条跳转到实际函数体的jmp指令**. 因此`需要使用jmp指令的操作数计算实际函数地址`.
-                * 注: 可用0xCCCCCCCCCCCCCCCC作为函数体结束识别标识.
+                * 注: 可用`0xCCCCCCCCCCCCCCCC`作为函数体结束识别标识.
                 * 问题: 用windbg调试远程线程, 发现远程线程中出现地址访问冲突:
                     * 原因1: 出问题的地方试图读取`__security_cookie`
-                    * 解决: 编译时关闭/GS选项, 禁用栈保护.
+                    * 解决: 编译时关闭`/GS`选项, 禁用栈保护.
                     * 原因2: 远程线程中试图调用一些不可用的函数, 包括`__CheckForDebuggerJustMyCode`, `_RTC_CheckStackVars`
-                    * 解决: 禁用/JMC选项, /RTC选项, 其他的如果是必要使用的动态库函数, 则需要用`LoadLibrary`和`GetProcAddress`获取, 且要确保目标进程已载入相应dll.
+                    * 解决: 禁用`/JMC`选项, `/RTC`选项, 其他的如果是必要使用的动态库函数, 则需要用`LoadLibrary`和`GetProcAddress`获取, 且要确保目标进程已载入相应dll.
             * 在目标进程中开辟新内存, 写入: 
                 * 要注入的dll的文件内容
                 * shellcode
@@ -1918,7 +1897,7 @@
             * 创建远程线程, 并以dll入口地址为线程执行地址. 
         * 通过驱动注入
     * r3跨进程hook
-        * 现有引擎: nthookengine, mhook, Detour(微软的)
+        * 现有引擎: `nthookengine`, `mhook`, `Detour`(微软的)
         * 总体流程
             * 一个dll文件, 调用hook引擎hook目标api
             * 一个hooker(监控软件)负责把dll文件注入到目标进程
@@ -1942,7 +1921,7 @@
         * 绑定时创建
         * 在设备栈上接收其它R3程序的IRP
         * 区分自己的进程和其它进程
-            ```cpp
+            ```c
             #define IS_MY_DEVICE_OBJECT(_devObj) \
                 (((_devObj) != NULL) && \
                 ((_devObj)->DriverObject == gSFilterDriverObject) && \
@@ -1959,16 +1938,13 @@
         * 简单放行(对irp没任何改动)如下:
             ```cpp
             IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
-            IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject,
-                        Irp ); // 会将(Irp)->CurrentLocation减1
+            IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject, Irp ); // 会将(Irp)->CurrentLocation减1
             ```
         * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 完成例程
         * 注意
             * 过滤设备对象的通信方式要和目标设备一致
             * 用`ClearFlag`清除初始化标志
-* irp注意事项
-    * 直接下发irp后, 本层无权再访问irp了.
-    * 下发irp后(`IoCallDriver`后), 如果后续想再次访问irp, 需要在下发前用`IoSetCompletionRoutine`设置的完成例程中, 返回`STATUS_MORE_PROCESSING_REQUIRED`, 以将irp的所有权返回给分发例程. 
+
 * 文件系统过滤框架
     * `Filemon`
     * `Sfilter`
@@ -2041,16 +2017,16 @@
             * ``: 
         * 回调函数的IRQL
             * pre操作的回调函数在passive或apc级. (通常为前者)
-            * 若pre操作的回调函数返回FLT_PREOP_SYNCHRNIZE, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
+            * 若pre操作的回调函数返回`FLT_PREOP_SYNCHRNIZE`, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
             * 若post操作的回调函数处理fast io, 则其在passive级, 与pre操作处于同一线程上下文.
-            * post-create的回调函数是在passive级, 和初始化IRP_MJ_CREATE的线程处于同一上下文.
+            * post-create的回调函数是在passive级, 和初始化`IRP_MJ_CREATE`的线程处于同一上下文.
         * Minifilter上下文
             * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`
             * 类型
-                * Stream Context(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
-                * Stream Handle Context(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
-                * Instance Context(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
-                * Volume Context(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用Instance Context 代替 Volume Context
+                * `Stream Context`(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
+                * `Stream Handle Context`(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
+                * `Instance Context`(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
+                * `Volume Context`(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用`Instance Context` 代替 `Volume Context`
                 * (文件上下文): 
         * 通信
             * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
@@ -2067,7 +2043,7 @@
             );
             ```
         * 沙盒
-            * Sandboxie
+            * `Sandboxie`
             * 目录
                 * 沙盒根目录: `\device\harddiskvolume1\sandbox`
                 * 文件源路径: `\device\harddiskvolume2\doc\hi.txt`
@@ -2075,7 +2051,7 @@
                 * 文件删除标记: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt.del`
             * 判断自己是否被沙盒
                 * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
-    * Filespy
+    * `Filespy`
 
 # 防火墙
 * 概要
@@ -2098,7 +2074,7 @@
 
     <img alt="" src="./pic/tdi_ndis_wfp.jpg" width="60%" height="60%">
 
-* tdi
+* `TDI`
 
     <img alt="" src="./pic/tdi.jpg" width="50%" height="50%">
 
@@ -2109,7 +2085,7 @@
     * `IRP_MJ_CREATE`, `IRP_MJ_DEVICE_CONTROL`, `IRP_MJ_INTERNAL_DEVICE_CONTROL`, 用来响应socket, bind, connect, listen, accept, send, recv等. 
     * 协议驱动设备: `\device\tcp`, `\device\udp`, `\device\RawIp`
 
-    * tdifw (用于tdi二次开发, 修改`events.c` `dispatch.c`)
+    * `tdifw` (用于tdi二次开发, 修改`events.c` `dispatch.c`)
         * `tdi_fw.c`: `DriverEntry`在这里. 生成3个过滤设备对象, 分别与上述3个协议驱动设备绑定. 
             * `c_n_a_device(theDriverObject, &g_tcpfltobj, &g_tcpoldobj, L"\\Device\\Tcp");` 表示生成新的过滤设备对象(赋值予`g_tcpfltobj`), 并将其与目标设备`L"\\Device\\Tcp"`绑定(目标设备对象的指针赋予`g_tcpoldobj`). 
         * `dispatch.c`: 定义了一个全局数组`g_tdi_ioctls`, 其中保存次功能号. 在对主功能号`IRP_MJ_INTERNAL_DEVICE_CONTROL`的处理过程中会遍历这个数组
@@ -2127,7 +2103,7 @@
             * 运行`install.bat`
 
             * `net start tdifw`
-* ndis(network driver interface specification)
+* `NDIS`(network driver interface specification)
     * 层次
         * 协议驱动: 绑定在所有网卡上, 所以能截获接收到的包, 但无法截获发送的包. 
         * 中间层驱动: (P部分)绑定在了所有的小端口驱动上;  (M部分)也被所有协议驱动绑定. 收发都能拦截
@@ -2137,7 +2113,7 @@
 
     * passthru
 
-* WFP(windows filtering platform)
+* `WFP`(windows filtering platform)
 
     <img alt="" src="./pic/wfp_architecture.jpg" width="70%" height="70%">
 
@@ -2175,14 +2151,14 @@
                 * `FWPM_LAYER_ALE_CONNECT_REDIRECT_V4`: 可以在建立连接前修改IP地址. 对于实现代理服务器很有用. 
                 * `FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4`: 作为服务端(调用`listen`)接收到TCP第一次握手的syn包, 会经过该层. 
                 * `FWPM_LAYER_ALE_FLOW_ESTABLISHED_V4`: TCP第三次握手的ack包, 会经过该层.
-        * Filters
+        * `Filters`
             * 用于处理包的一些规则和动作的集合. 
             * 要为过滤器指定分层(给`layerKey`分层的GUID, 给`subLayerKey`赋值子层的GUID)
             * 同一分层内, 不同过滤器的权重不能相同. 
             * 过滤器一般会关联一个callout接口. (也就是把callout的guid赋予过滤器`action.calloutKey`)
-        * Shims
+        * `Shims`
             * 垫片. 解析网络堆栈中的流, 包, 事件. 调用过滤引擎并根据规则评估数据, 或进一步调用callout, 最后决定对包的最终处理. 
-        * Callouts函数
+        * `Callouts`函数
             * 由驱动暴露的一组接口函数, 负责进一步分析或修改包. **当数据包命中某过滤器的规则并且过滤器指定一个callout时, 该callout内的回调函数即被调用.** 如classify数据处理函数. 可返回一组permit, block, continue, defer, needmoredata等. 
             * Classify
                 * 利用规则过滤包的过程. 将包的各种属性与规则中的conditions进行比较. 
@@ -2277,15 +2253,15 @@
 # VT技术
 * 概念
     * 硬件虚拟化技术, 在硬件级别上完成计算机的虚拟化(增加了一些寄存器)
-    * Intel vt-x, Amd-v(SVM)
-    * 一句话总结: vt是一个驱动(.sys文件), 由os加载运行后, 运行在每个cpu内核上, 推翻(subvert)原来的os(加载它的os, 然后os和app-r0和r3退化为guset), 建立特权层(host, vmm, hypervisor, root, -1), 监控(欺骗)guest(os, 应用程序, non-root, 0, 3)的执行. 
+    * `Intel vt-x`, `Amd-v(SVM)`
+    * 一句话总结: vt是一个驱动(.sys文件), 由os加载运行后, 运行在每个cpu内核上, 推翻(subvert)原来的os(加载它的os, 然后os和app-r0和r3退化为guest), 建立**特权层**(host, vmm, hypervisor, root, -1), 监控(欺骗)guest(os, 应用程序, non-root, 0, 3)的执行. 
 * 意义
     * 简化虚拟机开发
     * 中断hook, 软件调试, ssdt hook
 * 基本原理
     * -1层, 特权层: VMM, 
-        * vt使得cpu进入一个全新的特殊模式(**VMX模式**), 在这个模式下, cpu处于VMM-root层(-1)或VMM-nonroot层(0, 3)
-        * 处于VMM-nonroot下的r0, r3都被监控. 因此, 将VMM运行于VMX root操作状态, 可轻松监控管理客户操作系统(即虚拟机中的OS)和客户应用程序. 
+        * vt使得cpu进入一个全新的特殊模式(**VMX模式**), 在这个模式下, cpu处于`VMM-root`层(-1)或`VMM-nonroot`层(0, 3)
+        * 处于`VMM-nonroot`下的r0, r3都被监控. 因此, 将VMM运行于`VMX root`操作状态, 可轻松监控管理客户操作系统(即虚拟机中的OS)和客户应用程序. 
 
             <img alt="" src="./pic/vt_progress.png" width="50%" height="50%">
 
@@ -2294,14 +2270,14 @@
         
     * vt处理器额外指令集(VMX)
         * VMCS区域管理指令: 
-            * `VMPTRLD`(`__vmx_vmptrld`): 激活当前VMCS(关键结构体, VT host/guest对应的上下文), 并加载内存数据到VMCS指针. 参数是保存VMCS指针的物理地址. 
-            * `VMCLEAR`(`__vmx_vmclear`): 将launch状态的VMCS设置为clear状态(非激活状态), 与VMPTRLD相反
-            * `VMPTRST`(`__vmx_vmwrite`): 存储当前VMCS指针数据到内存. 参数是保存当前VMCS指针的物理地址, 
-            * `VMREAD`(`__vmx_vmread(Field, *FieldValue)`): 读取VMCS中的数据, 保存到`FieldValue`指向的地址. 返回0表示操作成功, 1表示失败且在`VM-instruction error`域有返回的状态码, 2表示失败且没有返回的状态码
-            * `VMWRITE`(`__vmx_vmwrite`): 在当前VMCS中向某个域写入值(一参指定域, 二参指定值), 返回值同上
+            * `VMPTRLD`(`__vmx_vmptrld`): 激活当前`VMCS`(关键结构体, VT host/guest对应的上下文), 并加载内存数据到`VMCS`指针. 参数是保存`VMCS`指针的物理地址. 
+            * `VMCLEAR`(`__vmx_vmclear`): 将launch状态的`VMCS`设置为clear状态(非激活状态), 与VMPTRLD相反
+            * `VMPTRST`(`__vmx_vmwrite`): 存储当前`VMCS`指针数据到内存. 参数是保存当前`VMCS`指针的物理地址, 
+            * `VMREAD`(`__vmx_vmread(Field, *FieldValue)`): 读取`VMCS`中的数据, 保存到`FieldValue`指向的地址. 返回0表示操作成功, 1表示失败且在`VM-instruction error`域有返回的状态码, 2表示失败且没有返回的状态码
+            * `VMWRITE`(`__vmx_vmwrite`): 在当前`VMCS`中向某个域写入值(一参指定域, 二参指定值), 返回值同上
         * VMX管理指令: 
-            * `VMLAUNCH`: 启动VMCS虚拟机(guest机), 之后CPU处于non-root模式
-            * `VMRESUME`: 从host中恢复VMCS的虚拟机, 同`VMLAUNCH`, 也是进入non-root下的guest机
+            * `VMLAUNCH`: 启动`VMCS`虚拟机(guest机), 之后CPU处于`non-root`模式
+            * `VMRESUME`: 从host中恢复`VMCS`的虚拟机, 同`VMLAUNCH`, 也是进入`non-root`下的guest机
             * `VMXON`: 进入VMX ROOT模式
             * `VMOFF`: 退出VMX ROOT模式
             * `VMCALL`: 关闭VT时让虚拟机主动发生退出事件( )
@@ -2329,7 +2305,7 @@
 
             <img alt="" src="./pic/vt_vaddr2addr_64.png" width="50%" height="50%">
 
-        * 虚拟机双层地址翻译(intel ept)
+        * 虚拟机双层地址翻译(`intel ept`)
             * 虚拟机地址 -> (通过gpt页表)虚拟机物理地址 -> (通过ept页表)真机物理地址
             * cr3寄存器指向gpt(guest page table)
             * eptp寄存器指向ept(extended page table)
@@ -2439,23 +2415,24 @@
             	__vmx_vmwrite(HOST_RSP, (SIZE_T)Cpu); // 设置vmcs区域的host rsp域
 
                 ```
-            * `vmcs`区域: (类似进程的EPROCESS) 
-                * VMCS 是一个4K的内存区域在逻辑上, 虚拟机控制结构被划分为 6 部分:
-                    * GUEST-STATE 域: 虚拟机从root进入non-root时, 处理器所处的状态. 
-                    * HOST-STATE 域: 虚拟机从non-root退出到root时, 处理器所处的状态. 即该域用于恢复主机cpu的状态. 
-                    * VM 执行控制域: 虚拟机在non-root运行的时候, 控制处理器non-root退出到root. 以下为其部分功能, 参考自 https://zhuanlan.zhihu.com/p/49257842 : 
+            * `vmcs`区域: (类似进程的`EPROCESS`) 
+                * `VMCS` 是一个4K的内存区域在逻辑上, 虚拟机控制结构被划分为 6 部分:
+                    * `GUEST-STATE` 域: 虚拟机从root进入`non-root`时, 处理器所处的状态. 
+                    * `HOST-STATE` 域: 虚拟机从`non-root`退出到`root`时, 处理器所处的状态. 即该域用于恢复主机cpu的状态. 
+                    * VM 执行控制域: 虚拟机在`non-root`运行的时候, 控制处理器`non-root`退出到`root`. 以下为其部分功能, 参考自 https://zhuanlan.zhihu.com/p/49257842 : 
                         * 控制vCPU在接收到某些中断事件的时候, 是否直接在vCPU中处理掉, 即虚拟机直接处理掉该中断事件还是需要退出到VMM中, 让VMM去处理该中断事件. 
                         * 是否使用EPT功能. 
                         * 是否允许vCPU直接访问某些I/O口, MSR寄存器等资源. 
                         * vCPU执行某些指令的时候, 是否会出发VM Exit.
-                    * VM 退出控制域: 虚拟机从non-root下退出时, 需要保存的信息.
-                    * VM 进入控制域: 虚拟机从root进入non-root时, 需要读取的信息(需要保存和恢复哪些MSR寄存器).
-                    * VM 退出信息域: 虚拟机从non-root退出到root时, 将退出(VM Exit)的原因保存到该域中. 
-                * 保存到vmcs的值:
+                    * VM 退出控制域: 虚拟机从`non-root`下退出时, 需要保存的信息.
+                    * VM 进入控制域: 虚拟机从root进入`non-root`时, 需要读取的信息(需要保存和恢复哪些MSR寄存器).
+                    * VM 退出信息域: 虚拟机从`non-root`退出到`root`时, 将退出(VM Exit)的原因保存到该域中. 
+                * 保存到`vmcs`的值:
                     * guest寄存器(`cr0`, `cr3`, `cr4`, `dr7`, `idtr`, `es`, `cs`, `ss`, `ds`, `fs`, `gs`, `ldtr`, `tr`)
                     * host寄存器(基本同上)
                     * guest的`rsp`, `rip`, `rflag`
                     * host的`rsp`, `rip`(rsp为分配的`VMM_STACK`, rip为`VmxVmexiHandler`)
+            * 示例: 
                 ```cpp
                 pCpu->OriginalVmcs = MmAllocateContiguousMemory(PAGE_SIZE, PhyAddr); // 为VMCS结构分配空间
                 RtlZeroMemory (pCpu->OriginalVmcs, PAGE_SIZE);
@@ -2481,24 +2458,24 @@
                 
                 <img alt="" src="./pic/vt_vmcs.png" width="50%" height="50%">
 
-            * 分配vmxcpu结构(一个cpu一个, 保存前述3个结构)
-        * 设置cr4.vmxe为1, 表示vt已被占用
-        * 初始化vmxon结构; 使用vmxon命令开启vt
-        * 初始化vmcs区域
-        * vmlaunch
+            * 分配`vmxcpu`结构(一个cpu一个, 保存前述3个结构)
+        * 设置`cr4.vmxe`为1, 表示vt已被占用
+        * 初始化`vmxon`结构; 使用`vmxon`命令开启vt
+        * 初始化`vmcs`区域
+        * `vmlaunch`
             * `__vmx_vmlaunch(); // 不返回`
             * 使cpu进入虚拟机状态(guest)
-            * root和non-root寄存器上下文状态切换
-                * 再进入root模式下时, 会通过push(HVM_SAVE_ALL_NOSEGREGS宏)把guest非seg的寄存器传给root的exithandler使用
-                * 在root模式下处理完后, 进入non-root模式时, 需要设置non-root的rip并恢复guest寄存器的值
-                * root模式的rip和rsp固定, 不用修改
+            * `root`和`non-root`寄存器上下文状态切换
+                * 再进入`root`模式下时, 会通过push(HVM_SAVE_ALL_NOSEGREGS宏)把guest非seg的寄存器传给`root`的exithandler使用
+                * 在`root`模式下处理完后, 进入`non-root`模式时, 需要设置`non-root`的`rip`并恢复guest寄存器的值
+                * `root`模式的rip和rsp固定, 不用修改
         * 关闭vt
             1. `VmxVmCall(NBP_HYPERCALL_UNLOAD);` 主动引发一个vmcall 的exit事件`EIXIT_REASON_VMCALL`. 
-            2. __vmx_off
+            2. `__vmx_off`
             3. trampoline弹簧床, 其中的汇编指令将host寄存器状态恢复成和guest完全一样
             4. guest_rip + len 进入普通模式
 
-            <img alt="" src="./pic/vt_progress2.png" width="50%" height="50%">
+            <img alt="" src="./pic/vt_progress2.png" width="30%" height="30%">
     * MSR hook
         * msr寄存器 
             * 一组64位寄存器, 可通过`rdmsr` `wrmsr`指令进行读写(需先在ecx写入msr的地址). 
@@ -2516,9 +2493,9 @@
                 <img alt="" src="./pic/x64_nt_proc.jpg"    width="50%" height="50%">
 
             * 为了绕过patchguard, 需要: 
-                * 修改msr寄存器中的lstar
+                * 修改msr寄存器中的`lstar`
             * 拿到ssdt表`KeServiceDescriptorTable`(未导出)
-                * 通过`readmsr`得到`KiSystemCall64`地址, 从此地址向下搜索0x100左右, 得到`KeServiceDescriptorTable`地址
+                * 通过`readmsr`得到`KiSystemCall64`地址, 从此地址向下搜索`0x100`左右, 得到`KeServiceDescriptorTable`地址
                 * 找到目标nt函数的索引号: 在对应的zw函数处找`mov eax, <nt函数索引>`指令
                 * `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)` ( x64中ssdt表每一项存放的是: (函数绝对地址 - ssdt表首地址) << 4 )
                 * 备份: `NtSyscallHandler = (ULONG64)__readmsr(MSR_LSTAR);`
@@ -2681,61 +2658,61 @@
 
 # DDK开发安全事项 
 
-1. 一定不要在没有标注 I/O 请求数据包 (IRP) 挂起 (`IoMarkIrpPending`) 的情况下通过调度例程返回 `STATUS_PENDING`.  
-2. 一定不要通过中断服务例程 (ISR) 调用 `KeSynchronizeExecution`.  它会使系统死锁.  
-3. 一定不要将 `DeviceObject->Flags` 设置为 `DO_BUFFERED_IO` 和 `DO_DIRECT_IO`.  它会扰乱系统并最终导致致命错误.  而且, 一定不要在 `DeviceObject->Flags` 中设置 `METHOD_BUFFERED`, `METHOD_NEITHER`,  `METHOD_IN_DIRECT` 或 `METHOD_OUT_DIRECT`, 因为这些值只在定义 IOCTL 时使用.  
-4. 一定不要通过页面缓冲池分配调度程序对象.  如果这样做, 将会偶尔导致系统故障检测 (Bugcheck).  
-5. 当运行于 IRQL >= `DISPATCH_LEVEL` 时, 一定**不要通过页面缓冲池分配内存, 或访问页面缓冲池中的内存**. 这是一个致命错误.  
-6. 一定不要在 IRQL >= `DISPATCH_LEVEL` 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
-7. 在 IRQL >= `DISPATCH_LEVEL` 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
-8. 一定不要把中断请求级别 (IRQL) 降低到低于您的顶级例程被调用的级别.  
+1. 一定不要在没有标注 I/O 请求数据包 (`IRP`) 挂起 (`IoMarkIrpPending`) 的情况下通过调度例程返回 `STATUS_PENDING`.  
+2. 一定不要通过中断服务例程 (`ISR`) 调用 `KeSynchronizeExecution`.  它会使系统死锁.  
+3. 一定不要将 `DeviceObject->Flags` 设置为 `DO_BUFFERED_IO` 和 `DO_DIRECT_IO`.  它会扰乱系统并最终导致致命错误.  而且, 一定不要在 `DeviceObject->Flags` 中设置 `METHOD_BUFFERED`, `METHOD_NEITHER`,  `METHOD_IN_DIRECT` 或 `METHOD_OUT_DIRECT`, 因为这些值只在定义 `IOCTL` 时使用.  
+4. 一定不要通过页面缓冲池分配调度程序对象.  如果这样做, 将会偶尔导致系统故障检测 (`Bugcheck`).  
+5. 当运行于 `IRQL` >= `DISPATCH_LEVEL` 时, 一定**不要通过页面缓冲池分配内存, 或访问页面缓冲池中的内存**. 这是一个致命错误.  
+6. 一定不要在 `IRQL` >= `DISPATCH_LEVEL` 上等候核心调度程序对象出现非零间隔.  这是一个致命错误.  
+7. 在 `IRQL` >= `DISPATCH_LEVEL` 上执行时, 一定不要调用任何导致调用线程发生直接或间接等待的函数.  这是一个致命错误.  
+8. 一定不要把中断请求级别 (`IRQL`) 降低到低于您的顶级例程被调用的级别.  
 9. 如果没有调用过 `KeRaiseIrql()`, 则一定不要调用 `KeLowerIrql()`.  
-10. 一定不要使处理器 (`KeStallExecutionProcessor`) 停止运转的时间超过 50 微秒.  
+10. 一定不要使处理器 (`KeStallExecutionProcessor`) 停止运转的时间超过 **50 微秒**.  
 11. 一定不要使旋转锁 (`Spin Lock`) 保持锁定状态的时间超过您的需要.  要使系统获得更好的总体性能, 请不要使任何系统范围内有效的旋转锁的锁定时间超过 25 微秒.  
-12. 当 IRQL 大于 `DISPATCH_LEVEL` 时, 一定不要调用 `KeAcquireSpinLock` 和 `KeReleaseSpinLock`, 或 `KeAcquireSpinLockAtDpcLevel` 和 `KeReleaseSpinLockFromDpcLevel`.  
-13. 一定不要通过调用 `KeReleaseSpinLockFromDpcLevel` 来释放 `KeAcquireSpinLock` 所获取的旋转锁, 因为这会使原始 IRQL 无法被还原.  
+12. 当 `IRQL` 大于 `DISPATCH_LEVEL` 时, 一定不要调用 `KeAcquireSpinLock` 和 `KeReleaseSpinLock`, 或 `KeAcquireSpinLockAtDpcLevel` 和 `KeReleaseSpinLockFromDpcLevel`.  
+13. 一定不要通过调用 `KeReleaseSpinLockFromDpcLevel` 来释放 `KeAcquireSpinLock` 所获取的旋转锁, 因为这会使原始 `IRQL` 无法被还原.  
 14. 一定不要在 `ISR` 或 `SynchCritSection` 例程中调用 `KeAcquireSpinLock` 和 `KeReleaseSpinLock` 或者其它任何使用可执行旋转锁的例程.  
 15. 当您在例程中而不是在 `DriverEntry` 中创建设备对象时, 一定不要忘记清除 `DO_DEVICE_INITIALIZING` 标记.  
-16. 一定不要同时在不同处理器的多个线程中将延时过程调用 (DPC) 对象添加到队列中(使用 `KeInsertQueueDpc`).  这会导致致命错误.  
-17. 一定不要通过 `CutomerTimerDPC` 例程释放周期定时器.  您可以通过 DPC 例程释放非周期定时器.  
-18. 一定不要将相同的 DPC 指针传递给 `KeSetTimer`, 或者 `KeSetTimerEx` (CustomTimerDpc) 和 `KeInsertQueueDpc` (CustomDpc), 因为这将导致竞争.  
+16. 一定不要同时在不同处理器的多个线程中将延时过程调用 (`DPC`) 对象添加到队列中(使用 `KeInsertQueueDpc`).  这会导致致命错误.  
+17. 一定不要通过 `CutomerTimerDPC` 例程释放周期定时器.  您可以通过 `DPC` 例程释放非周期定时器.  
+18. 一定不要将相同的 DPC 指针传递给 `KeSetTimer`, 或者 `KeSetTimerEx` (`CustomTimerDpc`) 和 `KeInsertQueueDpc` (`CustomDpc`), 因为这将导致竞争.  
 19. 旋转锁锁定时, 一定不要调用 `IoStartNextPacket`.  这将使系统死锁.  
 20. 旋转锁锁定时, 一定不要调用 `IoCompleteRequest`.  这将使系统死锁.  
-21. 如果您的驱动程序设置了完成例程, 那么一定不要在没有把完成例程设置为 NULL 的情况下调用 `IoCompleteRequest`.  
-22. 调用 `IoCompleteRequest` 之前, 一定不要忘记设置 IRP 中的 I/O 状态区.  
-23. 在将 IRP 添加到队列中或将它发送到另一个驱动程序 (`IoCallDriver`) 之后, 一定不要调用 `IoMarkPending`.  在驱动程序调用 `IoMarkPending` 之前, IRP 可能已经完成, 由此可能发生故障检测.  对于包含完成例程的驱动程序, 如果设置了 `Irp->PendingReturned`, 则完成例程必须调用 `IoMarkPending`.  
-24. 一定不要在已经对某个 IRP 调用 `IoCompleteRequest` 之后再去访问该 IRP.  
-25. 一定不要对不属于您的驱动程序的 IRP 调用 `IoCancelIrp`, 除非您知道该 IRP 还没有完成.  
-26. 在您的调度例程返回到调用者之前, 一定不要对您的调度例程正在处理的 IRP 调用 `IoCancelIrp`.  
-27. 一定不要从中间驱动程序调用 `IoMakeAssociatedIrp` 来为较低的驱动程序创建 IRP.  在中间驱动程序中所获得的 IRP 可能是已被关联的 IRP, 而您不能将其它 IRP 关联到已经被关联的 IRP.  
-28. 一定不要对使用缓冲 I/O 而设置的 IRP 调用 `IoMakeAssociatedIrp`.  
-29. 一定不要简单地将指向设备 I/O 寄存器的虚拟指针解除引用并访问这些指针.  始终使用正确的硬件抽象层 (HAL) 函数来访问设备.  
-30. 如果 IRP 或设备对象可能在 DISPATCH 级别被修改, 那么一定不要通过 ISR 来访问 它.  在对称多处理器系统中, 这会造成数据损坏.  
-31. 正在高级 IRQL 中运行时, 如果数据可能被低级 IROL 代码写入, 那么一定不要修改该数据.  应当使用 KeSynchronizeExecution 例程.  
-32. 在获取系统范围的取消旋转锁 (IoAcquireCancelSpinLock) 之前, 一定不要在您的 DispatchCleanup 例程中获取驱动程序自己的旋转锁(如果有的话).  要避免可能出现的死锁, 一定要在驱动程序中遵循一致的锁定获取层次结 
-构. 33. 一定不要在取消例程中调用 IoAcquireCancelSpinLock, 因为该例程被调用时已经获取了系统级的取消旋转锁.  
-34. 在从取消例程返回之前, 一定不要忘记调用 IoReleaseCancelSpinLock.  
+21. 如果您的驱动程序设置了完成例程, 那么一定不要在没有把完成例程设置为 `NULL` 的情况下调用 `IoCompleteRequest`.  
+22. 调用 `IoCompleteRequest` 之前, 一定不要忘记设置 `IRP` 中的 I/O 状态区.  
+23. 在将 `IRP` 添加到队列中或将它发送到另一个驱动程序 (`IoCallDriver`) 之后, 一定不要调用 `IoMarkPending`.  在驱动程序调用 `IoMarkPending` 之前, `IRP` 可能已经完成, 由此可能发生故障检测.  对于包含完成例程的驱动程序, 如果设置了 `Irp->PendingReturned`, 则完成例程必须调用 `IoMarkPending`.  
+24. 一定不要在已经对某个 `IRP` 调用 `IoCompleteRequest` 之后再去访问该 `IRP`.  
+25. 一定不要对不属于您的驱动程序的 `IRP` 调用 `IoCancelIrp`, 除非您知道该 `IRP` 还没有完成.  
+26. 在您的调度例程返回到调用者之前, 一定不要对您的调度例程正在处理的 `IRP` 调用 `IoCancelIrp`.  
+27. 一定不要从中间驱动程序调用 `IoMakeAssociatedIrp` 来为较低的驱动程序创建 `IRP`.  在中间驱动程序中所获得的 `IRP` 可能是已被关联的 `IRP`, 而您不能将其它 `IRP` 关联到已经被关联的 `IRP`.  
+28. 一定不要对使用缓冲 I/O 而设置的 `IRP` 调用 `IoMakeAssociatedIrp`.  
+29. 一定不要简单地将指向设备 I/O 寄存器的虚拟指针解除引用并访问这些指针.  始终使用正确的硬件抽象层 (`HAL`) 函数来访问设备.  
+30. 如果 `IRP` 或设备对象可能在 `DISPATCH` 级别被修改, 那么一定不要通过 ISR 来访问 它.  在对称多处理器系统中, 这会造成数据损坏.  
+31. 正在高级 `IRQL` 中运行时, 如果数据可能被低级 IRQL 代码写入, 那么一定不要修改该数据.  应当使用 `KeSynchronizeExecution` 例程.  
+32. 在获取系统范围的取消旋转锁 (`IoAcquireCancelSpinLock`) 之前, 一定不要在您的 `DispatchCleanup` 例程中获取驱动程序自己的旋转锁(如果有的话).  要避免可能出现的死锁, 一定要在驱动程序中遵循一致的锁定获取层次结构. 
+33. 一定不要在取消例程中调用 `IoAcquireCancelSpinLock`, 因为该例程被调用时已经获取了系统级的取消旋转锁.  
+34. 在从取消例程返回之前, 一定不要忘记调用 `IoReleaseCancelSpinLock`.  
 35. 一定不要使用基于 IRQL 的同步, 因为它只对单处理器系统有效.  提高单处理器上的 IRQL 将不会掩蔽在其它处理器上的中断.  
-36. 一定不要对重叠的内存地址范围使用 RtlCopyMemory.  应当使用 RtlMoveMemory.  
-37. 一定不要假定页面大小是常量, 即使是用于给定的 CPU.  为了保持可移植性, 应当使用 PAGE_SIZE 以及在头文件中所定义的其它页面相关常量.  
-38. 一定不要从引导\系统初始化阶段加载的驱动程序的 DriverEntry 例程中访问除 Registry\Machine\Hardware 和 Registry\Machine\System 以外的任何注册表项.  
-39. 一定不要为了加载驱动程序而在驱动程序的注册表项 (Registry\Machine\System\CurrentControlSet\Services) 下创建 Enum 项.  系统将动态地创建该项.  
+36. 一定不要对重叠的内存地址范围使用 `RtlCopyMemory`.  应当使用 `RtlMoveMemory`.  
+37. 一定不要假定页面大小是常量, 即使是用于给定的 CPU.  为了保持可移植性, 应当使用 `PAGE_SIZE` 以及在头文件中所定义的其它页面相关常量.  
+38. 一定不要从引导\系统初始化阶段加载的驱动程序的 `DriverEntry` 例程中访问除 `Registry\Machine\Hardware` 和 `Registry\Machine\System` 以外的任何注册表项.  
+39. 一定不要为了加载驱动程序而在驱动程序的注册表项 (`Registry\Machine\System\CurrentControlSet\Services`) 下创建 `Enum` 项.  系统将动态地创建该项.  
 40. 如果没有先在注册表中申请必需的与总线相关的 I/O 端口, 内存范围, 中断或直接内存访问 (DMA) 通道/端口等硬件资源, 一定不要初始化物理设备.  
-41. 一定不要在您的 DriverEntry 例程调用 IoRegisterDriverReinitialization, 除非重初始化例程返回了 STATUS_SUCCESS.  
-42. IRQL 为 PASSIVE_LEVEL 时, 一定不要从被页面调度的线程或驱动程序例程中在 Wait 参数被设置为 TRUE 的情况下调用 KeSetEvent.  如果碰巧在调用 KeSetEvent 和 KeWait..Object(s) 之间您的例程被页面调度出去, 这类调用 就会导致致命的页面错误.  
-43. 与上例相同的条件下, 同样不能调用 KeReleaseSemaphore .  
-44. 与上例相同的条件下, 同样不能调用 KeReleaseMutex .  
-45. 一定不要通过零售的 Windows NT 驱动程序调用 KeBugCheckEx 或 KeBugCheck 来停止系统的运行, 除非您遇到的是破坏系统内存并最终导致系统进入故障检测的重要错误.  应当始终巧妙地处理错误条件.  
-46. 一定不要假定 IoTimer 例程将会准确地在一秒边界处被调用, 因为任何特定 IoTimer 例程的调用间隔最终取决于系统时钟.  
+41. 一定不要在您的 `DriverEntry` 例程调用 `IoRegisterDriverReinitialization`, 除非重初始化例程返回了 STATUS_SUCCESS.  
+42. IRQL 为 `PASSIVE_LEVEL` 时, 一定不要从被页面调度的线程或驱动程序例程中在 Wait 参数被设置为 `TRUE` 的情况下调用 `KeSetEvent`.  如果碰巧在调用 `KeSetEvent` 和 `KeWait..Object(s)` 之间您的例程被页面调度出去, 这类调用 就会导致致命的页面错误.  
+43. 与上例相同的条件下, 同样不能调用 `KeReleaseSemaphore` .  
+44. 与上例相同的条件下, 同样不能调用 `KeReleaseMutex` .  
+45. 一定不要通过零售的 Windows NT 驱动程序调用 `KeBugCheckEx` 或 `KeBugCheck` 来停止系统的运行, 除非您遇到的是破坏系统内存并最终导致系统进入故障检测的重要错误. 应当始终巧妙地处理错误条件.  
+46. 一定不要假定 `IoTimer` 例程将会准确地在一秒边界处被调用, 因为任何特定 `IoTimer` 例程的调用间隔最终取决于系统时钟.  
 47. 一定不要从核心模式的设备驱动程序调用 Win32 应用程序编程接口 (API).  
 48. 一定不要使用会导致堆栈溢出的递归函数, 因为调用线程的核心模式堆栈不能动态增长.  
-49. 在处理多个中断的 ISR 例程中, 一定不要使用中断对象指针 (PKINTERRUPT) 来标识中断, 因为您在 ISR 中所获得的中断对象地址不会始终与您通过 IoConnectInterrupt 所获得的地址相同.  要想识别当前发生中断的设备, 应当 仅使用您在 IoConnectInterrupt 中所指定的 ServiceContext 值.  
-50. 如果没有清零 CustomTimerDpc (KeCancelTimer), 一定不要卸载驱动程序.  如果在卸载驱动程序后启动 DPC, 它可能调用不存在的代码, 并导致系统进入故障检测查.  
-51. 如果 IRP 中设置了某个驱动程序的 I/O CompletionRoutine, 那么一定要等到所有这些 IRP 完成之后, 才能卸载该驱动程序.  如果卸载驱动程序后, IRP 被更低级的驱动程序完成, 那么系统会试图执行不存在的代码, 并导致系 统崩溃.  
-52. 一定要等到驱动程序准备好要处理某个设备中断时, 才能启用该设备中断.  应当只在完成驱动程序初始化之后才启用它, 执行 ISR 和 DPC 时, 系统才能安全的访问设备对象的若干私有成员.  
+49. 在处理多个中断的 ISR 例程中, 一定不要使用中断对象指针 (`PKINTERRUPT`) 来标识中断, 因为您在 `ISR` 中所获得的中断对象地址不会始终与您通过 `IoConnectInterrupt` 所获得的地址相同.  要想识别当前发生中断的设备, 应当 仅使用您在 `IoConnectInterrupt` 中所指定的 `ServiceContext` 值.  
+50. 如果没有清零 `CustomTimerDpc` (`KeCancelTimer`), 一定不要卸载驱动程序.  如果在卸载驱动程序后启动 `DPC`, 它可能调用不存在的代码, 并导致系统进入故障检测查.  
+51. 如果 `IRP` 中设置了某个驱动程序的 `I/O CompletionRoutine`, 那么一定要等到所有这些 `IRP` 完成之后, 才能卸载该驱动程序.  如果卸载驱动程序后, `IRP` 被更低级的驱动程序完成, 那么系统会试图执行不存在的代码, 并导致系 统崩溃.  
+52. 一定要等到驱动程序准备好要处理某个设备中断时, 才能启用该设备中断.  应当只在完成驱动程序初始化之后才启用它, 执行 `ISR` 和 `DPC` 时, 系统才能安全的访问设备对象的若干私有成员.  
 53. 在旋转锁锁定时, 一定不要调用驱动程序以外的代码, 因为这会引起死锁.  
-54. 如果您的驱动程序通过 IoBuildAsynchronousFsdRequest/IoAllocateIrp 创建了一个 IRP, 那么, 一定不要从您的 I/O CompletionRoutine 为这个 IRP 返回 STATUS_MORE_PROCESSING_REQUIRED 以外的任何状态, 因为该 IRP 没 有为与完成有关的 I/O 管理器的处理后工作做好准备.  这样的 IRP 应当被驱动程序显式地释放 (IoFreeIrp).  如果本来没有打算重用 IRP, 可以在返回状态 STATUS_MORE_PROCESSING_REQUIRED 之前, 在 CompletionRoutine 中 将它释放.  
-55. 一定不要在任意的线程上下文中使用 IoBuildSynchronousFsdRequest/IoBuildDeviceIoControlRequest 来分配 IRP, 因为该 IRP 依然与该线程保持关联 (Irp->ThreadListEntry), 直到它被释放.  
-56. 如果已经使用 IoAllocateIrp 在 ChargeQuota 参数被设置为 TRUE 的情况下分配了某个 IRP, 那么一定不要对该 IRP 调用 IoInitializeIrp.  如果在 ChargeQuota 设置为 TRUE 的情况下分配 IRP, 则 I/O 管理器将把它为该 IRP 分配 内存时所用的缓冲池的相关信息保存在该 IRP 的内部标记中.  如果对这样的 IRP 调用 IoInitializeIrp, 那么, 当该函数盲目地清零整个 IRP 时, 分配池信息将会丢失.  当您释放 IRP 时, 这将导致内存被破坏.  同时, 一定不要重用来自 IO 管理器的 IRP.  如果要重用 IRP, 应当使用 IoAllocateIrp 分配您自己的 IRP.  
-57. 如果在调用线程的堆栈中分配了对象, 就一定不要在 KeWaitForSingleObject/KeWaitForMultipleObjects 中将 WaitMode 指定为 UserMode.  这样做的结果是, 如果被等候的对象是在函数堆栈中创建的, 那么您必须将 WaitMode 指定为 KernelMode 才能防止线程被页面调度出去.  
-58. 在没有对关键节中的代码加以保护的情况下, 一定不要在用户模式线程的上下文中获取诸如 ERESOURCES 和 FastMutex(Unsafe) 这类资源. 
+54. 如果您的驱动程序通过 `IoBuildAsynchronousFsdRequest`/`IoAllocateIrp` 创建了一个 `IRP`, 那么, 一定不要从您的 `I/O CompletionRoutine` 为这个 `IRP` 返回 `STATUS_MORE_PROCESSING_REQUIRED` 以外的任何状态, 因为该 `IRP` 没 有为与完成有关的 I/O 管理器的处理后工作做好准备.  这样的 `IRP` 应当被驱动程序显式地释放 (`IoFreeIrp`).  如果本来没有打算重用 `IRP`, 可以在返回状态 `STATUS_MORE_PROCESSING_REQUIRED` 之前, 在 `CompletionRoutine` 中 将它释放.  
+55. 一定不要在任意的线程上下文中使用 `IoBuildSynchronousFsdRequest`/`IoBuildDeviceIoControlRequest` 来分配 `IRP`, 因为该 `IRP` 依然与该线程保持关联 (`Irp->ThreadListEntry`), 直到它被释放.  
+56. 如果已经使用 `IoAllocateIrp` 在 `ChargeQuota` 参数被设置为 `TRUE` 的情况下分配了某个 `IRP`, 那么一定不要对该 `IRP` 调用 `IoInitializeIrp`.  如果在 `ChargeQuota` 设置为 TRUE 的情况下分配 `IRP`, 则 I/O 管理器将把它为该 `IRP` 分配 内存时所用的缓冲池的相关信息保存在该 `IRP` 的内部标记中.  如果对这样的 `IRP` 调用 `IoInitializeIrp`, 那么, 当该函数盲目地清零整个 `IRP` 时, 分配池信息将会丢失.  当您释放 `IRP` 时, 这将导致内存被破坏.  同时, 一定不要重用来自 IO 管理器的 `IRP`.  如果要重用 `IRP`, 应当使用 `IoAllocateIrp` 分配您自己的 `IRP`.  
+57. 如果在调用线程的堆栈中分配了对象, 就一定不要在 `KeWaitForSingleObject`/`KeWaitForMultipleObjects` 中将 `WaitMode` 指定为 `UserMode`.  这样做的结果是, 如果被等候的对象是在函数堆栈中创建的, 那么您必须将 `WaitMode` 指定为 `KernelMode` 才能防止线程被页面调度出去.  
+58. 在没有对关键节中的代码加以保护的情况下, 一定不要在用户模式线程的上下文中获取诸如 `ERESOURCES` 和 `FastMutex`(`Unsafe`) 这类资源. 

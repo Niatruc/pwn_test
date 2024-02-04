@@ -324,6 +324,8 @@
 
 # win32 api
 
+* `ntdll`中有一些未导出的函数, 比如`NtReadVirtualMemory`. 要使用未导出的函数, 可以在源文件中链接`ntdll.lib`(即`#pragama comment(lib, "ntdll.lib")`), 然后声明该未导出的函数. 
+
 ## Windows共享库
 * `hal.dll`
     * 实现了硬件抽象层. 
@@ -527,6 +529,22 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
     * 这是因powershell的安全策略. 执行`set-ExecutionPolicy RemoteSigned`. `set-ExecutionPolicy Default`可改回来. 
 
 # 注册表
+* 存储
+    * HIVE文件
+        * 由多个巢箱(BIN)组成
+        * 注册表解析: https://www.52pojie.cn/thread-41492-1-1.html
+        * 缺省放在`%systemroot%/System32/config`下, 6个文件: DEFAULT, SAM, SECURITY, SOFTWARE, USERDIFF, SYSTEM
+* 数据类型
+    * `REG_SZ`: 字符串
+    * `REG_BINARY`: 二进制数据
+    * `REG_DWORD`: 4字节无符号整数
+    * `REG_EXPAND_SZ`: 扩展字符串, 其中带环境变量, 如"%systemtoor%\c.doc". 应用层函数`ExpandEnvironmentStrings`可展开之.
+    * `REG_MULTI_SZ`: 多字符串(每个字符串间用NULL隔开)
+        * 构造: `sprintf(buf, "%s%c%s%c%c%", "1.1.1.1", 0, "1.1.1.1", 0, 0)`
+        * 用于删除和重命名: `MoveFileEx(szTemp, NULL, MOVEFILE_DELAY_UNTIL_REBOOT)`, 重启后`szTemp`文件会被替换为二参表示的文件. (二参为NULL则表示删除文件) 比如替换dll文件. 每次调用, 一参和二参会被写到`\\Registry\\Machine\\SYSTEM\CurrentContrilSet\Control\Session Manager\PendingFileRenameOperations`.
+        * UNC(Universal Naming Convention, 通用命名规则)
+            * 用于局域网共享文件夹
+            * `\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares` 记录本机共享的文件夹的信息. 
 * `HKEY_LOCAL_MACHINE\`
     * `SAM\`: 
         * `SAM\`: `C:\Windows\System32\config\SAM`文件中关于用户和组的部分会映射到这里. 默认情况下Administrator也看不了这里的内容, 需要右键该项 -> `权限`, 点击`Administrator`, 在下面的`权限`中勾选`完全控制`, 然后F5刷新注册表. 另一种方法是使用`psexec`运行`regedit`程序(`psexec –s –i –d c:\windows\regedit.exe`), 即以本地system用户的方式运行. 
@@ -761,8 +779,29 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 * 判断目标平台的位数: 根据宏`_WINX64`
 * 调试: 
     * `OutputDebugStringA(LPCSTR lpOutputString)`: 可将调试信息输出到调试器(`Windbg`, `DdgView`). 在`DdgView`中, 要把`Capture Global Win32`勾上, 才能打印出来. 
-* 
-
+* dll开发
+    * win32系统保证内存只有一份dll. 其先被调入win32系统的全局堆. 通过文件映射, 给多个进程使用.
+    * 工程生成的文件
+        * dll文件: 包含实际的函数和数据
+        * lib文件: 包含被dll导出的函数的名称和位置. exe程序可使用之链接到dll文件.
+    * 开发dll
+        ```cpp
+        // 导出函数的定义形式, 注意顺序, 名称都不能写错. 
+        extern "C" _declspec(dllexport) int myFunc1(int v) {
+            return v + 1;
+        }
+        ```
+    * 调用dll
+        * 隐式链接(可直接调用函数)
+            * 把dll文件拷贝到exe的目录下
+            * `#include "myDll.h"`
+            * `#pragma comment(lib, "myDll.lib")`
+        * 显式链接
+            * 定义函数指针类型: `typedef int (*MYFUNC)(void);`
+            * `HMODULE hMod = LoadLibrary(_T("myDll.dll"));`
+            * `if(hMod) {MYFUNC myFunc = (MYFUNC)GetProcess(hMod, "fnMyFunc"); myFunc();}`
+            * 注意  
+                * 如果dll是cpp编译, 注意`name mangling`(c++为支持函数重载, 会改函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
 ## VS
 * 编译选项
     * `/sdl`: 安全开发生命周期检查. (vs2012以后). 要求严格按SDL的要求编译代码. 会有如下行为: 
@@ -778,7 +817,46 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
         * `/RTCu`: 未初始化变量检查. 会调用`_RTC_UninitUse`函数. 
         * `/RTCs`: 堆栈帧检查. 会调用`_RTC_CheckStackVars`函数. 
         * `/RTCsu`或`/RTC1`: 以上两者都有. 
-
+## VSCode
+* 配置vscode以开发windows程序
+    * 参考: https://code.visualstudio.com/docs/cpp/config-msvc
+        * `Terminal` -> `Configure Default Build Task` -> `cl.exe build active file`, 生成`task.json`文件, 各个配置项的含义: 
+            * `type`:
+                * `cppbuild`
+                * `shell`: 使用cmd
+                    * 若`cl.exe`等工具没有预先添加到系统路径, 可添加如下选项预先运行`VsDevCmd`: 
+                    ```json
+                    "options": {
+                        "cwd": "${fileDirname}",
+                        "shell": {
+                            "executable": "cmd.exe",
+                            "args": [
+                                "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
+                                "echo %cd% && ",
+                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录, 则生成目录
+                                "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
+                            ]
+                        }
+                    },
+                    ```
+            * `command`: 要运行的程序(如`cl.exe`)
+            * `args`: 传给`cl.exe`的参数
+                * `${file}`: 活动文件
+                * `${fileDirname}`: 当前目录的**完整路径**
+                * `${fileBasenameNoExtension}`: 生成的exe文件的名字
+            * `group`: 
+                * `"isDefault": true`: 表示该任务会在按`ctrl+shift+b`时运行
+            * `options`: 
+                * `cwd`: 指定工作目录
+                * `env`: 配置环境变量
+                * `shell`: 
+                    * `executable`: 指定要用的shell程序(如`cmd.exe`)
+                    * `args`: 参数列表
+            * ``: 
+        * 按f5时, 若没有`launch.json`, 则会生成
+            * `program`: 指定要调试的程序
+        * `c_cpp_properties.json`: 配置c/c++扩展
+            * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
 # Win11
 * 安装
     * Vmware
