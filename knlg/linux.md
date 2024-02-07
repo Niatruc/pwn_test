@@ -1016,16 +1016,22 @@ typedef struct {
     * 创建完成后, 即可像其他网络接口一样配置: 
         * `ifconfig tap0 192.168.1.100 up`: 为`tap0`设置ip地址并启动
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
+
 ### 系统信息
 * `uname`
     * `-r`: 查看内核版本. 
+
 ### 文本
 * `echo`
     * 要将一个多行字符串变量输出到一个文件且保持换行, 要这样写: `echo "$str1" > myfile`, **一定要加双引号才会换行**. 
 * `grep`
     * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
 * `sed`: stream editor
+    * 参考: 
+        * [sed 基础教程](`https://www.twle.cn/c/yufei/sed/sed-basic-index.html`)
+        * [sed](`https://wangchujiang.com/linux-command/c/sed.html`)
     * 参数
+        * `-e`: 默认参数, 后面接的代码叫脚本. 
         * `-n`: 仅显示处理后的结果(可防重复打印)
     * 动作
         * `p`: 打印
@@ -1033,11 +1039,21 @@ typedef struct {
         * `d`: 删除
     * 用例
         ```sh
-            # 过滤出两个模式的匹配行及它们之间的内容: 
-            sed -n '/<pattern1>/,/<pattern1>/p' myfile
-
             # 仅对第2行至末行进行删除操作
             sed -n '2,$d'
+
+            # s 命令: 
+            sed 's/<pattern1>/<pattern2>/g' myfile # 将所有<pattern1>替换成<pattern2>
+
+            # p 命令: 
+            sed -n '/<pattern1>/,/<pattern2>/p' myfile # 过滤出两个模式的匹配行及它们之间的内容
+
+            # r命令: 
+            sed -e "/_r_/{r run_temp" -e "d}" myfile > myfile2 # 用run_temp文件的内容替换'_r_'标签
+            sed -e "/_r_/{
+                r run_temp
+                d
+            }" myfile > myfile2 # 也可以这么写
         ```
 * `awk`
 * `watch`

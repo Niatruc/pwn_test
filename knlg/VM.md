@@ -151,11 +151,11 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
                 -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
         ```
 * 网络
-    * 如果没有指定, 默认为用户模式下的一张Intel e1000 PCI卡, 桥接到主机网络. 即等价于: 
+    * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
         ```sh
-        qemu -m 256 -hda disk.img -net nic -net user
-        # 或
-        qemu-system-i386 -m 256 -hda disk.img -netdev user,id=network0 -device e1000,netdev=network0,mac=52:54:00:12:34:56 
+            qemu -m 256 -hda disk.img -net nic -net user
+            # 或
+            qemu-system-i386 -m 256 -hda disk.img -netdev user,id=network0 -device e1000,netdev=network0,mac=52:54:00:12:34:56 
         ``` 
     * user模式
     * 端口转发

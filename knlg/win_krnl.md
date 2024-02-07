@@ -237,7 +237,7 @@
     * 设备控制尽量使用`BUFFERED IO`, 而且一定要使用 `SystemBuffer`,如果不能用`BUFFERED IO`,对于 `UserBuffer` 必须非常小心地 `Probe`,同时注意 `Buffer` 中指针, 字符串引发的严重问题, 如果可能, 尽量禁止程序调用自己的驱动. 
     * 使用 `verifier`(内核校验器, windows自带, 将驱动添加到其中, 设置检查选项, 一旦发生异常, 就蓝屏)和 Fuzz 工具检查和测试驱动. 对于挂钩内核函数的驱动, 可以使用 `BSOD HOOK` 一类的 FUZZ 工具, 来检查内核函数的缺陷和漏洞.
 
-* WDM(Windows Driver Model)驱动模型<a id="WDM"></a>
+* `WDM`(Windows Driver Model)驱动模型<a id="WDM"></a>
     * `IoCreateDevice`
         * 指定R3和R0间读写的通信协议, `pDeviceObject->Flags = ...`
             * `DO_BUFFERED_IO`: 优点安全, 缺点效率低
@@ -248,14 +248,13 @@
         * `pDeviceObject->DriverUnload = ...`, 注册卸载函数. 
             * 要清除设备对象(`IoDeleteDevice`).
 
-* WDF(windows driver foundation)<a id="WDF"></a>
-    * 在WDM(windows driver model)的基础上发展而来, 支持面向对象, 事件驱动的驱动程序开发. WDF框架管理了大多数与操作系统相关的交互, 实现了公共的驱动程序功能(如电源管理, PnP支持). 分KMDF(内核模式驱动程序框架)和UMDF(用户模式驱动程序框架). 
+* `WDF`(windows driver foundation)<a id="WDF"></a>
+    * 在`WDM`(windows driver model)的基础上发展而来, 支持面向对象, 事件驱动的驱动程序开发. WDF框架管理了大多数与操作系统相关的交互, 实现了公共的驱动程序功能(如电源管理, PnP支持). 分KMDF(内核模式驱动程序框架)和UMDF(用户模式驱动程序框架). 
     * 框架定义的主要对象: 
         * `WDFDRIVER`: 对应`DRIVER_OBJECT`. 其为根对象, 其他对象都是其子对象. 
         * `WDFDEVICE`: 对应`DEVICE_OBJECT`. 
         * `WDFREQUEST`: 对IRP的封装. 
         * `WDFQUEUE`: 与一个`WDFDEVICE`对象关联, 描述一个特殊的IO请求队列. 有一系列事件处理回调函数, 当IO请求进入队列时, 框架将自动调用驱动程序中对应的callback. 
-            * 根据网上说法, 将
         * `WDFINTERRUPT`: 表示设备中断. 
     * 引用计数
         * WDF框架维护每个对象的引用计数. 
@@ -270,6 +269,73 @@
         * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
         * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
         * 如果要对已经标记为`cancelable`的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
+    * API
+        * `WDFREQUEST`
+            ```cpp
+                VOID WdfRequestComplete(
+                    IN WDFREQUEST Request, // 等待完成的 I/O 请求
+                    IN NTSTATUS Status // 完成的状态标识, 如 STATUS_SUCCESS, STATUS_CANCELLED,  STATUS_UNSUCCESSFUL等
+                ); 
+
+                VOID WdfRequestCompleteWithInformation(
+                    IN WDFREQUEST Request,
+                    IN NTSTATUS Status,
+                    IN ULONG_PTR Information // I/O 请求完成时，成功传输的字节数
+                ); 
+
+                // 获取 I/O 请求输入缓冲区地址，形式为 PVOID。
+                NTSTATUS WdfRequestRetrieveInputBuffer(
+                    IN WDFREQUEST Request,
+                    IN size_t MinimumRequiredSize,
+                    OUT PVOID* Buffer,
+                    OUT size_t* Length // 可为NULL
+                );
+
+                // 获取 I/O 请求输入缓冲区地址，形式为 WDFMEMORY。
+                NTSTATUS WdfRequestRetrieveInputMemory(
+                    IN WDFREQUEST Request,
+                    OUT WDFMEMORY* Memory
+                );
+
+                // 获取 I/O 请求输入缓冲区地址，形式为 MDL
+                NTSTATUS WdfRequestRetrieveInputWdmMdl(
+                    IN WDFREQUEST Request,
+                    OUT PMDL* Mdl
+                );
+                
+            ```
+        * `WDFQUEUE`
+            ```cpp
+                // 队列配置初始化函数. 有初始化默认配置队列和初始化非默认配置队列两种
+                VOID WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(
+                    OUT PWDF_IO_QUEUE_CONFIG Config,
+                    IN WDF_IO_QUEUE_DISPATCH_TYPE DispatchType
+                ); 
+                
+                VOID WDF_IO_QUEUE_CONFIG_INIT(
+                    OUT PWDF_IO_QUEUE_CONFIG Config,
+                    IN WDF_IO_QUEUE_DISPATCH_TYPE DispatchType // I/O 请求分发处理方式。WdfIoQueueDispatchSequential 表示一次只能有一个 I/O 请求在处理；WdfIoQueueDispatchParallel 表示多个 I/O 请求可并行处理；当采用 WdfIoQueueDispatchManual 时，表示这是一个手工队列，它不能用于 I/O 请求例程的处理，只能作为一个备用队列
+                );
+
+                // 每当wdf驱动框架准备好分发队列中的一个request时, 注册的回调函数就会被调用
+                Config.EvtIoRead = MyEvtIoRead; 
+
+                // 如果非默认队列用于分发 I/O 请求，则必须指定要分发的 I/O 请求类型，函数如下：
+                NTSTATUS WdfDeviceConfigureRequestDispatching(
+                    IN WDFDEVICE Device,
+                    IN WDFQUEUE Queue,
+                    IN WDF_REQUEST_TYPE RequestType // ：I/O 请求类型，包括 WdfRequestTypeCreate、WdfRequestTypeRead、WdfRequestTypeWrite、WdfRequestTypeDeviceControl 和 WdfRequestTypeDevice ControlInternal。
+                ); 
+
+                // 停止分发 I/O 请求，但仍接收新的 I/O 请求。异步操作函数。
+                VOID WdfIoQueueStop(
+                    IN WDFQUEUE Queue,
+                    IN OPTIONAL PFN_WDF_IO_QUEUE_STATE StopComplete,
+                    IN OPTIONAL WDFCONTEXT Context
+                );
+
+                WdfRequestRequeue(Request); // 将请求重新入队. 只能对manual dispatching的队列操作
+            ```
 
 # Windbg
 * 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
@@ -1237,7 +1303,7 @@
         * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
 
 * 系统工作者线程`workitem`(system worker threads)
-    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队，系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池，其中每个线程一次执行一个工作项. 
+    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队, 系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池, 其中每个线程一次执行一个工作项. 
     * workitem写法
         ```cpp
 
@@ -2479,9 +2545,21 @@
     * MSR hook
         * msr寄存器 
             * 一组64位寄存器, 可通过`rdmsr` `wrmsr`指令进行读写(需先在ecx写入msr的地址). 
+                * `STAR`: System Target Address Register. 
+                    * 低32位是`syscall`指令在32位模式下所装载的eip值. 
+                    * 高16位是任何模式下`sysret`指令所装载的cs段选择子的值. 
+                    * 中16位是任何模式下`syscall`指令所装载的cs段选择子的值. 
+                * `LSTAR`: 
+                    * 这个寄存器是给长模式下的用户程序用的. 
+                    * 存放着`syscall`指令调用的`KiSystemCall64`的地址(`syscall`是应用层进入内核层时调用的指令)
+                * `CSTAR`: 
+                    * 这个寄存器是给兼容模式(32位程序运行在长模式时的子模式)下的用户程序用的. 
+                    * 在64位Windows中, 32位程序在系统调用时以远跳等方式从兼容模式进入长模式, 把参数搬到微软的64位调用约定的形式, 再调用`syscall`指令走`LSTAR`进入内核. 换言之, 64位Windows选择直接弃用了`CSTAR`寄存器. 
+                * `SFMASK`
+                    * 用作`rflags`寄存器的掩码. `syscall`指令会用`SFMASK`对`rflags`寄存器进行复位, 在进入内核. 
+
             * `rdmsr`: 读取msr寄存器的64位内容, 高32位放到edx寄存器, 低32位放到eax寄存器(若是64位系统, 则rax和rdx的高32位都清零). 
             * 用于设置cpu的工作环境和提示cpu的工作状态(温度控制, 性能监控等)
-            * `LSTAR`存放着`syscall`指令调用的`KiSystemCall64`的地址(`syscall`是应用层进入内核层时调用的指令)
             * 存放ssdt的入口, patchguard通过`rdmsr`指令定期检查该寄存器, 发现改动则蓝屏
             * **通过vt欺骗patchguard**: patchguard每次调用`rdmsr`, 引起vmexit事件, 可被vt监控到, 从而可进行欺骗. 
 
@@ -2492,14 +2570,14 @@
 
                 <img alt="" src="./pic/x64_nt_proc.jpg"    width="50%" height="50%">
 
-            * 为了绕过patchguard, 需要: 
+            * 为了绕过`patchguard`, 需要: 
                 * 修改msr寄存器中的`lstar`
-            * 拿到ssdt表`KeServiceDescriptorTable`(未导出)
+            * 拿到`ssdt`表`KeServiceDescriptorTable`(未导出)
                 * 通过`readmsr`得到`KiSystemCall64`地址, 从此地址向下搜索`0x100`左右, 得到`KeServiceDescriptorTable`地址
                 * 找到目标nt函数的索引号: 在对应的zw函数处找`mov eax, <nt函数索引>`指令
                 * `KeServiceDescriptortable + ((KeServiceDescriptortable + 4 * index) >> 4)` ( x64中ssdt表每一项存放的是: (函数绝对地址 - ssdt表首地址) << 4 )
                 * 备份: `NtSyscallHandler = (ULONG64)__readmsr(MSR_LSTAR);`
-                * 构造自己的ssdt表数组
+                * 构造自己的`ssdt`表数组
                     * `SyscallPointerTable[4096]`: 存放函数地址
                     * `SyscallHookEnabled[4096]`: 记录函数是否被hook
                     * `SyscallParamTable[4096]`: 存放函数参数个数
@@ -2507,7 +2585,7 @@
                 * `__writemsr(MSR_LSATR, GuestSyscallHandler);`完成msr寄存器中handler的替换
                 * 在patchguard使用`readmsr`引发的vt exit事件中, 返回备份的`NtSyscallHandler`, 欺骗系统的`readmsr`, 并禁止别人再`writemsr`
             * 注意
-                * `syscall`是直接获取lstar中的ssdt表地址值. 而patchguard通过`readmsr`获取. 
+                * `syscall`是直接获取`lstar`中的`ssdt`表地址值. 而`patchguard`通过`readmsr`获取. 
                 * 先hook, 再启动vt (不然启动vt后msr被禁用, 不能hook)
                 * 卸载驱动时, 先停止vt(因为此时msr被禁用, 还不能改回来), 再卸载hook
     * EPT hook
