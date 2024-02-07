@@ -939,6 +939,9 @@ typedef struct {
 * `pidof <程序名>`: 列出正在运行的该程序的进程号. 
 * `pmap <进程id>`
     * `-x`: 加上该选项, 展示更多信息. 
+* `trap`: 对捕获到的SIGNAL, 改变原有的处理action为新的action
+    * `-l`: 列出支持的信号
+    * `trap 'echo -e "\nCTRL_C PRESSED"' SIGINT`: 表示处理`ctrl+c`产生的`SIGINT`信号. 这时将执行echo. 
 
 ### 文件和目录
 * `nautilus`: 打开文件管理器(gnome)
