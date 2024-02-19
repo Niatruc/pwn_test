@@ -884,6 +884,13 @@ typedef struct {
 * 环境变量
     * `LD_PRELOAD`: 指定动态链接优先搜索的库路径
     * `LD_SHOW_AUXV`: 通知程序加载器来展示程序运行时的辅助向量. 
+    * 
+    ```sh
+        # 设置代理
+        export http_proxy=user:pass@192.158.8.8:8080
+        export https_proxy=socks5://10.0.0.52:1080
+        export no_proxy="*.aiezu.com,10.*.*.*,192.168.*.*,*.local,localhost,127.0.0.1"
+    ```
 
 ### 用户
 * `id`: 查看当前用户信息(uid, gid, 所属组). 
@@ -1312,9 +1319,9 @@ typedef struct {
         * 默认不支持多会话, 若要远程登录, 需先注销原登录账户. 
 
 # 设置
-* sudo
+* `sudo`
     * 运行`visudo`(将会编辑`/etc/sudoers`)
-    * 设置sudo无需密码
+    * 设置`sudo`无需密码
     > 找到`%admin ALL=(ALL) ALL`和`%sudo ALL=(ALL) ALL`, 改为`%admin ALL=(ALL) NOPASSWD: ALL`和`%sudo ALL=(ALL) NOPASSWD: ALL`. 
     * 添加sudo用户
     > 添加一行: `test ALL=(ALL) ALL`, `test`为用户名
