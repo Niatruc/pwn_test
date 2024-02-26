@@ -390,7 +390,29 @@
         * 类型检查
         * NULL指针检查
 
-# fuzz测试
+# fuzz
+* 参考
+    * [https://paper.seebug.org/841/](https://paper.seebug.org/841/)
+    * [模糊测试1](https://zhuanlan.zhihu.com/p/266061489?utm_id=0)
+    * [Fuzz入门教学——污点分析](https://blog.csdn.net/weixin_45100742/article/details/134981002)
+* 模糊测试理论
+    * 代码覆盖率(Code Coverage)
+        * 语句覆盖(Statement Coverage)
+            * 又称为行覆盖(Line Coverage), 段覆盖(Segment Coverage)
+            * 度量被测代码中每个可执行语句是否被执行到了. 常被认为是"最弱的覆盖". 
+        * 判定覆盖(Decision Coverage)
+            * 又称分支覆盖(Branch Coverage), 所有边界覆盖(All-Edges Coverage), 基本路径覆盖(Basic Path Coverage), 判定路径覆盖(Decision-Decision-Path)。
+            * 度量程序中每一个判定的分支是否都被测试到了. 
+        * 条件覆盖(Condition Coverage)
+            * 度量判定中的每个子表达式结果true和false是否被测试到了. 
+            * 比判定覆盖更强. 
+        * 路径覆盖(Path Coverage)
+            * 又称断言覆盖(Predicate Coverage)
+            * 度量是否函数的每一个分支都被执行了. 
+            * 有多个分支时, 需要对多个分支进行排列组合. 
+    * 输入
+        * 基于规则: 这种生成方式在面对如数据库测试这种对语法和语义要求比较高的情况时比较有用. 
+        * 通过对测试用例进行变异. 
 * 流程
     * fuzz工具使程序崩溃
     * 调试分析异常和崩溃位置(windbg, ollydbg, ida, 汇编代码)
@@ -415,7 +437,7 @@
         * bochspwn(google p0团队)
             * 在vt层监听内存变化
 
-# 二进制插桩和污点分析
+## 二进制插桩和污点分析
 * 二进制插桩: 在二进制程序的指定位置插入监控代码, 类似hook
     * 静态插桩(SBI): 对二进制程序进行反汇编, 然后按需添加插桩代码并将更新的二进制程序存入磁盘. 
         * 方法一: 如下. jmp指令有5个字节, 容易破坏小于5个字节的指令. 
@@ -447,7 +469,19 @@
             * Pin 总是以踪迹粒度实时编译代码, 但它支持在多种粒度上插桩代码, 包括指令, 基本块, 踪迹, 函数及映像
         * `valgrind`
         * `github.com/angorafuzzer/libdft64`
-
+* 污点分析
+    * 流程
+        * 识别污点源和汇聚点: 
+            * 使用启发式的策略进行标记, 例如把来自程序外部输入的数据统称为"污点"数据
+        * 污点传播分析: 分析污点标记数据在程序中的传播途径. 
+            * 显式流分析: 分析污点标记如何随程序中变量之间的**数据依赖**关系传播. 
+            * 隐式流分析: 分析污点标记如何随程序中变量之间的**控制依赖**关系传播, 也就是分析污点标记如何从条件指令传播到其所控制的语句. 
+            * 性能评价: 
+                * 欠污染 (under-taint)：由于对隐式流污点传播处理不当导致本应被标记的变量没有被标记。
+                * 过污染 (over-taint)：由于污点标记的数量过多而导致污点变量大量扩散。
+        * 无害处理: 无害处理模块是指污点数据经过该模块的处理后, 数据本身不再携带敏感信息或者针对该数据的操作不会再对系统产生危害. 带污点标记的数据在经过无害处理模块后, 污点标记可以被移除. 
+            * 常数赋值是最直观的无害处理的方式. 加密处理, 程序验证等在一定程度上也可以认为是无害处理
+        
 * 动态污点分析(DTA): 也称数据流追踪(DFT), 通常在动态插桩平台上实现. 
     * 过程: 污点数据(攻击数据)从网络, 磁盘的系统调用或指令进入内存(污点源), 经过移动/拷贝/计算, 到达攻击点(污点槽), 被插桩代码检测到. 
 
@@ -681,3 +715,92 @@
         * `-m "kernel32.dll"`: 在指定模块中寻找指令
 
 
+
+## AFL
+* 项目地址: [https://github.com/mirrorer/afl](https://github.com/mirrorer/afl)
+* 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
+* 描述
+    * 一款基于覆盖引导(Coverage-guided)的模糊测试工具. 通过记录输入样本的代码覆盖率, 从而调整输入样本以提高覆盖率, 增加发现漏洞的概率. 
+    * 运行流程: 
+        1. 从源码编译程序时进行插桩, 以记录代码覆盖率(Code Coverage);
+        2. 选择一些输入文件, 作为初始测试集加入输入队列(queue);
+        3. 将队列中的文件按一定的策略进行突变;
+        4. 如果经过变异文件更新了覆盖范围, 则将其保留添加到队列中;
+        5. 上述过程会一直循环进行, 期间触发了crash的文件会被记录下来. 
+    * 实现
+        * 使用二元组`(branch_src, branch_dst)`来记录`当前基本块 + 前一基本块`的信息, 从而获取目标的执行流程和代码覆盖情况. 
+        * fork-server: 
+            * 
+        * 插桩
+            * 在每个基本块开头插入一段代码, 做以下事情: 
+                1. 保存寄存器值(rsp, rcx, rdx等)
+                2. 调用`__afl_maybe_log`函数
+                3. 恢复寄存器值
+* 快速示例
+    ```sh
+        # 插桩编译
+        afl-g++ heap.cpp -g -o heap_afl
+
+        mkdir input; cd input
+        touch SEED.txt
+        echo aaa > SEED.txt	//将SEED作为初始种子写入in文件夹中的SEED文件中
+
+        # 以root执行以下操作(sudo -i)
+        # /proc/sys/kernel/core_pattern 其中指定的文件名或管道用于在进程崩溃得到由系统捕获并传来的崩溃信息
+        echo core > /proc/sys/kernel/core_pattern
+
+        # CPU调频 https://wiki.archlinux.org/title/CPU_frequency_scaling_(简体中文)
+        # performance是运行于最大频率
+        cd /sys/devices/system/cpu
+        echo performance | tee cpu*/cpufreq/scaling_governor
+
+        # @@表示程序从文件中获取输入, --可能是将目标程序和前面的参数分开来
+        afl-fuzz -i input -o output -- ./heap_afl @@
+        # 其他参数
+        # -f <file>: 表示将文件的内容作为stdin输入
+    ```
+
+* 并行模式
+    * 添加参数`-M <主进程输出目录>`或`-S <从进程输出目录>`. 主进程的策略是确定性检查(deterministic checks), 从进程则是进行随机调整. `-o`则指定同步输出目录.
+    * 观察多个进程的状态: `afl-whatsup sync/`
+
+* fuzz无源码二进制程序(qemu模式)
+    * 安装: 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 要安装`libglib2.0-dev`.
+    * 编译出现问题: 
+        ```
+        util/memfd.c:40:12: error: static declaration of ‘memfd_create’ follows non-static declaration
+        static int memfd_create(const char *name, unsigned int flags)
+                    ^~~~~~~~~~~~
+        ```
+        * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[https://blog.csdn.net/liyihao17/article/details/109981662](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
+    * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
+    * 添加参数`-Q`即可.
+
+    ```sh
+    ```
+* 其他工具
+    * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态
+
+### 测试用例
+* **原则**
+    * 文件不要太大, 最好小于1kb
+    * 不要用太多测试用例, 除非这些用例相互有功能性差异.
+
+## AFL++
+* 项目地址: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
+* 安装:
+
+    ```sh
+        docker pull aflplusplus/aflplusplus
+        docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+    ```
+
+### 白皮书笔记
+* 覆盖测量
+    * afl在程序流分支节点处注入的代码用于粗略估计分支覆盖率, 代码逻辑大致如下:
+        ```cpp
+            cur_location = <COMPILE_TIME_RANDOM>; // 用一个随机数标记当前基本块
+            shared_mem[cur_location ^ prev_location]++; 
+            prev_location = cur_location >> 1;
+        ```
+    * `shared_mem`是SHM共享内存中的一个64KB大小的区域, (`branch_src`, `branch_dst`) 

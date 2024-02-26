@@ -73,19 +73,14 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * `save`, `load`, `import`, `export`
     ```sh
         docker save -o my_image.tar <镜像名>
-
         docker load -i my_image.tar 
-
         docker export -o my_image.tar <容器名>
-
         docker import my_image.tar <容器名>
     ```
     * 区别: save的镜像再load后能查看分层信息, export的则不能.
 
 ### 查看信息
 * 打印docker信息: `docker info`
-
-
 
 
 ## 常用配置
@@ -108,10 +103,8 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 
 ## 错误记录
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
-
-    需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 
-
-        docker run -tid --name <容器名> --privileged=true <镜像> /sbin/init
+    * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 
+        > docker run -tid --name <容器名> --privileged=true <镜像> /sbin/init
 
 ## 其他
 * 更换apt源
@@ -134,6 +127,8 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     `docker rmi $(docker images -f "dangling=true" -q)`
 
 # Qemu
+* 参考
+    * https://www.zhaixue.cc/qemu/qemu-param.html
 * 在Ubuntu中安装qemu
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
@@ -160,3 +155,30 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     * user模式
     * 端口转发
     * TAP桥接
+* 其他参数: 
+    * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
+    * `-cpu`: 指定cpu架构, 比如`cortex-a9`
+* 原理
+    * 二进制翻译
+        * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 
+    * 代码生成
+        * qemu从翻译块生成可执行代码, 存于代码缓存(`code cache`). 代码缓存本质上就是有可执行权限的内存页. 
+    * 缓冲表: 存放中间码和可执行代码. 之后在同一程序中运行代码时会先查询缓冲表. 
+    * 块链接
+        * 上述代码翻译和生成的基本单元都是基本块(ida反汇编的流程图中所见的代码块)
+        * 在翻译完连续块后, qemu会把它们链接起来组成一个迹(`trace`), 实现方式是在每个的结尾放一个跳转, 跳到下一个块. 一个trace可以运行到底, 而不会出现中途需要翻译而中断的情况. 
+    * 缓存无效化
+        * 生成的代码可能因无效化而停止执行. 
+        * 两个原因: 
+            * 代码缓存已满. 
+            * 代码发生修改, 因而之前生成代码不能重新运行. 
+    * `softMMU`
+        * 将` Guest Virtual Addresses (GVA)`转换为`Host Virtual Address (HVA)`
+        * 发生于客户机操作内存时. qemu为此生成了加载(load)和保存(store)中间码IR的操作: 
+            * `op_qemu_ld`: 将某内存地址中的数据加载到寄存器. 
+            * `op_qemu_st`: 将寄存器的内容保存到虚拟用户地址. 
+        * 转译后备缓冲器(`Translation Look-aside Buffer (TLB)`)
+            * 为CPU的一种缓存, 用于改进虚拟地址到物理地址的转译速度. 
+            * 在qemu的软TLB中, 实际是`GVA`到`HVA`的转换. qemu确保所有客户机虚拟地址都能转译到qemu进程空间的地址中. 
+
+            <img alt="qemu_mem_trans" src="./pic/qemu_mem_trans.png" width="50%" height="50%">

@@ -2349,27 +2349,27 @@
             * `VMCALL`: 关闭VT时让虚拟机主动发生退出事件( )
     * 无条件, 有条件陷入指令
 
-        <img alt="" src="./pic/vt_trap1.png" width="50%" height="50%">
+        <img alt="" src="./pic/vt_trap1.png" width="30%" height="30%">
 
-        <img alt="" src="./pic/vt_trap2.png" width="50%" height="50%">
+        <img alt="" src="./pic/vt_trap2.png" width="30%" height="30%">
 
     * x64四级页表寻址和vt双层地址翻译
         * 确定下一条指令的地址: CS(代码段寄存器) + eip
         * x86:
 
-            <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
+            <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="30%" height="30%">
 
-            x86 PAE(物理地址扩展)时如下. cr3寄存器指向**pdptr表**的基址, 该表只有4项(由第30, 31位指定项索引), 每项指向一个**页目录表**, 页目录表每一项指向一个页表, **页表**每一项记录一个物理内存页的起始地址. 再通过地址的0至11位则指定的索引, 在**物理内存页**找到目的地址. 
+            x86 PAE(物理地址扩展)时如下. cr3寄存器指向 **`pdptr表`**的基址, 该表只有4项(由第30, 31位指定项索引), 每项指向一个**页目录表**, 页目录表每一项指向一个页表, **页表**每一项记录一个物理内存页的起始地址. 再通过地址的0至11位则指定的索引, 在**物理内存页**找到目的地址. 
 
-            <img alt="" src="./pic/vt_vaddr2addr_32_1.png" width="50%" height="50%">
+            <img alt="" src="./pic/vt_vaddr2addr_32_2.png" width="40%" height="40%">
 
         * x64: 用了低48位, 每级页表占9位, 共4级, 缩写分别为PML4, PDPT, PD, PT. cr3指向顶级页表的基址. 
             
             虚拟地址结构如下. 
 
-            <img alt="" src="./pic/vt_vaddr_64.png" width="50%" height="50%">
+            <img alt="" src="./pic/vt_vaddr_64.png" width="30%" height="30%">
 
-            <img alt="" src="./pic/vt_vaddr2addr_64.png" width="50%" height="50%">
+            <img alt="" src="./pic/vt_vaddr2addr_64.png" width="40%" height="40%">
 
         * 虚拟机双层地址翻译(`intel ept`)
             * 虚拟机地址 -> (通过gpt页表)虚拟机物理地址 -> (通过ept页表)真机物理地址

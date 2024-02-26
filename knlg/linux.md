@@ -913,7 +913,9 @@ typedef struct {
     2. 打开`/etc/pam.d/common-password`
     3. 把有`pam_cracklib.so`那一行注释掉
     4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
-
+* `chroot <新的根目录> <启动的程序>`
+    * 在 linux 系统中，系统默认的目录结构都是以/，即是以根 (root) 开始的。而在使用 chroot 之后，系统的目录结构将以指定的位置作为/位置
+    * 例: `chroot /home/test //home/test/busybox`
 ### 进程
 * `ps`: 查看进程信息. 
     * `ps aux`
