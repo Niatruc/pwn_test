@@ -157,7 +157,7 @@
                     NULL,                 // ApcContext
                     &IoStatusBlock,       // IoStatusBlock
                     IOCTL_METHOD_NEITHER, // IoControlCode
-                    &InputData,           // InputBuffer--->任意数据（0）
+                    &InputData,           // InputBuffer--->任意数据()
                     BUFFER_LENGTH,        // InputBufferLength
                     xHalQuerySystemInformation, // OutputBuffer-->任意地址
                     BUFFER_LENGTH);       // OutBufferLength
@@ -477,8 +477,8 @@
             * 显式流分析: 分析污点标记如何随程序中变量之间的**数据依赖**关系传播. 
             * 隐式流分析: 分析污点标记如何随程序中变量之间的**控制依赖**关系传播, 也就是分析污点标记如何从条件指令传播到其所控制的语句. 
             * 性能评价: 
-                * 欠污染 (under-taint)：由于对隐式流污点传播处理不当导致本应被标记的变量没有被标记。
-                * 过污染 (over-taint)：由于污点标记的数量过多而导致污点变量大量扩散。
+                * 欠污染 (under-taint): 由于对隐式流污点传播处理不当导致本应被标记的变量没有被标记。
+                * 过污染 (over-taint): 由于污点标记的数量过多而导致污点变量大量扩散。
         * 无害处理: 无害处理模块是指污点数据经过该模块的处理后, 数据本身不再携带敏感信息或者针对该数据的操作不会再对系统产生危害. 带污点标记的数据在经过无害处理模块后, 污点标记可以被移除. 
             * 常数赋值是最直观的无害处理的方式. 加密处理, 程序验证等在一定程度上也可以认为是无害处理
         
@@ -718,7 +718,9 @@
 
 ## AFL
 * 项目地址: [https://github.com/mirrorer/afl](https://github.com/mirrorer/afl)
-* 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
+* 参考
+    * 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
+    * [AFL 漏洞挖掘技术漫谈(二）: Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
 * 描述
     * 一款基于覆盖引导(Coverage-guided)的模糊测试工具. 通过记录输入样本的代码覆盖率, 从而调整输入样本以提高覆盖率, 增加发现漏洞的概率. 
     * 运行流程: 
@@ -736,6 +738,7 @@
                 1. 保存寄存器值(rsp, rcx, rdx等)
                 2. 调用`__afl_maybe_log`函数
                 3. 恢复寄存器值
+
 * 快速示例
     ```sh
         # 插桩编译
@@ -765,27 +768,202 @@
     * 观察多个进程的状态: `afl-whatsup sync/`
 
 * fuzz无源码二进制程序(qemu模式)
-    * 安装: 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 要安装`libglib2.0-dev`.
-    * 编译出现问题: 
-        ```
-        util/memfd.c:40:12: error: static declaration of ‘memfd_create’ follows non-static declaration
-        static int memfd_create(const char *name, unsigned int flags)
-                    ^~~~~~~~~~~~
-        ```
-        * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[https://blog.csdn.net/liyihao17/article/details/109981662](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
-    * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
-    * 添加参数`-Q`即可.
+    * 包括`afl-fuzz`在内各工具添加参数`-Q`即使用qemu模式.
+    * 安装: 
+        * 要先安装`libglib2.0-dev`, `libtool-bin`.
+        * 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 这个脚本会做以下事情: 
+            * 下载qemu源码压缩包; 
+            * 检查libtool等必要工具是否已安装; 
+            * 用diff文件为qemu源码打补丁; 
+            * 编译qemu(默认目标架构为本机的cpu架构)(需确保已安装python2): 
+                ```sh
+                    CFLAGS="-O3 -ggdb" ./configure --disable-system \
+                        --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
+                        --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm || exit 1
 
-    ```sh
-    ```
+                    CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm
+                ```
+            * 将生成的用户模式qemu移到上上层, 更名为`afl-qemu-trace`; 
+
+        * 编译出现问题: 
+            ```
+                util/memfd.c:40:12: error: static declaration of ‘memfd_create’ follows non-static declaration
+                static int memfd_create(const char *name, unsigned int flags)
+                            ^~~~~~~~~~~~
+            ```
+            * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[AFL-qemu安装问题](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
+    * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
+
 * 其他工具
-    * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态
+    * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态. 
+    * `afl-gotcpu`: 获取CPU状态. 
+    * `afl-showmap`: 用于对单个用例进行执行路径跟踪. 
 
 ### 测试用例
 * **原则**
     * 文件不要太大, 最好小于1kb
     * 不要用太多测试用例, 除非这些用例相互有功能性差异.
 
+### 源码分析
+* qemu模式
+    * 打补丁: 
+        * `accel/tcg/cpu-exec.c`: 
+            * 引入头文件`../patches/afl-qemu-cpu-inl.h`
+            * 在`cpu_tb_exec`函数加了宏`AFL_QEMU_CPU_SNIPPET2`
+            * 在`tb_find`函数加了宏`AFL_QEMU_CPU_SNIPPET1`
+        * `linux-user/elfload.c`: 
+            * 在`load_elf_image`函数中, 赋值: `afl_entry_point = info->entry;`
+        * `linux-user/syscall.c`: 
+            * 在`do_syscall`函数中, 在对`TARGET_NR_tgkill`的处理中, 原来的操作是`safe_tgkill((int)arg1, (int)arg2, target_to_host_signal(arg3))`, 三个参数分别对应`tid`, `tgid`, `sig`, 现添加判断: 
+                ```cpp
+                    if(afl_forksrv_pid && afl_forksrv_pid == pid && sig == SIGABRT)
+                        pid = tgid = getpid();
+                ```
+        * 新增的文件`afl-qemu-cpu-inl.h`: 
+            ```cpp
+                #define AFL_QEMU_CPU_SNIPPET1 
+                    // 执行: 
+                    //  afl_request_tsl(pc, cs_base, flags); 
+                #define AFL_QEMU_CPU_SNIPPET2 
+                    // 执行:  
+                    //  afl_setup(); 
+                    //  afl_forkserver(cpu); 
+                    //  afl_maybe_log(itb->pc); 
+                #define TSL_FD (FORKSRV_FD - 1)
+
+                // 设置SHM区域; 根据环境变量, 初始化一些全局变量
+                static void afl_setup(void); 
+
+                // 
+                // 创建管道(存于t_fd[0]和t_fd[1], 后者通过dup2赋予TSL_FD), 与子进程通信, 以获取翻译的指令(父进程读t_fd[0], 子进程写TSL_FD)
+                static void afl_forkserver(CPUState *cpu); 
+
+                // 
+                static inline void afl_maybe_log(abi_ulong cur_loc); 
+
+                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数()写入管道TSL_FD)
+                static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags); 
+
+                // 
+                static void afl_wait_tsl(CPUState *cpu, int fd); 
+
+            ```
+* `afl-as.c`: 对GNU的`as`程序的封装. 在使用了`afl-gcc`及`afl-clang`时, 会执行此程序. 
+    * 注: 当目标程序极为复杂时, 最好将环境变量`AFL_INST_RATIO`设置为小于100的值, 以减少对所有已知分支进行插桩的可能性. 
+    * `static void add_instrumentation(void)`: 处理输入文件`input_file`, 在所有必要位置插桩. 
+        * 
+* `afl-as.h`
+    * 变量: 
+        * `__afl_area_ptr`: 共享内存地址
+        * `__afl_prev_loc`: 上一个插桩位置(id为R(100)随机数的值)
+        * `__afl_fork_pid`: 由fork产生的子进程的pid
+        * `__afl_temp`: 缓冲区
+        * `__afl_setup_failure`: 标志位，如果置位则直接退出
+        * `__afl_global_area_ptr`: 全局指针。
+* `afl-gcc.c`: 
+    * 要点
+        * 需要知道`afl-as`程序的路径(默认为`/usr/local/lib/afl/`)(可以设置环境变量`AFL_PATH`); 
+        * 可以在使用`configure`程序时指定`CC`或`CXX`来使用`afl-gcc`或`afl-clang`. 
+    * 
+        ```cpp
+            // 构建参数列表, 放到`cc_params`: 
+            //      [0]: "clang++"/"clang"/"g++"/"gcj"/"gcc"
+            //      剩余: 
+            //          -B <as_path>
+            //          若使用clang: -no-integrated-as
+            //          根据环境变量加参: 
+            //              AFL_HARDEN: -fstack-protector-all
+            //                  若未用fotify: -D_FORTIFY_SOURCE=2
+            //              AFL_USE_ASAN: -U_FORTIFY_SOURCE -fsanitize=address
+            //              AFL_USE_MSAN: -U_FORTIFY_SOURCE -fsanitize=memory
+            //              AFL_DONT_OPTIMIZE: -O3 -funroll-loops -D__AFL_COMPILER=1 -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1
+            //              AFL_NO_BUILTIN: -fno-builtin-strcmp -fno-builtin-strncmp -fno-builtin-strcasecmp -fno-builtin-strncasecmp -fno-builtin-memcmp -fno-builtin-strstr -fno-builtin-strcasestr
+            static void edit_params(u32 argc, char** argv); 
+
+            main () {
+                find_as(argv[0]); // 获取as程序的路径, 由`as_path`指向
+                edit_params(argc, argv); // 构造exec函数用的参数, 放在`cc_params`数组
+                execvp(cc_params[0], (char**)cc_params); // 执行编译
+            }
+        ```
+
+### 白皮书笔记
+* 覆盖测量
+    * afl在程序流分支节点处注入的代码用于粗略估计`分支覆盖率`, 代码逻辑大致如下:
+        ```cpp
+            cur_location = <COMPILE_TIME_RANDOM>; // 用一个随机数标记当前基本块. 可以让下面异或的输出均匀分布
+            shared_mem[cur_location ^ prev_location]++; 
+            prev_location = cur_location >> 1; // 这一步一是为了保留元组的方向性(不然无法区分`A ^ B`和`B ^ A`, 也就没法区分`A -> B`和`B -> A`); 二是为了保持小循环的独一性(否则, `A ^ A`和`B ^ B`显然都是0(环形路径)). 
+        ```
+    * `shared_mem`是SHM共享内存中的一个64KB大小的区域, 这个区域会传给插桩的二进制程序. 在`output map`中的每个被设置的字节可被记为元组`(branch_src, branch_dst)`. 
+    * 用分支覆盖相比块覆盖的好处: 能辨别如下两条执行踪迹的细微差别: 
+        > A -> B -> C -> D -> E (元组: AB, BC, CD, DE)
+        > A -> B -> D -> C -> E (元组: AB, BD, DC, CE)
+* 检测新行为
+    * 当输入的数据导致新的执行踪迹出现时, 这个输入数据会被保留下来, 后续使用. 没有导致产生新执行踪迹的输入数据会被丢弃. 
+* 对输入队列进行演化
+    * 遗传算法并没有比盲fuzz策略拥有更好的性能. 
+* 语料库精简
+    * AFL定期使用一个快速的算法选一个较小的测试用例子集, 这个子集满足: 
+        1. 仍然覆盖已出现的所有元组. 
+        2. 其中的元组包含最有用的特征. 
+    * 该算法给每个队列入口分配了一个分数(根据**执行的延迟**和**文件的大小**), 然后为每个元组选择分数最低的候选. 
+    * 接下来逐一对每个元组执行下列操作: 
+        1. 找到下一个还未出现在临时工作集的元组; 
+        2. 为该元组找到最佳队列; 
+        3. 在所有出现于临时工作集的元组中, 找出出现在执行踪迹的元组并注册. 
+        4. 若工作集中仍有元组, 回到第1步. 
+* 裁剪输入文件
+    * 文件太大不仅会导致目标运行变慢, 还会降低输入数据变异成为重要格式的可能性. 
+    * `afl-min`: 该工具首先自动选择操作模式. 如果初始输入数据能造成目标程序崩溃, 则`afl-min`会运行于非插桩模式; 否则运行于插桩模式, 并在保持相同执行路径的同时作改动. 最小化算法如下: 
+        1. 尝试以大步长去清零大块数据. 
+        2. 采用递减的块大小和步长进行块删除处理, 类似于二分搜索的方式. 
+        3. 字母规范化: 计算独特字符数量, 并尝试批量替换为0. 
+        4. 对所有非零字节进行规范化(归一化). 
+    * `afl-min`并不是直接用字节0, 而是用字符'0'作零替换. 这样减小了干扰文本解析的可能性, 因此更有可能成功地最小化文本文件. 
+* fuzz策略
+    * afl采取的决定性策略(deterministic strategies): 
+        * 采用不同长度和步长的顺序位翻转(Sequential bit flips)
+        * 顺序加减小整数
+        * 顺序插入特殊整数(0, 1, INT_MAX, etc)
+    * 非决定性策略: 
+        * 堆叠位翻转(stacked bit flips)
+        * 插入
+        * 删除
+        * 算术运算
+        * 拼接(splice)不同测试用例
+* 构建字典
+    * 当基本的语法分词完全随机组合时, 插桩和队列的进化算法在插桩模式下会提供能区分无意义的变形数据和可以导致新行为的变形数据的反馈. 
+    * 字典能让fuzzer快速重建JavaScript、SQL 或 XML 等冗长复杂语言的语法. 
+    * AFL还允许fuzzer自动隔离输入文件中的语法分词. 为了做到这一点, AFL查找一些会在翻转后导致执行路径有一致变化的字节. 
+    * fuzzer依靠这一信息来构建紧凑的"自动字典". 之后其他模糊测试策略会结合使用此自动字典. 
+* 崩溃去重(`de-duping`)
+    * 一个崩溃情形如果满足以下条件之一, 则认为崩溃具有唯一性: 
+        * 崩溃跟踪中包含了一个在之前的崩溃中都没有出现过的元组. 
+        * 崩溃跟踪中缺少了一个在之前的崩溃跟踪中一直存在的元组. 
+* 崩溃调查
+    * 为了探索崩溃的可利用性, afl提供了一种崩溃探索模式: 已知故障的测试用例的fuzz方式类似于fuzzer的正常操作, 约束条件是任何未能导致崩溃的变异用例都会被丢弃. 
+    * 利用插桩的反馈来探索崩溃程序的状态, 以让崩溃的条件更清晰; 然后隔离新找到的输入数据, 供人工审查. 
+    * 关于崩溃, 与正常的输入队列数据不同的是, 其输入数据不会被裁剪, 以便与父数据对比. `afl-tmin`工具会对它们作缩减. 
+    * 详见: http://lcamtuf.blogspot.com/2014/11/afl-fuzz-crash-exploration-mode.html
+* `fork-server`
+    * `execve`, 链接以及libc库的加载都只进行一次. 之后通过写时复制机制从旧进程的镜像创建新进程. 
+    * 延迟(`deferred`)模式: 
+        * 跳过较大的, 用户选择的初始化代码块. 
+        * 只需对目标程序进行适度修改. 
+        * 对于某些目标程序, 可以产生 10 倍以上的性能提升. 
+    * 延迟(`deferred`)模式: 
+        * 使用单个进程尝试多个输入, 从而大大限制了重复调用`fork`的开销. 
+        * 需对目标程序进行一些修改. 
+        * 能将快速目标的性能提高 5 倍以上. 
+    * 详见: http://lcamtuf.blogspot.com/2014/10/fuzzing-binaries-without-execve.html
+* 并行化
+    * 需定期检查其他cpu内核或远程机器上独立运行的实例所产生的队列, 然后有选择地挑选其中一些测试用例, 这些用例可产生新行为. 
+    * 例子: 对使用共用数据格式的不同解析器, 进行同步测试. 
+    * 参阅`parallel_fuzzing.txt`
+* 纯二进制程序插桩
+    * 借助用户模式qemu. 
+    
 ## AFL++
 * 项目地址: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 * 安装:
@@ -794,13 +972,3 @@
         docker pull aflplusplus/aflplusplus
         docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
     ```
-
-### 白皮书笔记
-* 覆盖测量
-    * afl在程序流分支节点处注入的代码用于粗略估计分支覆盖率, 代码逻辑大致如下:
-        ```cpp
-            cur_location = <COMPILE_TIME_RANDOM>; // 用一个随机数标记当前基本块
-            shared_mem[cur_location ^ prev_location]++; 
-            prev_location = cur_location >> 1;
-        ```
-    * `shared_mem`是SHM共享内存中的一个64KB大小的区域, (`branch_src`, `branch_dst`) 

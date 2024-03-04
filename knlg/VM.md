@@ -2,7 +2,7 @@
 * 为防止安装系统时的意外错误, 需在配置中`system`处开启`UEFI`
 * 挂载共享文件夹: `sudo mount -t vboxsf public_dir /mnt/shared `
 * 启用嵌套VT-x/AMD-V
-    * 如果这一项是灰色不可选的，则需执行: `VBoxManage.exe modifyvm win7_x64 --nested-hw-virt on`
+    * 如果这一项是灰色不可选的, 则需执行: `VBoxManage.exe modifyvm win7_x64 --nested-hw-virt on`
 # vmware
 * 合并vmdk
     * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
@@ -17,8 +17,8 @@
 
 # cuckoo
 * Locker文件: 
-1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受)，如文件操作，操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
-2. 有的会开启大量进程，导致出现大量procmemory-regions节(能占到100万行)；behavior的generic和processes节中项也很多(都能占到10万行)
+1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受), 如文件操作, 操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
+2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行)；behavior的generic和processes节中项也很多(都能占到10万行)
 
 # docker
 ## 知识点
@@ -129,10 +129,19 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 # Qemu
 * 参考
     * https://www.zhaixue.cc/qemu/qemu-param.html
+    * [qemu user mode速记](https://wangzhou.github.io/qemu-user-mode%E9%80%9F%E8%AE%B0/)
 * 在Ubuntu中安装qemu
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
     * `sudo apt install qemu qemu-kvm virt-manager bridge-utils`
+* 手动编译qemu
+    * `configure`: 运行后生成`config-host.mak`文件. 
+        * `--enable-debug`: 加入调试符号
+        * `--static`: 生成静态程序
+        * `--target-list=`: 指定编译的目标
+            * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
+            * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
+
 
 * 快照
     * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
@@ -152,12 +161,35 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
             # 或
             qemu-system-i386 -m 256 -hda disk.img -netdev user,id=network0 -device e1000,netdev=network0,mac=52:54:00:12:34:56 
         ``` 
-    * user模式
     * 端口转发
     * TAP桥接
 * 其他参数: 
     * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
     * `-cpu`: 指定cpu架构, 比如`cortex-a9`
+    * `-E`: (用户模式)指定环境变量 
+        * `LD_PRELOAD='<custom_lib.so>'`
+* user模式
+    * 参数
+        * `-d`: 可以在运行时打印中间码, guest和host反汇编, guest cpu的寄存器等值, 便于调试分析. 
+            ```sh
+                out_asm         显示为每个编译后的TB生成的宿主机汇编代码
+                in_asm          显示每个TB的目标汇编代码
+                op              显示每个TB的微操作码
+                op_opt          显示优化后的微操作码
+                op_ind          显示在`indirect lowering`前的微操作码
+                int             以短小格式显示中断, 异常
+                exec            在每个执行的TB前显示跟踪(注意会输出很多信息)
+                cpu             在进入TB前显示寄存器信息(注意会输出很多信息)
+                mmu             记录MMU相关的活动
+                pcall           (仅限x86): 显示保护模式的远调用/返回/异常
+                cpu_reset       在CPU返回前显示其状态
+                unimp           记录未实现的函数
+                guest_errors    在客户机进行非法操作时做记录(比如访问一个不存在的寄存器)
+                page            在用户模式仿真刚开始时转储内存页
+                nochain         不要链接编译的TB, 以让`exec`和`cpu`指令显示完整的执行踪迹
+                trace:PATTERN   事件跟踪
+            ```
+        * `-strace`: 运行跟踪, 输出格式通`strace`工具. 
 * 原理
     * 二进制翻译
         * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 
@@ -182,3 +214,5 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
             * 在qemu的软TLB中, 实际是`GVA`到`HVA`的转换. qemu确保所有客户机虚拟地址都能转译到qemu进程空间的地址中. 
 
             <img alt="qemu_mem_trans" src="./pic/qemu_mem_trans.png" width="50%" height="50%">
+    * user mode
+        * 如果是多线程, 会在每次创建一个线程时, 创建一个vCPU, 然后把线程函数放到创建的vCPU上运行. 如果是多进程程序, qemu直接`fork`新进程. 

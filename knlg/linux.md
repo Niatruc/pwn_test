@@ -11,6 +11,7 @@
     * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟系统内存相关的
     * `/sys`
         * `/kernel`
+            * `/randomize_va_space`: 设为0, 可关闭地址随机化
             * `/random`
                 * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
 * `/boot`:
@@ -1170,46 +1171,46 @@ typedef struct {
         * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
         * Makefile
             ```sh
-            MAKE=make
+                MAKE=make
 
-            include ../.config # 可使用其他.config文件中的配置
+                include ../.config # 可使用其他.config文件中的配置
 
-            all: haha.text target1
+                all: haha.text target1
 
-            # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
-            target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
+                # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
+                target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
 
-            # 目标: 依赖文件集
-            #   命令1
-            #   命令2
-            # 命令前加个@, 可以阻止终端打印这条命令. 
-            target1: 
-                @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
-            
-            # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
-            target2: 
-            ifdef DEBUG
-                ...
-            else
-                ...
-            endif
+                # 目标: 依赖文件集
+                #   命令1
+                #   命令2
+                # 命令前加个@, 可以阻止终端打印这条命令. 
+                target1: 
+                    @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+                
+                # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
+                target2: 
+                ifdef DEBUG
+                    ...
+                else
+                    ...
+                endif
 
-            %.o:%.c
-                gcc -o $@ $<
-            
-            # 示例: 构建一个动态库
-            libmy.so: add.o sub.o
-                gcc -shared -o $@ $^
+                %.o:%.c
+                    gcc -o $@ $<
+                
+                # 示例: 构建一个动态库
+                libmy.so: add.o sub.o
+                    gcc -shared -o $@ $^
 
-            %.o: %.c
-                gcc -fPIC -c $<
+                %.o: %.c
+                    gcc -fPIC -c $<
 
-            # 示例: 构建一个静态库
-            libmy.so: add.o sub.o
-                ar -rc $@ $^
+                # 示例: 构建一个静态库
+                libmy.so: add.o sub.o
+                    ar -rc $@ $^
 
-            %.o: %.c
-                gcc -c $<
+                %.o: %.c
+                    gcc -c $<
             ```
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
