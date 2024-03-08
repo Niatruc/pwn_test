@@ -22,7 +22,7 @@
 
 # 调试技术
 * 调试CreateRemoteThread创建的线程
-    * 在主进程创建svchost进程后, 执行CreateRemoteThread前, 打开新的od并附加创建的svchost, 之后来到注入的代码的入口点, 打下断点。然后在主进程那边执行了CreateRemoteThread, 另一个OD中就会断在注入代码入口点处
+    * 在主进程创建svchost进程后, 执行CreateRemoteThread前, 打开新的od并附加创建的svchost, 之后来到注入的代码的入口点, 打下断点. 然后在主进程那边执行了CreateRemoteThread, 另一个OD中就会断在注入代码入口点处
 
 # 代码混淆
 * 混淆技术
@@ -89,26 +89,36 @@
         Or(a, b) = NOR(NOR(a, b), NOR(a, b)
         Xor(a, b) = NOR(NOR(NOR(a, a), NOR(b, b)), NOR(a, b))
     ```
-* 除此之外VMProtect使用vAdd Handler来模拟执行add,sub,adc,sbb,cmp,inc,dec等指令的操作在刚出现的时候也着实让人大开眼界。通过vAdd指令同时可以算出与sub等指令一样的标志位操作。
+* 除此之外VMProtect使用vAdd Handler来模拟执行`add`, `sub`, `adc`, `sbb`, `cmp`, `inc`, `dec`等指令的操作在刚出现的时候也着实让人大开眼界. 通过vAdd指令同时可以算出与sub等指令一样的标志位操作. 
     ```cpp
     vAdd(a,b) = a + b
     Sub = Not(vAdd(Not(a),b))
     sub_flag(a, b) = and(~(0x815). not_flag(not(a) + b)) + and(0x815, add_flag(not(a). b))
     ```
-* 其他的还有: 虚拟寄存器轮转算法，寄存器加密，栈混乱代码随机生成，VM寄存器随机化，原始栈开辟新的执行空间解决多线程等等。
+* 其他的还有: 虚拟寄存器轮转算法, 寄存器加密, 栈混乱代码随机生成, VM寄存器随机化, 原始栈开辟新的执行空间解决多线程等等. 
 
 
 # 工具
 ## binwalk
 * `binwalk <bin文件>`
 * 参数
-    * `--extract=./my_extract.conf`: 指定配置文件(否则使用默认的预定义配置文件`extract.conf`)
-    * `-e`: 从固件中提取文件. 
-    * `-m ./foobar.mgc`: 使用魔术签名文件. 
-    * `-M`: 在签名扫描期间, 递归扫描提取的文件. (使用`-e`或`-dd`时有效)
-    * `-W <文件1> <文件2> <文件3>`: 对多个bin文件进行字节比较. 可与`--block`, `--length`, `--offset`, `--terse`等一起使用. 
-    * `-E`: 熵分析. 
-    * `-H`: 判断得到的熵值分类数据块是压缩的还是加密的. 
+    * 提取
+        * `--extract=./my_extract.conf`: 指定配置文件(否则使用默认的预定义配置文件`extract.conf`)
+        * `-e`: 从固件中提取文件. 
+        * `-m ./foobar.mgc`: 使用魔术签名文件. 
+        * `-M`: 在签名扫描期间, 递归扫描提取的文件. (使用`-e`或`-dd`时有效)
+    * 反汇编扫描
+        * `-Y`: 通过使用`capstone`, 从文件中识别CPU架构. 
+    * 熵
+        * `-E`: 计算文件熵. 
+        * `-F`: 快速但细节少的熵分析. 
+        * `-Q`: 生成图例. 
+            * 熵图的纵坐标为熵(最大值为1, 可能是做过类似归一化的处理), 横坐标为文件偏移. 
+            * 熵值越高, 代表此部分越有可能经过加密处理(各字节值的分布比较均匀). 熵值为0时, 说明此处仅有单一字节值. 
+        * `-J`: 保存为png. 
+        * `-H`: 判断得到的熵值分类数据块是压缩的还是加密的. 
+    * 二进制比对
+        * `-W <文件1> <文件2> <文件3>`: 对多个bin文件进行字节比较. 可与`--block`, `--length`, `--offset`, `--terse`等一起使用. 
     * `--enable-plugin=zlib`: 使用指定插件扫描固件, 如`zlib`. 
     * ``: 
 ## x64dbg
@@ -467,7 +477,7 @@
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`
         * 这是在导入文件时报的错.
-    * `LoadLibrary(...\IDA\plugins\idapython3.dll) error: 找不到指定的模块。`
+    * `LoadLibrary(...\IDA\plugins\idapython3.dll) error: 找不到指定的模块. `
         * 启动ida7.5时出现. 命令行没有python解释器可用. 
         * 参考: http://scz.617.cn:8/python/202011182246.txt
     * `DLL load failed while importing sip: 找不到模块`

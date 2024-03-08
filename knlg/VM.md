@@ -142,7 +142,6 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
             * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
             * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
 
-
 * 快照
     * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
 * 运行
@@ -154,6 +153,9 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
                 -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
                 -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
         ```
+    * 针对不同架构: 
+        * arm
+            * `-machine`: 需指定此参数, 可选如`virt`
 * 网络
     * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
         ```sh

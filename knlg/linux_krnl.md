@@ -288,52 +288,52 @@
     }
 
     ```
-* Makefile生成
+* `Makefile`生成
 
-    ```shell
-    EXTRA_CFLAGS := -g
-    obj-m = hello.o
-    hello-objs := file1.o file2.o # 有多个源文件时加此行
-    KVERSION = $(shell uname -r) # 内核版本号
+    ```sh
+        EXTRA_CFLAGS := -g
+        obj-m = hello.o
+        hello-objs := file1.o file2.o # 有多个源文件时加此行
+        KVERSION = $(shell uname -r) # 内核版本号
 
-    # 如果引用了hello2中导出的符号, 则需: 
-    KBUILD_EXTRA_SYMBOLS=/mnt/hgfs/blabla/hello2/Module.symvers
+        # 如果引用了hello2中导出的符号, 则需: 
+        KBUILD_EXTRA_SYMBOLS=/mnt/hgfs/blabla/hello2/Module.symvers
 
-    all: 
-        make -C /lib/module/$(KVERSION)/build M=$(PWD) modules
-    clean:
-        make -C /lib/modules/$(KVERSION)/build M=$(PWD) clean
+        all: 
+            make -C /lib/module/$(KVERSION)/build M=$(PWD) modules
+        clean:
+            make -C /lib/modules/$(KVERSION)/build M=$(PWD) clean
     ```
 
     * make以后生成`hello.ko`
-    * Kbuild
+    * `Kbuild`
         * make的时候, 首先读`.config`文件中的变量, 然后读`KBuild`文件. `KBuild`文件会用到`.config`文件中的变量. 
         ```sh
-        # 将 <模块名>.o 编译进内核. 
-        obj-y := <模块名>.o
+            # 将 <模块名>.o 编译进内核. 
+            obj-y := <模块名>.o
 
-        # Kbuild会调用`$(AR) rcSTP`所有目标文件合并到`built-in.a`文件中. 这个文件没有符号表. 
-        # `built-in.a`会在后续通过`scripts/link-vmlinux.sh`链接进vmlinux中. 
-        # 列表中个文件的先后顺序是重点. 允许重复文件名(成功链接的目标文件会在后面被忽略). 
-        # 链接顺序也是重点. 在系统boot的时候, 它们的`module_init`/`__initcall`是按它们出现的顺序执行的. 
-        obj-y += obj1.o obj2.o
+            # Kbuild会调用`$(AR) rcSTP`所有目标文件合并到`built-in.a`文件中. 这个文件没有符号表. 
+            # `built-in.a`会在后续通过`scripts/link-vmlinux.sh`链接进vmlinux中. 
+            # 列表中个文件的先后顺序是重点. 允许重复文件名(成功链接的目标文件会在后面被忽略). 
+            # 链接顺序也是重点. 在系统boot的时候, 它们的`module_init`/`__initcall`是按它们出现的顺序执行的. 
+            obj-y += obj1.o obj2.o
 
-        # 将 <模块名>.o 编译为模块
-        obj-m := <模块名>.o
+            # 将 <模块名>.o 编译为模块
+            obj-m := <模块名>.o
 
-        # 编译到 lib.a 文件中
-        lib-y := obj1.o obj2.o
+            # 编译到 lib.a 文件中
+            lib-y := obj1.o obj2.o
 
-        # 指定依赖的文件. 调用`$(CC)`生成这些目标文件, 对它们调用`$(LD) -r`, 生成 `<模块名>.o`
-        <模块名>-y += obj1.o obj2.o
+            # 指定依赖的文件. 调用`$(CC)`生成这些目标文件, 对它们调用`$(LD) -r`, 生成 `<模块名>.o`
+            <模块名>-y += obj1.o obj2.o
 
-        # 等同于make时指定的EXTRA_CFALGS参数
-        ccflags-y += -DMYVAR1=\"myvar1\"
+            # 等同于make时指定的EXTRA_CFALGS参数
+            ccflags-y += -DMYVAR1=\"myvar1\"
 
-        # 其它的还有asflags-y, ldflags-y
+            # 其它的还有asflags-y, ldflags-y
         ```
 
-        * Kbuild的第二阶段(Stage2)会调用`modpost`程序: (引用: https://blog.csdn.net/lidan113lidan/article/details/119743237)
+        * `Kbuild`的第二阶段(Stage2)会调用`modpost`程序: (引用: https://blog.csdn.net/lidan113lidan/article/details/119743237)
             * 生成`xx.mod.c`文件: 记录ko所需的其他信息. 
                 ```cpp
                 // *.mod.c文件都拥有相同的文件头, 生成此头文件的代码在./scripts/mod/modpost.c中
@@ -401,7 +401,7 @@
 * `call_usermodehelper`: 用于在内核层中执行用户态程序或系统命令. 
 
 ## linux内核调试
-* oops
+* `oops`
     * 两种可能: `killed`, `panic`
     * 设置`panic`
         * `etc/sysctl.conf`(改完后用`sudo sysctl -p`或`sudo echo 1 > /proc/sys/kernel/panic_on_oops`使之生效)
@@ -422,7 +422,7 @@
         * `dpkg -i linux-image-2.6.32-65-generic-dbgsym_2.6.32-65.131_amd64.ddeb` 将在`/usr/lib/debug/modules/$(uname -r)/`下生成用于调试的vmlinux
         * `sudo crash /usr/lib/debug/boot/vmlinux-2.6.32-65-generic/var/crash/vmcore`
         * 运行`bt/ps/log`查看信息
-* printk
+* `printk`
     * `printk(KERN_DEBUG "Here I am: %s:%i\n", __FILE__, __LINE__);`
     * 日志级别
         * `KERN_EMERG`: 紧急事件消息, 系统崩溃前提示, 表示系统不可用
@@ -441,24 +441,34 @@
         * `tail -f /var/log/dmesg`: (在ubuntu中会说找不到这个文件)
         * `watch "dmesg | tail -20"`
     * `dump_stack`: 可以打印调用栈的信息. 
-* gdb
+* `gdb`
     * 无法在内核中修改数据, 加断点, 单步调试, 只能查看信息
-* kdb: 只能在2.6版旧内核使用, 需要打上补丁; 优点是不需要两台机器进行调试, 直接在本机进行操作
-* kgdb
+* `kdb`: 只能在2.6版旧内核使用, 需要打上补丁; 优点是不需要两台机器进行调试, 直接在本机进行操作
+* `kgdb`
     * ubuntu内核已开启KGDB选项: `cat /boot/config-$(uname -r) | grep -i "GDB"`
-    * vmlinux
-        * `/boot/`
-        * 内核镜像, 也是ELF
+    * `vmlinux`
+        * Linux能够使用硬盘空间作为虚拟内存, 因此得名`vm`
+        * 未压缩的内核镜像, 也是ELF文件
         * 有`.text`和`.data`
         * 没有符号表, 可以用[kdress](https://github.com/elfmaster/kdress). `kdress`会从 `System.map` 文件或者`/proc/kallsyms` 中获取符号相关的信息, 会根据这两种方式的可读性优先选取一种. 然后通过为符号表创建节头, 将获取到的符号信息重建到内核可执行文件中. 
             * `sudo ./kdress vmlinuz-$(uname -r) vmlinux /boot/System.map-$(uname -r)`
-    * vmlinuz
+    * `vmlinuz`
+        * 在`/boot/`下有. 
         * 在vmlinux的基础上, 经过gzip或bzip压缩而来, 同时添加了启动和解压缩代码. 是可以引导boot启动内核的最终镜像. 
         * 将vmlinuz解压为vmlinux: `/usr/src/linux-headers-$(uname -r)/scripts/extract-vmlinux /boot/vmlinuz-$(uname -r) > vmlinux` 
-* strace
+    * `zImage`
+        * 是vmlinux经过gzip压缩后的文件. 头部也有解压缩代码. 
+        * 使用`LZ77`压缩算法. 
+        * 适用于小内核, 比 `bzImage` 小. 
+    * `bzImage`: big zImage
+        * `zImage`的改进版本. 
+        * 使用 gzip 实用程序将 vmlinux 文件压缩为较小的大小(通常压缩到 512KB 以下), 从而创建 bzimage 映像文件. 
+    * `uImage`
+        * 是`U-boot`专用的映像文件, 它是在zImage之前加上一个长度为`0x40`的头, 说明这个映像文件的类型, 加载位置, 生成时间, 大小等信息. 换句话说, 如果直接从uImage的`0x40`位置开始执行, zImage和uImage没有任何区别. 
+* `strace`
 * 内核配置项
     * `CONFIG_DEBUG_KERNEL`: 用于使其它调试选项可用. 
-* kprobe
+* `kprobe`
 
 ## linux内核数据结构
 * `file_operation`结构体: 是把系统调用和驱动程序关联起来的关键数据结构. 
@@ -605,32 +615,32 @@
 
 * `kernel_thread`(无法运行)
 * 内核同步和互斥
-    * struct semaphore
+    * `struct semaphore`
         * `DEFINE_SEMAPHORE(name)`
         * `sema_init(struct semaphore *sem, int val)`
         * `down(struct semaphore *sem)`: 拿不到会一直等
         * `down_interruptible(struct semaphore *sem)`: 试图拿, 拿不到时可被打断, 不再等待. 
         * `down_trylock(struct semaphore *sem)`: 试图拿, 拿不到就走了, 不会睡眠. 所以可用在中断上下文(前两个不可). 
-    * struct mutex (2.6.16后)
+    * `struct mutex` (2.6.16后)
         * `mutex_init(struct mutex *mutex)`
         * `DEFINE_MUTEX(mymutex)`
         * `mutex_lock(&mymutex)`: 不可唤醒
         * `mutex_unlock(&mymutex)`: 
         * `mutex_lock_interruptible(&mymutex)`: 
         * `mutex_trylock(&mymutex)`: 
-    * struct completion (类似于event, 用于同步)
+    * `struct completion` (类似于`event`, 用于同步)
         * `struct completion my_completion`: 
         * `init_completion(&my_completion)`: 
         * `wait_for_completion(&my_completion)`: 
         * `complete(&my_completion)`: 唤醒一个线程
         * `complete_all(&my_completion)`: 唤醒所有线程
-    * spinlock_t
+    * `spinlock_t`
         * `spinlock_t my_lock = SPIN_LOCK_UNLOCKED;`
         * `spin_lock_init(&my_lock)`
         * `spin_lock(&my_lock)`
         * `spin_unlock(&my_lock)`
-    * rwlock_t
-    * atomic variables 原子操作
+    * `rwlock_t`
+    * `atomic variables` 原子操作
         * `atomic_t v`: 
         * `atomic_t v = ATOMIC_INIT(0)`: `v = 0` 
         * `atomic_set(atomic_t *v)`: `v = i`
@@ -641,7 +651,7 @@
         * `atomic_inc(atomic_t *v)`: `v--`
         * `set_bit(nr, void *addr)`: `*addr |= nr`
         * `clear_bit(nr, void *addr)`: `*addr &= ~(nr)`
-    * timer 计时器
+    * `timer` 计时器
         * `timer_list s_timer`
         * `init_timer(&s_timer)`
         * `s_timer.function = &timer_handler`
@@ -649,17 +659,17 @@
         * `add_timer(&s_timer)`
         * `mod_timer(&s_timer, jiffies + HZ)`
         * `del_timer(&s_timer)`
-    * RCU(Read-Copy Update)
+    * `RCU`(Read-Copy Update)
         * 参考
             * https://blog.csdn.net/qq_35399548/article/details/122846896
         * 限制
-            1. RCU只能保护动态分配的数据结构, 并且必须是通过指针访问该数据结构
-            2. 受RCU保护的临界区内不能sleep
+            1. `RCU`只能保护动态分配的数据结构, 并且必须是通过指针访问该数据结构
+            2. 受`RCU`保护的临界区内不能sleep
             3. 读写不对称, 对writer的性能没有特别要求, 但是reader性能要求极高. 
             4. reader端对新旧数据不敏感. 
 
 ## 网络防火墙Netfilter
-* iptables
+* `iptables`
 
     <img alt="" src="./pic/linux_iptables_progress.jpg" width="70%" height="70%">
 
@@ -687,7 +697,7 @@
 
     <img alt="" src="./pic/linux_iptables_netfilter.jpg" width="30%" height="30%">
 
-* nf_hooks
+* `nf_hooks`
     * `struct list_head nf_hooks[NPROTO][NF_MAX_HOOKS]`: 一个全局变量, 是一个二维数组, 第一维指定协议族, 第二维指定hook类型. 
     * 注册一个netfilter hook就是在上述数组的链表中添加一个新节点. 
         ```cpp
@@ -735,7 +745,6 @@
         <img alt="" src="./pic/linux_sk_buff.jpg" width="30%" height="30%">
 
 ## Rootkit
-    
 * HOOK
     * 除非禁用寄存器 cr0 的写保护位或者修改 PTE, 否则不能够对内核的 text 段进行修改
     * `sys_call_table`
