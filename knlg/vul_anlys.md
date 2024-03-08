@@ -9,6 +9,33 @@
     * blogs.360.cn
     * https://www.anquanke.com/
     * freebuf.com
+* cwe常见漏洞类型
+    * 配置错误(CWE-16)(Configuration)
+    * 代码问题(CWE-17)(Code)
+        * 资源管理错误(CWE-399)(Resource Management Error)
+        * 输入验证(CWE-20)(Improper Input Validation)
+            * 缓冲区溢出(CWE-119)(Buffer Errors)
+            * 注入(CWE-74)(lnjection)
+                * 格式化字符串(CWE-134)(Format String)
+                * 命令注入(CWE-77)(Command Injection)
+                    * 操作系统命令注入(GTE-78)(OS Command Injection)
+                * 跨站脚本(CWE-79)(Cross-site Scripting)
+                * 代码注入(CWE-94)(Code injectioa)
+                * SQL注入(CWE-89)(SQL lnjection)
+            * 路径遍历(CWE-22)(Path Traversal)
+            * 后置链接(CWE-59)(Link Following)
+        * 数字错误(CWE-189)(Numeric Errors)
+        * 信息泄露(CWE-200)(Information Exposure)
+        * 安全特征问题(CWE-254)(Security Features)
+            * 授权同题(CWE-287)(Authentication lssues, Improper Authentication)
+            * 未充分验证数据可靠性(CWE-345)(Insuffcient Verification of Data Authenticity)
+                * 跨站请求伪造(CWE-352)(Cross-Site Request Forgery)
+            * 信任管理(CWE-255)(Credentials Management)
+            * 权限许可和访问控制(CWE-264)(Permissons, Pnvilegesand Access Controls)
+                * 访问控制错误(CWE-284)(lmpoper Acoess Contol)
+            * 加密问题(CWE-310)(Cryptographic Issues)
+        * 竞争条件(CWE-362)(Race Comditon)
+    * 资料不足
 
 # 缓冲区溢出
 * 根本原因: 冯诺依曼计算机体系未对数据和代码作明确区分

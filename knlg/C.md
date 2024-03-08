@@ -121,14 +121,13 @@
     * 参考: https://blog.csdn.net/qq_33270521/article/details/85058248
         
         ```cpp
-        typedef struct{
+        typedef struct {
             int a:2;	// 最低位
             int b:2;
             int c:1;    // 最高位
-        }test;
+        } test;
         
-        int main(void)
-        {
+        int main(void) {
             test t;
             t.a = 1;
             t.b = 3;
