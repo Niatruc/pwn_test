@@ -24,6 +24,8 @@
     * `/input`
         * `/event<数字>`: 键盘等输入设备的实时数据可从这些文件读取. 
     * `/urandom`: 随机数据. 
+    * `/loop`: loop设备是一种仿真设备, 其将一个文件模拟成一个块设备, 使得该文件能够像真正的磁盘或光盘一样被使用和管理. 使用前需先将一个loop设备与一个文件关联(`losetup`命令)
+
 * `/lib`
     * `/udev`: 
 * `/etc`
@@ -31,7 +33,9 @@
         * `/grub`: 
             * 修改该文件并运行`update-grub`, 将更新`/boot/grub/grub.cfg`
             * `GRUB_DEFAULT`对应默认启动项. 
-
+* `/usr`
+    * `/local`: 存安装的软件. 
+        * `/src`: 源码. 
 
 # 开发
 * code blocks
@@ -824,16 +828,18 @@ typedef struct {
 * `$(cmd)`: 表示执行`cmd`后输出的字符串. 
 * `$[a+1]`: 获取算术运算结果. 
 * `${a}`: 得到变量a的值(作为字符串)
+* 字符串变量操作: 
+    * `${#a}`: 获取字符串a的长度. 
 * `>`是直接覆盖文件, `>>`是追加到文件尾. 
 * 重定向: 
     * `my_proc 2>&1`: 将标准错误输出重定向到标准输出. 
 * 赋值
     ```sh
-    a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
-    a=$a+1 # 结果是a被赋值为"1+1"
+        a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
+        a=$a+1 # 结果是a被赋值为"1+1"
 
-    a=1
-    a=$[a+1] # 结果是a被赋值为2
+        a=1
+        a=$[a+1] # 结果是a被赋值为2
     ```
 * `test <文件>`: 对文件进行测试
     * `-d`: 是否目录
@@ -842,11 +848,18 @@ typedef struct {
     * `-x`: 是否可执行
 * `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
     * `[ -z "$HOME" ]`: 字符串为空则true. 
+    * `[ -e "$HOME" ]`: 文件存在则true. 
+    * `[ 10 -gt 3 ]`: 数字大小比较. 
 * 追踪和调试
     * `sh`
         * `-n`: 仅检查语法
         * `-v`: 每运行一个语句, 打印这个语句, 然后打印结果(有`echo`的话)
         * `-x`: 运行时, 将使用到的部分显示. 
+    * `set`
+        * `-x`: 执行此命令后, 之后每条指令在执行前都会先打印出来. 
+        * `-u`: 遇到不合适的变量的时候, 忽视此变量. 
+        * `-e`: 发生错误就终止. 
+        * `-eo pipefail`: 发生错误(包括用了管道的命令)就终止. 
 * 示例
     ```sh
         # 判断语句
@@ -854,14 +867,27 @@ typedef struct {
             ...
         fi
 
+        # switch语句
+        case $OS in
+            Android|android)
+                statements
+                ;;
+            Windows|windows)
+                statements
+                ;;
+            *)
+                statements
+                ;;
+        esac
+
         # while循环
         a=1 # 等号两边不能有空格
-        while [ $a -gt 0]; do
+        while [ $a -gt 0 ]; do
             a=$[$a - 1]
             echo $a
         done
 
-        # until循环, 格式同while循环
+        # until循环, 格式同while循环, 但是在条件判断为false时才结束循环
 
         # 遍历数组
         # for var in ${arr[*]}
@@ -873,15 +899,43 @@ typedef struct {
         for ((i=0; i<5; i=i+1)); do
             echo $i
         done
+
+        # for循环, 10..0为范围, 1为步长
+        for num in {10..0..1}
+        do
+            echo $num
+        done
     ```
 
 
 ## 系统指令, 工具
 * 快捷键
-    * `ctrl+u`: 删除光标到行首内容. 
-    * `ctrl+k`: 删除光标到行尾内容. 
-    * `ctrl+w`: 删除光标前一个单词. 
-    * `alt+d`: 删除光标后一个单词. 
+    * 移动光标: 
+        * `ctrl + a`: 移动到行首. 
+        * `ctrl + e`: 移动到行尾. 
+        * `alt + b`: 向后移动一个单词. 
+        * `alt + f`: 向前移动一个单词. 
+        * `ctrl + xx`: 当前位置与行首间切换. 
+    * 编辑: 
+        * 删除: 
+            * `ctrl + u`: 删除光标到行首内容. 
+            * `ctrl + k`: 删除光标到行尾内容. 
+            * `ctrl + w`: 删除光标前一个单词. 
+            * `alt + d`: 删除光标后一个单词. 
+            * `ctrl + h`: 删除光标前一个字母. 
+            * `ctrl + d`: 删除光标后一个字母. 
+        * 大小写转换: 
+            * `alt + c`: 将当前字母转大写, 并移动光标到单词尾. 
+            * `alt + u`: 将当前单词转大写. 
+            * `alt + l`: 将当前单词转小写. 
+
+        * `alt + t`: 交换当前单词与上一个单词. 
+        * `ctrl + y`: 粘贴上一次删除的文本. 
+    * 历史命令:  
+        * `ctrl + p`: 上一条命令. 
+        * `ctrl + n`: 下一条命令. 
+    * 终端命令: 
+        * `ctrl + l`: 清屏. 
 * 环境变量
     * `LD_PRELOAD`: 指定动态链接优先搜索的库路径
     * `LD_SHOW_AUXV`: 通知程序加载器来展示程序运行时的辅助向量. 
@@ -915,7 +969,7 @@ typedef struct {
     3. 把有`pam_cracklib.so`那一行注释掉
     4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
 * `chroot <新的根目录> <启动的程序>`
-    * 在 linux 系统中，系统默认的目录结构都是以/，即是以根 (root) 开始的。而在使用 chroot 之后，系统的目录结构将以指定的位置作为/位置
+    * 在 linux 系统中, 系统默认的目录结构都是以/, 即是以根 (root) 开始的. 而在使用 chroot 之后, 系统的目录结构将以指定的位置作为/位置
     * 例: `chroot /home/test //home/test/busybox`
 ### 进程
 * `ps`: 查看进程信息. 
@@ -981,6 +1035,44 @@ typedef struct {
     * `-o loop=/dev/<loop设备>`: 
         * 如果要访问img文件中的内容, 可使用该选项. 其将loop设备指向img文件, 然后mount该loop设备到目标目录
         * 可以直接`-o loop`, 则系统会使用一个空闲的loop设备. 
+* `losetup`: 设置及操作loop设备. 
+* `kpartx <设备文件>`: 从`partx`发展来的. 从指定设备中读取分区表, 并为所有检测到的分区创建映射的设备. 
+    * `-a`: 添加分区映射. 
+    * `-d`: 删除分区映射. 
+    * `-s`: 同步模式, 在成功创建分区前不要返回. 
+* 挂载一个镜像文件: 
+    ```sh
+        # 使用kpartx挂载镜像
+        losetup -f # 查看空闲的loop设备
+        losetup /dev/loop0 xxx.img # 将loop0设备和一个img文件关联
+        kpartx -av /dev/loop0 # 会在`/dev/mapper`目录下出现`loop0p1`等文件, 代表img文件中的文件系统分区
+        mkdir /vmdisk1 
+        mount /dev/mapper/loop0p1 /vmdisk1 # 把第一个分区挂载到/vmdisk1
+        mkdir /vmdisk2
+        mount /dev/mapper/loop0p2 /vmdisk2 # 把第二个分区挂载到/vmdisk2
+
+        # 卸载镜像
+        umount /vmdisk
+        kpartx -dv /dev/loop0
+        losetup -d /dev/loop0
+    ```
+* `mknod <设备路径> <设备类型> <主设备号> <次设备号>`: 创建设备文件和对应的inode
+    * 例子: `mknod /dev/hello c 520 0`
+* `lspci`: 列出整个系统的PCI接口. 
+* `lsusb`: 列出各USB端口的状态. 
+* 内核模块
+    * `modinfo <模块名>`
+    * `lsmod`
+    * `insmod`
+    * `rmmod <模块名>`
+        * `-f`: 强删
+        * `-w`: 用完再删
+    * `modprobe <模块名>`: 相比`insmod`, 提供了模块的依赖性分析, 错误检查, 错误报告等功能. 
+        * `-c`: 列出系统所有模块
+        * `-f`: 强制删除
+        * `-r`: 删
+* `e4defrag`
+    * `sudo e4defrag /`: 整理
 
 ### 网络 
 * 重启网络
@@ -1228,7 +1320,7 @@ typedef struct {
                 * `$?`: 表示比目标还新的依赖文件列表. 
             * 符号
                 * 赋值符号
-                    * `=`: 给变量赋值. 会在整个makefile展开后，再决定变量的值. 
+                    * `=`: 给变量赋值. 会在整个makefile展开后, 再决定变量的值. 
                     * `:=`: 表示变量的值取决于它在makefile中的位置, 而不是整个makefile展开后的最终值
                     * `?=`: 如果没有被赋值过就赋予等号后面的值. 
                     * `+=`: 添加等号后面的值. 
