@@ -6,7 +6,7 @@
 # vmware
 * 合并vmdk
     * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
-        * 第一个引号内为多个原vmdk文件所在路径+磁盘名称(去掉-s001之类).vmdk；
+        * 第一个引号内为多个原vmdk文件所在路径+磁盘名称(去掉-s001之类).vmdk; 
         * 第二个引号内为生产单个文件的路径和名字。
 * 网络
     * 使用桥接网卡后, 虚拟机并未得到路由器分配的地址: 
@@ -18,7 +18,7 @@
 # cuckoo
 * Locker文件: 
 1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受), 如文件操作, 操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
-2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行)；behavior的generic和processes节中项也很多(都能占到10万行)
+2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行); behavior的generic和processes节中项也很多(都能占到10万行)
 
 # docker
 ## 知识点
@@ -130,6 +130,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * 参考
     * https://www.zhaixue.cc/qemu/qemu-param.html
     * [qemu user mode速记](https://wangzhou.github.io/qemu-user-mode%E9%80%9F%E8%AE%B0/)
+    * [KVM虚拟化技术之使用Qemu-kvm创建和管理虚拟机 ](https://www.cnblogs.com/memphise/articles/6759043.html)
 * 在Ubuntu中安装qemu
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
@@ -153,6 +154,14 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
                 -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
                 -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
         ```
+    * 挂载设备
+        * `-drive`
+            * `file=/kvm/images/winxp.qcow2,if=ide,meida=disk,format=qcow2`: 挂一个qcow2文件, 作为磁盘
+            * `file=/root/winxp_ghost.iso,media=cdrom`: 挂一个CDROM
+            * `if=ide,format=raw,file=/home/cmtest/image.raw`
+        * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
+        * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
+        * `-cdrom file`: 使用指定file作为CD-ROM镜像, 需要注意的是-cdrom和-hdc不能同时使用; 将file指定为`/dev/cdrom`可以直接使用物理光驱. 
     * 针对不同架构: 
         * arm
             * `-machine`: 需指定此参数, 可选如`virt`
@@ -163,9 +172,24 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
             # 或
             qemu-system-i386 -m 256 -hda disk.img -netdev user,id=network0 -device e1000,netdev=network0,mac=52:54:00:12:34:56 
         ``` 
+    * nic, tap, user三种类型网络
+        ```sh
+            -net nic[,vlan=n][,macaddr=mac][,model=type][,name=name][,addr=addr][,vectors=v] # 创建一个新的网卡设备并连接至vlan n中; PC架构上默认的NIC为e1000, macaddr用于为其指定MAC地址, name用于指定一个在监控时显示的网上设备名称; emu可以模拟多个类型的网卡设备, 如virtio、i82551、i82557b、i82559er、ne2k_isa、pcnet、rtl8139、e1000、smc91c111、lance及mcf_fec等; 不过, 不同平台架构上, 其支持的类型可能只包含前述列表的一部分, 可以使用“qemu-kvm -net nic,model=?”来获取当前平台支持的类型; 
+            -net tap[,vlan=n][,name=name][,fd=h][,ifname=name][,script=file][,downscript=dfile] # 通过物理机的TAP网络接口连接至vlan n中, 使用script=file指定的脚本(默认为/etc/qemu-ifup)来配置当前网络接口, 并使用downscript=file指定的脚本(默认为/etc/qemu-ifdown)来撤消接口配置; 使用script=no和downscript=no可分别用来禁止执行脚本; 
+            -net user[,option][,option][,...] # 在用户模式配置网络栈, 其不依赖于管理权限; 有效选项有：
+                # vlan=n：连接至vlan n, 默认n=0; 
+                # name=name：指定接口的显示名称, 常用于监控模式中; 
+                # net=addr[/mask]：设定GuestOS可见的IP网络, 掩码可选, 默认为10.0.2.0/8; 
+                # host=addr：指定GuestOS中看到的物理机的IP地址, 默认为指定网络中的第二个, 即x.x.x.2; 
+                # dhcpstart=addr：指定DHCP服务地址池中16个地址的起始IP, 默认为第16个至第31个, 即x.x.x.16-x.x.x.31; 
+                # dns=addr：指定GuestOS可见的dns服务器地址; 默认为GuestOS网络中的第三个地址, 即x.x.x.3; 
+                # tftp=dir：激活内置的tftp服务器, 并使用指定的dir作为tftp服务器的默认根目录; 
+                bootfile=file：BOOTP文件名称, 用于实现网络引导GuestOS; 如：qemu -hda linux.img -boot n # -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
+        ```
     * 端口转发
     * TAP桥接
 * 其他参数: 
+    * `-m <内存大小>`
     * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
     * `-cpu`: 指定cpu架构, 比如`cortex-a9`
     * `-E`: (用户模式)指定环境变量 
@@ -192,6 +216,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
                 trace:PATTERN   事件跟踪
             ```
         * `-strace`: 运行跟踪, 输出格式通`strace`工具. 
+        * `-g <端口>`: 等待gdb连向端口. 
 * 原理
     * 二进制翻译
         * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 

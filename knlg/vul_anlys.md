@@ -95,7 +95,8 @@
     * 冲击波漏洞(MS03-26)
         * `CoGetInstanceFromFile(pServerInfo, NULL, 0, CLSCTX_REMOTE_SERVER, STGM_READWRITE, L"C:\\1234561111111111111111111111111.doc", 1, &qi);` 远程和本地均有调用这个接口. 这个调用的文件名参数过长时, 会导致客户端的本地溢出(用`lstrcpyw`拷贝)
         * 在客户端给服务器传递这个参数的时候, 会自动转换为`L"\\servername\c$\1234561111111111111111111111111.doc"`的形式再传递给远程服务器. 在远程服务器的处理中会先取出servername名, 但未做长度检查(给定0x20内存空间). 
-
+    * shellcode参考资料: 
+        * [Shellcodes database for study cases](https://shell-storm.org/shellcode/index.html)
 # 堆溢出
 * 原理
     * windows堆是桶装结构, 相同大小的节点组织在同一条双向链表中
@@ -662,7 +663,7 @@
 
                 # 注册选项. 
                 register_options([
-                    OptBool.new('<参数名>', [false, "<描述>", true]), # 后面列表的三个值分别表示是否必选、描述、初始值
+                    OptBool.new('<参数名>', [false, "<描述>", true]), # 后面列表的三个值分别表示是否必选, 描述, 初始值
                 ])
             end
 
@@ -765,7 +766,6 @@
                 1. 保存寄存器值(rsp, rcx, rdx等)
                 2. 调用`__afl_maybe_log`函数
                 3. 恢复寄存器值
-
 * 快速示例
     ```sh
         # 插桩编译
@@ -789,37 +789,39 @@
         # 其他参数
         # -f <file>: 表示将文件的内容作为stdin输入
     ```
+* 用法
+    * fuzzer字典
+        * 针对带有语法(使用了格式化数据, 比如图像, 多媒体, 压缩数据, 正则表达式, shell脚本)的程序, 可提供字典, 给定语言关键字, 文件头魔数, 以及其他跟目标数据关联的分词. 
+        * 如果不确定用什么字典, 可以先运行一段时间fuzzer, 然后利用`libtokencap`获取捕获的分词. 
+    * 并行模式
+        * 添加参数`-M <主进程输出目录>`或`-S <从进程输出目录>`. 主进程的策略是确定性检查(deterministic checks), 从进程则是进行随机调整. `-o`则指定同步输出目录.
+        * 观察多个进程的状态: `afl-whatsup sync/`
+    * fuzz无源码二进制程序(qemu模式)
+        * 包括`afl-fuzz`在内各工具添加参数`-Q`即使用qemu模式.
+        * 安装: 
+            * 要先安装`libglib2.0-dev`, `libtool-bin`.
+            * 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 这个脚本会做以下事情: 
+                * 下载qemu源码压缩包; 
+                * 检查libtool等必要工具是否已安装; 
+                * 用diff文件为qemu源码打补丁; 
+                * 编译qemu(默认目标架构为本机的cpu架构)(需确保已安装python2): 
+                    ```sh
+                        CFLAGS="-O3 -ggdb" ./configure --disable-system \
+                            --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
+                            --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm || exit 1
 
-* 并行模式
-    * 添加参数`-M <主进程输出目录>`或`-S <从进程输出目录>`. 主进程的策略是确定性检查(deterministic checks), 从进程则是进行随机调整. `-o`则指定同步输出目录.
-    * 观察多个进程的状态: `afl-whatsup sync/`
+                        CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm
+                    ```
+                * 将生成的用户模式qemu移到上上层, 更名为`afl-qemu-trace`; 
 
-* fuzz无源码二进制程序(qemu模式)
-    * 包括`afl-fuzz`在内各工具添加参数`-Q`即使用qemu模式.
-    * 安装: 
-        * 要先安装`libglib2.0-dev`, `libtool-bin`.
-        * 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 这个脚本会做以下事情: 
-            * 下载qemu源码压缩包; 
-            * 检查libtool等必要工具是否已安装; 
-            * 用diff文件为qemu源码打补丁; 
-            * 编译qemu(默认目标架构为本机的cpu架构)(需确保已安装python2): 
-                ```sh
-                    CFLAGS="-O3 -ggdb" ./configure --disable-system \
-                        --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
-                        --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm || exit 1
-
-                    CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm
+            * 编译出现问题: 
                 ```
-            * 将生成的用户模式qemu移到上上层, 更名为`afl-qemu-trace`; 
-
-        * 编译出现问题: 
-            ```
-                util/memfd.c:40:12: error: static declaration of ‘memfd_create’ follows non-static declaration
-                static int memfd_create(const char *name, unsigned int flags)
-                            ^~~~~~~~~~~~
-            ```
-            * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[AFL-qemu安装问题](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
-    * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
+                    util/memfd.c:40:12: error: static declaration of ‘memfd_create’ follows non-static declaration
+                    static int memfd_create(const char *name, unsigned int flags)
+                                ^~~~~~~~~~~~
+                ```
+                * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[AFL-qemu安装问题](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
+        * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
 
 * 其他工具
     * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态. 
@@ -961,7 +963,7 @@
         * 拼接(splice)不同测试用例
 * 构建字典
     * 当基本的语法分词完全随机组合时, 插桩和队列的进化算法在插桩模式下会提供能区分无意义的变形数据和可以导致新行为的变形数据的反馈. 
-    * 字典能让fuzzer快速重建JavaScript、SQL 或 XML 等冗长复杂语言的语法. 
+    * 字典能让fuzzer快速重建JavaScript, SQL 或 XML 等冗长复杂语言的语法. 
     * AFL还允许fuzzer自动隔离输入文件中的语法分词. 为了做到这一点, AFL查找一些会在翻转后导致执行路径有一致变化的字节. 
     * fuzzer依靠这一信息来构建紧凑的"自动字典". 之后其他模糊测试策略会结合使用此自动字典. 
 * 崩溃去重(`de-duping`)
