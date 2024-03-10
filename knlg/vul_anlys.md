@@ -749,6 +749,7 @@
 * 参考
     * 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
     * [AFL 漏洞挖掘技术漫谈(二）: Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
+    * [AFL二三事——源码分析（下篇）](https://xz.aliyun.com/t/10316?time__1311=mq%2BxBDyDuGBAD%2FD0DoY%2BW4j2fR3D8eD&alichlgref=https%3A%2F%2Fxz.aliyun.com%2Ft%2F10315%3Ftime__1311%3Dmq%252BxBDyDuGBDRDBqDTmGIimgGzePx%26alichlgref%3Dhttps%253A%252F%252Fwww.google.com%252F)
 * 描述
     * 一款基于覆盖引导(Coverage-guided)的模糊测试工具. 通过记录输入样本的代码覆盖率, 从而调整输入样本以提高覆盖率, 增加发现漏洞的概率. 
     * 运行流程: 
