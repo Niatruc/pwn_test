@@ -1002,3 +1002,35 @@
         docker pull aflplusplus/aflplusplus
         docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
     ```
+
+## 其他插桩和fuzz工具或框架
+* peafl64
+    * https://github.com/Sentinel-One/peafl64
+    * 要点: 
+        * 针对windows x64
+* E9AFL
+    * https://github.com/GJDuck/e9afl
+    * 要点: 
+        * 针对 x86_64 Linux;
+        * 二进制静态插桩
+* afl-dyninst
+    * https://github.com/Cisco-Talos/moflow/tree/master/afl-dyninst
+    * 要点: 
+        * AFL + Dyninst, 需要先安装`Dyninst`
+        * 二进制静态插桩, 为每个基本块插入一个回调函数, 并在`_init`函数或指定入口点插入初始化的回调函数. 
+    * 用法
+        ```sh
+        ./afl-dyninst -i <binary> -o <binary> -l <library> -e <address> -s <number>
+             -i: Input binary 
+             -o: Output binary
+             -l: Library to instrument (repeat for more than one)
+             -e: Entry point address to patch (required for stripped binaries)
+             -r: Runtime library to instrument (path to, repeat for more than one)
+             -s: Number of basic blocks to skip
+             -v: Verbose output
+        ```
+* bcov
+    * https://github.com/abenkhadra/bcov
+    * 要点: 
+        * 针对 x86_64 ELF;
+        * 

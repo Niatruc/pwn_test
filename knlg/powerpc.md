@@ -63,10 +63,10 @@
 * `h`: half word
 * `z`: zero
 * `b`: blanch (跳转指令)
-    * `bl <addr>`: 跳转到地址. bl指令的下一条指令的地址会被记录到lr寄存器. 
+    * `bl <addr>`: 跳转到地址. bl指令的下一条指令的地址会被记录到`lr`寄存器. 
     * `blr`: 将程序计数器的值设为链接寄存器的值(相当于`ret`)
-    * `bdz <addr>`: ctr寄存器减1, 若为0则跳转. 
-    * `bne <addr>`: 若不相等则跳转(根据cr0寄存器判断). 
+    * `bdz <addr>`: `ctr`寄存器减1, 若为0则跳转. 
+    * `bne <addr>`: 若不相等则跳转(根据`cr0`寄存器判断). 
 * `n`: and
 * `cmp`: compare
     * `cmpw cr7, rA, rB`: `cr7 = rA - rB`
@@ -77,7 +77,7 @@
 * `add`: 加法
     * `add rD, rA, rB`: `rD = rA + rB`
     * `addi rD, rA, v`: `rD = rA + v`, 加上立即数
-* ``: 减法
+* `sub`: 减法
     * `subf r0, r0, r8`: `r0 = r8-r0` (substract from)
 * `or`: 或运算
     * `ori rA, rS, value`: `rA = rS | value`
