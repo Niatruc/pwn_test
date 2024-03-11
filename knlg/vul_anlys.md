@@ -97,6 +97,7 @@
         * 在客户端给服务器传递这个参数的时候, 会自动转换为`L"\\servername\c$\1234561111111111111111111111111.doc"`的形式再传递给远程服务器. 在远程服务器的处理中会先取出servername名, 但未做长度检查(给定0x20内存空间). 
     * shellcode参考资料: 
         * [Shellcodes database for study cases](https://shell-storm.org/shellcode/index.html)
+
 # 堆溢出
 * 原理
     * windows堆是桶装结构, 相同大小的节点组织在同一条双向链表中
@@ -148,7 +149,7 @@
 
 * 利用: 同栈溢出, 覆盖异常处理函数地址为shellcode地址. 
 
-# 内核漏洞
+# Windows内核漏洞
 * 分析过程
 
     <img alt="" src="./pic/vul_analyze.png" width="50%" height="50%">
@@ -284,6 +285,13 @@
     * 固定地址写任意数据
     * 任意地址写固定数据
 
+* BYOVD(Bring your own vulnerable driver)
+    * 攻击者向目标环境植入一个带有漏洞的合法驱动程序, 再通过漏洞利用获得内核权限以杀死/致盲终端安全软件等. 
+    * 参考
+        * [loldrivers](https://www.loldrivers.io/)
+        * [Microsoft 推荐的驱动程序阻止规则](https://learn.microsoft.com/zh-cn/windows/security/application-security/application-control/windows-defender-application-control/design/microsoft-recommended-driver-block-rules)
+
+# Linux漏洞
 * linux下的竞争条件漏洞(race condition)
     * 由于多个对象(线程/进程等)同时操作同一资源, 导致系统执行违背原有逻辑设定的行为. 
         * 写多线程程序时, 忘了对共享资源加锁. 
