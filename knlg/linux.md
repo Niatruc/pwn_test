@@ -1185,6 +1185,8 @@ typedef struct {
 * `ldd`
     * `--version`: 可得到glibc版本
     * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
+* `ldconfig`: 在默认搜寻目录`/lib`和`/usr/lib`以及动态库配置文件`/etc/ld.so.conf`内所列的目录下, 搜索出可共享的动态链接库, 进而创建出`ld.so`所需的连接和缓存文件. 缓存文件默认为`/etc/ld.so.cache`. 
+    * `-p`: 打印出当前缓存文件所保存的所有共享库的名字. 
 * `xdd`
     * 查看16进制
 * `objdump <elf文件>`: 反编译ELF文件, 其依赖ELF头. 

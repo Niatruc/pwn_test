@@ -1,5 +1,6 @@
 # 文章
-[【干货分享】恶意样本分析手册——常用方法篇](https://bbs.huaweicloud.com/blogs/109534)
+* [【干货分享】恶意样本分析手册——常用方法篇](https://bbs.huaweicloud.com/blogs/109534)
+* [rootkits-investigation-procedures.pdf](https://www.sans.org/media/score/checklists/rootkits-investigation-procedures.pdf)
 
 # 网站
 * https://opensecuritytraining.info/MalwareDynamicAnalysis.html
