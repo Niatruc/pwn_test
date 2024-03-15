@@ -218,6 +218,16 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
             ```
         * `-strace`: 运行跟踪, 输出格式通`strace`工具. 
         * `-g <端口>`: 等待gdb连向端口. 
+    * 快速示例: 运行一个32位arm程序. 
+        * 安装arm交叉编译工具: `sudo apt install gcc-arm-linux-gnueabihf`
+        * 编译一个helloworld程序(使用`--static`以进行静态链接). 
+            > ``
+        * 编译用户模式qemu(使用`--static`以进行静态链接). 
+            > `CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user  --disable-gtk --disable-sdl --disable-vnc --target-list="arm-linux-user" --enable-kvm --static`
+            > `make`
+        * 将helloworld和qemu放到同一目录, 然后执行: 
+            > `sudo chroot . ./qemu-arm ./helloworld`
+
 * 原理
     * 二进制翻译
         * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 

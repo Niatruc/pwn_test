@@ -431,18 +431,19 @@
     * [https://paper.seebug.org/841/](https://paper.seebug.org/841/)
     * [模糊测试1](https://zhuanlan.zhihu.com/p/266061489?utm_id=0)
     * [Fuzz入门教学——污点分析](https://blog.csdn.net/weixin_45100742/article/details/134981002)
+    
 * 模糊测试理论
     * 代码覆盖率(Code Coverage)
-        * 语句覆盖(Statement Coverage)
+        * `语句覆盖`(Statement Coverage)
             * 又称为行覆盖(Line Coverage), 段覆盖(Segment Coverage)
             * 度量被测代码中每个可执行语句是否被执行到了. 常被认为是"最弱的覆盖". 
-        * 判定覆盖(Decision Coverage)
+        * `判定覆盖`(Decision Coverage)
             * 又称分支覆盖(Branch Coverage), 所有边界覆盖(All-Edges Coverage), 基本路径覆盖(Basic Path Coverage), 判定路径覆盖(Decision-Decision-Path)。
             * 度量程序中每一个判定的分支是否都被测试到了. 
-        * 条件覆盖(Condition Coverage)
+        * `条件覆盖`(Condition Coverage)
             * 度量判定中的每个子表达式结果true和false是否被测试到了. 
             * 比判定覆盖更强. 
-        * 路径覆盖(Path Coverage)
+        * `路径覆盖`(Path Coverage)
             * 又称断言覆盖(Predicate Coverage)
             * 度量是否函数的每一个分支都被执行了. 
             * 有多个分支时, 需要对多个分支进行排列组合. 
@@ -474,23 +475,23 @@
             * 在vt层监听内存变化
 
 ## 二进制插桩和污点分析
-* 二进制插桩: 在二进制程序的指定位置插入监控代码, 类似hook
-    * 静态插桩(SBI): 对二进制程序进行反汇编, 然后按需添加插桩代码并将更新的二进制程序存入磁盘. 
+* 二进制插桩: 在二进制程序的指定位置插入监控代码, 类似hook. 
+    * 静态插桩(SBI): 对二进制程序进行**反汇编**, 然后按需添加桩代码并将更新的二进制程序存入磁盘. 
         * 方法一: 如下. jmp指令有5个字节, 容易破坏小于5个字节的指令. 
 
             <img alt="" src="./pic/sbi_1.jpg" width="50%" height="50%">
 
-        * 方法二: `int 3`指令, 只有一个字节, 只需用0xcc覆盖某指令的第一个字节. int3产生一个软中断, 操作系统(Linux)产生SIGTRAP信号. 
-            * 缺点: int3 这样的软中断速度很慢, 导致插桩后的应用程序的运行开销过大。此外, int3 方法与正在将 int3 作为断点进行调试的程序不兼容. 
+        * 方法二: `int 3`指令, 只有一个字节, 只需用0xcc覆盖某指令的第一个字节. int3产生一个软中断, 操作系统(Linux)产生`SIGTRAP`信号. 
+            * 缺点: int3 这样的软中断速度很慢, 导致插桩后的应用程序的运行开销过大. 此外, int3 方法与正在将 int3 作为断点进行调试的程序不兼容. 
 
         * 方法三: 跳板(trampoline), 创建原始代码的副本, 对副本进行插桩.  
-            * 原来的.text节中的代码被转移到新的节, .text节的每个函数头替换成一个jmp指令. 
+            * 原来的`.text`节中的代码被转移到新的节, `.text`节的每个函数头替换成一个jmp指令. 
 
             <img alt="" src="./pic/sbi_method3.jpg" width="50%" height="50%">
     
 
     * 动态插桩(DBI): 在程序运行时将新指令插入指令流中(而非注入内存的二进制代码段中), 避免了代码的重定位问题. 
-        * DBI计算程序执行了多少基本块(BBL, basic block, 是一个单入口单出口的代码段). 
+        * DBI计算程序执行了多少基本块(`BBL`, basic block, 是一个单入口单出口的代码段). 
         * 实现方案为使用 DBI 引擎的API 对每个基本块的最后一条指令进行插桩, 插入回调对基本块递增计数. 
             * DBI引擎从进程中提取代码并插桩. 
             * JIT编译器对插桩后的代码进行优化. 
@@ -521,6 +522,9 @@
 * 动态污点分析(DTA): 也称数据流追踪(DFT), 通常在动态插桩平台上实现. 
     * 过程: 污点数据(攻击数据)从网络, 磁盘的系统调用或指令进入内存(污点源), 经过移动/拷贝/计算, 到达攻击点(污点槽), 被插桩代码检测到. 
 
+## 学术
+* 测试集
+    * `LAVA-M`
 
 # 工具
 ## metasploit
@@ -758,6 +762,7 @@
     * 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
     * [AFL 漏洞挖掘技术漫谈(二）: Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
     * [AFL二三事——源码分析（下篇）](https://xz.aliyun.com/t/10316?time__1311=mq%2BxBDyDuGBAD%2FD0DoY%2BW4j2fR3D8eD&alichlgref=https%3A%2F%2Fxz.aliyun.com%2Ft%2F10315%3Ftime__1311%3Dmq%252BxBDyDuGBDRDBqDTmGIimgGzePx%26alichlgref%3Dhttps%253A%252F%252Fwww.google.com%252F)
+    * [基于覆盖率的Fuzzer和AFL](https://mp.weixin.qq.com/s?__biz=MjM5NTc2MDYxMw==&mid=2458508973&idx=1&sn=ce081b2f0c86b34a10779cb6f1302ca1&chksm=b18eee2786f96731f910ee6079ae1561f23b1706568441ba3ce5cd16bd7ca0f456aac9932eab&scene=27)
 * 描述
     * 一款基于覆盖引导(Coverage-guided)的模糊测试工具. 通过记录输入样本的代码覆盖率, 从而调整输入样本以提高覆盖率, 增加发现漏洞的概率. 
     * 运行流程: 
@@ -811,16 +816,25 @@
             * 要先安装`libglib2.0-dev`, `libtool-bin`.
             * 运行afl项目下的`qemu_mode/build_qemu_support.sh`. 这个脚本会做以下事情: 
                 * 下载qemu源码压缩包; 
-                * 检查libtool等必要工具是否已安装; 
+                * 检查`libtool`等必要工具是否已安装; 
                 * 用diff文件为qemu源码打补丁; 
-                * 编译qemu(默认目标架构为本机的cpu架构)(需确保已安装python2): 
+                * 配置, 编译qemu(需确保已安装**python2**): 
                     ```sh
+                        test "$CPU_TARGET" = "" && CPU_TARGET="`uname -m`"
+                        test "$CPU_TARGET" = "i686" && CPU_TARGET="i386"
+
                         CFLAGS="-O3 -ggdb" ./configure --disable-system \
                             --enable-linux-user --disable-gtk --disable-sdl --disable-vnc \
                             --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm || exit 1
+                        
+                        # CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user  --disable-gtk --disable-sdl --disable-vnc --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm 
 
-                        CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm
+                        make || exit 1
                     ```
+                    * 由上面的代码可知:
+                        * 默认目标架构为本机的cpu架构. (可手动修改`CPU_TARGET`环境变量, 以编译针对不同架构的qemu)
+                        * 编译的是用户模式的qemu. 
+                        * 也可加其他参数, 比如`--static`, 以生成静态链接的qemu. 
                 * 将生成的用户模式qemu移到上上层, 更名为`afl-qemu-trace`; 
 
             * 编译出现问题: 
@@ -843,6 +857,8 @@
     * 不要用太多测试用例, 除非这些用例相互有功能性差异.
 
 ### 源码分析
+* 参考
+    * [基于qemu和unicorn的Fuzz技术分析](https://xz.aliyun.com/t/6457?time__1311=n4%2BxnD0DRDB73SxBqooGkYY%2B4Qwx0KGC0ieD&alichlgref=https%3A%2F%2Fwww.google.com%2F)
 * qemu模式
     * 打补丁: 
         * `accel/tcg/cpu-exec.c`: 
@@ -924,6 +940,151 @@
                 execvp(cc_params[0], (char**)cc_params); // 执行编译
             }
         ```
+* `afl-fuzz.c`
+    * 全局变量
+        ```cpp
+            static const u8 count_class_lookup8[256] = {
+                [0]           = 0,
+                [1]           = 1,
+                [2]           = 2,
+                [3]           = 4,
+                [4 ... 7]     = 8,
+                [8 ... 15]    = 16,
+                [16 ... 31]   = 32,
+                [32 ... 127]  = 64,
+                [128 ... 255] = 128
+            };
+
+            static u16 count_class_lookup16[65536];
+        ```
+    * 函数
+        ```cpp
+            static u64 get_cur_time(void) { }
+            static u64 get_cur_time_us(void) { }
+            static inline u32 UR(u32 limit) { }
+            static void shuffle_ptrs(void** ptrs, u32 cnt) { }
+            static void bind_to_free_cpu(void) { }
+            static void locate_diffs(u8* ptr1, u8* ptr2, u32 len, s32* first, s32* last) { }
+            static u8* DI(u64 val) { }
+            static u8* DF(double val) { }
+            static u8* DMS(u64 val) { }
+            static u8* DTD(u64 cur_ms, u64 event_ms) { }
+            static void mark_as_det_done(struct queue_entry* q) { }
+            static void mark_as_variable(struct queue_entry* q) { }
+            static void mark_as_redundant(struct queue_entry* q, u8 state) { }
+            static void add_to_queue(u8* fname, u32 len, u8 passed_det) { }
+            EXP_ST void destroy_queue(void) { }
+            EXP_ST void write_bitmap(void) { }
+            EXP_ST void read_bitmap(u8* fname) { }
+            static inline u8 has_new_bits(u8* virgin_map) { }
+            static u32 count_bits(u8* mem) { }
+            static u32 count_bytes(u8* mem) { }
+            static u32 count_non_255_bytes(u8* mem) { }
+            static void simplify_trace(u64* mem) { }
+            static void simplify_trace(u32* mem) { }
+            EXP_ST void init_count_class16(void); // 用`count_class_lookup8`数组填充`count_class_lookup16`, 共填充256个`count_class_lookup8`数组
+            static inline void classify_counts(u64* mem) { 
+                // 遍历mem数组(如`trace_bits`), 使用`count_class_lookup16`数组对每个元素按`2, 4, 8, 16, ...`进行规整
+            }
+            static void remove_shm(void) { }
+            static void minimize_bits(u8* dst, u8* src) { }
+            static void update_bitmap_score(struct queue_entry* q) { }
+            static void cull_queue(void) { }
+            EXP_ST void setup_shm(void) {
+                // `shmget`创建共享内存大小为65536个字节
+                // 用`setenv`函数设置环境变量`SHM_ENV_VAR`, 保存共享内存的id(`shm_id`)
+                // `shmat(shm_id)`获取共享内存的地址, 存放在`trace_bits`变量中
+            }
+            static void setup_post(void) { }
+            static void read_testcases(void) { }
+            static int compare_extras_len(const void* p1, const void* p2) { }
+            static int compare_extras_use_d(const void* p1, const void* p2) { }
+            static void load_extras_file(u8* fname, u32* min_len, u32* max_len, u32 dict_level) { }
+            static void load_extras(u8* dir) { }
+            static inline u8 memcmp_nocase(u8* m1, u8* m2, u32 len) { }
+            static void maybe_add_auto(u8* mem, u32 len) { }
+            static void save_auto(void) { }
+            static void load_auto(void) { }
+            static void destroy_extras(void) { }
+            EXP_ST void init_forkserver(char** argv) { }
+            
+            // 运行目标程序, 监视超时, 返回状态信息. 目标程序会更新`trace_bits`数组
+            static u8 run_target(char** argv, u32 timeout) {
+                if (dumb_mode == 1 || no_forkserver) { /**/ }
+                else {
+                    // 把4字节的prev_timed_out写入管道fsrv_ctl_fd (即通知fork server开始运行子进程)
+                    // 从管道fsrv_st_fd读取child_pid (即从fork server获取新的子进程的pid)
+
+                    // 使用setitimer函数设置超时. (超时将会触发SIGALRM信号, 由handle_timeout函数处理(将会杀掉子进程))
+                    // 从管道fsrv_st_fd读取4字节的状态值(status). 
+                    // getitimer获取计时器剩余时间, 然后用timeout减去该时间, 得到进程运行时间exec_ms
+                    // 用setitimer清除计时器
+
+                    __asm__ volatile("" ::: "memory") // 内存屏障, 告诉编译器不要越过该屏障优化内存的访问顺序
+                    classify_counts((u64*)trace_bits); // 对统计的每个执行次数按`2, 4, 8, 16, ...`进行规整, 比如4~7归为8
+                    
+                    // 满足以下条件之一, 则返回FAULT_CRASH: 
+                        // 超时, 且得到的status为SIGKILL
+                        // 使用了asan, 并且得到进程的status为MSAN_ERROR(说明有内存错误)
+                    
+                    // 更新耗时最长的运行时间slowest_exec_ms
+                }
+            }
+
+            static void write_to_testcase(void* mem, u32 len) { }
+            static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) { }
+            static void show_stats(void); { }
+            static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap, u8 from_queue) { }
+            static void check_map_coverage(void) { }
+            static void perform_dry_run(char** argv) { }
+            static void link_or_copy(u8* old_path, u8* new_path) { }
+            static void nuke_resume_dir(void); { }
+            static void pivot_inputs(void) { }
+            static u8* describe_op(u8 hnb) { }
+            static void write_crash_readme(void) { }
+            static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) { }
+            static u32 find_start_position(void) { }
+            static void find_timeout(void) { }
+            static void write_stats_file(double bitmap_cvg, double stability, double eps) { }
+            static void maybe_update_plot_file(double bitmap_cvg, double eps) { }
+            static u8 delete_files(u8* path, u8* prefix) { }
+            static double get_runnable_processes(void) { }
+            static void nuke_resume_dir(void) { }
+            static void maybe_delete_out_dir(void) { }
+            static void check_term_size(void); { }
+            static void show_stats(void) { }
+            static void show_init_stats(void) { }
+            static u32 next_p2(u32 val) { }
+            static u8 trim_case(char** argv, struct queue_entry* q, u8* in_buf) { }
+            EXP_ST u8 common_fuzz_stuff(char** argv, u8* out_buf, u32 len) { }
+            static u32 choose_block_len(u32 limit) { }
+            static u32 calculate_score(struct queue_entry* q) { }
+            static u8 could_be_bitflip(u32 xor_val) { }
+            static u8 could_be_arith(u32 old_val, u32 new_val, u8 blen) { }
+            static u8 could_be_interest(u32 old_val, u32 new_val, u8 blen, u8 check_le) { }
+            static u8 fuzz_one(char** argv) { }
+            static void sync_fuzzers(char** argv) { }
+            static void handle_stop_sig(int sig) { }
+            static void handle_skipreq(int sig) { }
+            static void handle_timeout(int sig) { }
+            EXP_ST void check_binary(u8* fname) { }
+            static void fix_up_banner(u8* name) { }
+            static void check_if_tty(void) { }
+            static void check_term_size(void) { }
+            static void usage(u8* argv0) { }
+            EXP_ST void setup_dirs_fds(void) { }
+            EXP_ST void setup_stdio_file(void) { }
+            static void check_crash_handling(void) { }
+            static void check_cpu_governor(void) { }
+            static void get_core_count(void) { }
+            static void fix_up_sync(void) { }
+            static void handle_resize(int sig) { }
+            static void check_asan_opts(void) { }
+            EXP_ST void detect_file_args(char** argv) { }
+            EXP_ST void setup_signal_handlers(void) { }
+            static char** get_qemu_argv(u8* own_loc, char** argv, int argc) { }
+            static void save_cmdline(u32 argc, char** argv) { }
+        ```
 
 ### 白皮书笔记
 * 覆盖测量
@@ -933,6 +1094,9 @@
             shared_mem[cur_location ^ prev_location]++; 
             prev_location = cur_location >> 1; // 这一步一是为了保留元组的方向性(不然无法区分`A ^ B`和`B ^ A`, 也就没法区分`A -> B`和`B -> A`); 二是为了保持小循环的独一性(否则, `A ^ A`和`B ^ B`显然都是0(环形路径)). 
         ```
+
+        <img alt="" src="./pic/edge_cov.png" width="40%" height="40%">
+
     * `shared_mem`是SHM共享内存中的一个64KB大小的区域, 这个区域会传给插桩的二进制程序. 在`output map`中的每个被设置的字节可被记为元组`(branch_src, branch_dst)`. 
     * 用分支覆盖相比块覆盖的好处: 能辨别如下两条执行踪迹的细微差别: 
         > A -> B -> C -> D -> E (元组: AB, BC, CD, DE)

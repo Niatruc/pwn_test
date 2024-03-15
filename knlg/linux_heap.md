@@ -154,8 +154,8 @@ chunk中使用了两个新指针:
 
     <img alt="full_RELRO.jpg" src="./pic/full_RELRO.jpg" width="70%" height="70%">
 * 编译
-    * 部分: gcc -Wl, -z, relro
-    * 全部: gcc -Wl, -z, relro, -z, now
+    * 部分: `gcc -Wl, -z, relro`
+    * 全部: `gcc -Wl, -z, relro, -z, now`
 
 ## Stack Canary
 * 参考:
