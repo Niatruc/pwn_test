@@ -529,6 +529,8 @@
         * 再使用嵌入式python的pip时有此问题. 
         * 在ida中的python命令行中打印`sys.path`, 可看到idapython的库路径. 将需要的pip包拷贝到其中一个路径下即可. 
 ## radare2
+* 参考
+    * [Radare2手册](https://heersin.gitbook.io/radare2)
 * 架构
     * radare2: 整个框架的核心, 通过命令行交互. 
     * rabin2: 提取二进制文件信息. 
@@ -543,6 +545,7 @@
     `r2 <二进制文件>`: 
         `-A`: 分析
         `-d`: 开启调试器
+        `-w`: 加上该选项后可编辑文件
 * 配置
     * `~/.radare2rc`
 * 命令
@@ -600,6 +603,7 @@
             * ` -<pid>`: 停止运行pid进程
 
     * `v`: 平板模式(panel)
+        * `m`: 打开菜单
     * `V`: 可视模式(visual)
 * 插件
     * `r2dec`

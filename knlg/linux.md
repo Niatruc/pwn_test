@@ -8,7 +8,7 @@
     * `/modules`: 内核模块信息. 
     * `/net`
         * `/tcp`: 记录tcp连接信息. `nethogs`会用到. 
-    * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟系统内存相关的
+    * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟**系统内存**相关的
     * `/sys`
         * `/kernel`
             * `/randomize_va_space`: 设为0, 可关闭地址随机化
@@ -944,13 +944,15 @@ typedef struct {
 * 环境变量
     * `LD_PRELOAD`: 指定动态链接优先搜索的库路径
     * `LD_SHOW_AUXV`: 通知程序加载器来展示程序运行时的辅助向量. 
+        * 辅助向量: 是放在程序栈(通过内核的 ELF 常规加载方式)上的信息, 附带了传递给动态链接器的程序相关的特定信息. 
+        * 示例: `LD_SHOW_AUXV=1 whoami`
     * 
-    ```sh
-        # 设置代理
-        export http_proxy=user:pass@192.158.8.8:8080
-        export https_proxy=socks5://10.0.0.52:1080
-        export no_proxy="*.aiezu.com,10.*.*.*,192.168.*.*,*.local,localhost,127.0.0.1"
-    ```
+        ```sh
+            # 设置代理
+            export http_proxy=user:pass@192.158.8.8:8080
+            export https_proxy=socks5://10.0.0.52:1080
+            export no_proxy="*.aiezu.com,10.*.*.*,192.168.*.*,*.local,localhost,127.0.0.1"
+        ```
 
 ### 用户
 * `id`: 查看当前用户信息(uid, gid, 所属组). 
@@ -1140,6 +1142,7 @@ typedef struct {
     * 参数
         * `-e`: 默认参数, 后面接的代码叫脚本. 
         * `-n`: 仅显示处理后的结果(可防重复打印)
+        * `-i`: 编辑文件
     * 动作
         * `p`: 打印
         * `s`: 替换
@@ -1150,7 +1153,7 @@ typedef struct {
             sed -n '2,$d'
 
             # s 命令: 
-            sed 's/<pattern1>/<pattern2>/g' myfile # 将所有<pattern1>替换成<pattern2>
+            sed -i 's/<pattern1>/<pattern2>/g' myfile # 将myfile文件所有<pattern1>替换成<pattern2>
 
             # p 命令: 
             sed -n '/<pattern1>/,/<pattern2>/p' myfile # 过滤出两个模式的匹配行及它们之间的内容
@@ -1180,8 +1183,12 @@ typedef struct {
     * `--set-rpath RPATH`: 设置程序的`rpath`
 * `readelf`: 显示elf文件的信息
     * `-h`: 打印头部
+    * `-e`: 打印elf文件头数据
     * `-s`: 列出符号表
+    * `-S`: 打印节头表
     * `-l`: Phdr表(段及节)
+    * `-r`: 查询重定位数据
+    * `-d`: 查询动态段
 * `ldd`
     * `--version`: 可得到glibc版本
     * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 

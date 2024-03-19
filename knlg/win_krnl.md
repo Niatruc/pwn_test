@@ -1883,7 +1883,7 @@
                             // Check to see if the CTRL key is pressed
                             bControlKeyDown = GetAsyncKeyState (VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
 
-                            //Disable CTRL+ESC
+                            // Disable CTRL+ESC
                             if (pkbhs->vkCode == VK_ESCAPE && bControlKeyDown)
                                 return 1;
                             if(wParam == WM_KEYUP)
