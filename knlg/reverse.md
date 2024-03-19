@@ -140,6 +140,9 @@
 
 
 # 工具
+## capstone
+
+
 ## binwalk
 * `binwalk <bin文件>`
 * 参数

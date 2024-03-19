@@ -175,54 +175,41 @@
     * 消除函数调用和返回带来的开销, 但会增加内存开销
     * 用于对时间要求较高的代码
     * 用`static`加`inline`限定
-* 汇编
-    |Intel|AT&T|
-    |-|-|
-    |`mov al, bl`|`movb %bl, %al`|
-    |`mov ax, bx`|`movw %bx, %ax`|
-    |`mov eax, ebx`|`movl %ebx, %eax`|
-    |`mov eax, dword ptr [ebx]`|`movl (%ebx), %eax`|
-    |`mov eax, [ebx + 20h]`|`movl 0x20(%ebx), %eax`|
-    |`add eax, [ebx + ecx * 2h]`|`addl (%ebx, %ecx, 0x2), %eax`|
-    |`lea eax, [ebx + ecx]`|`leal (%ebx, %ecx), %eax`|
-    |`sub eax, [ebx + ecx * 4h - 20h]`|`subl -0x20(%ebx, %ecx, 0x4), %eax`|
-    |立即数: 8|立即数: $8|
+* linux内核嵌入式汇编
+    * `__asm__ __volatile__("<asm routine>", : output : input : modify);`
+    
+        ```cpp
+        void f(long seg) {
+            long __lm;
+            __asm__ __volatile__("lsll %1, %0" : "=r" (__lm) : "r" (seg));
+        }
 
-    * linux内核嵌入式汇编
-        * `__asm__ __volatile__("<asm routine>", : output : input : modify);`
-        
-            ```cpp
-            void f(long seg) {
-                long __lm;
-                __asm__ __volatile__("lsll %1, %0" : "=r" (__lm) : "r" (seg));
-            }
+        // 对应的汇编代码如下
+        // movl seg, %ebx
+        // lsll %ebx, %eax
+        // movl %eax, __lm
+        ```
+    
+    * 分析汇编
+        * '='表示这是输出寄存器(如果没有, 则可以在第一个冒号后面留空, 紧接第二个冒号). 
+        * `output` `input` `modify`中有多个时, 可用逗号隔开. 
+        * '&'表示寄存器不能重复. 
+        * 寄存器`%0`, `%1`依次从`output`, `input`中用到的寄存器开始编码(如上面的代码, 则是将`__lm`变量值存到`%0`寄存器, 将`%1`寄存器的值存到`seg`变量)
+        * `jne 2f`中, `2`是汇编代码段的编号(作为跳转目标), `f`表示向前(在它下面的代码), `b`表示向后(在它上面的代码). 每行汇编指令后面有`\n\t`, `\n`换行, `\t`是为了gcc把嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
+        * 字母含义如下表. 
 
-            // 对应的汇编代码如下
-            // movl seg, %ebx
-            // lsll %ebx, %eax
-            // movl %eax, __lm
-            ```
-        
-        * 分析汇编
-            * '='表示这是输出寄存器(如果没有, 则可以在第一个冒号后面留空, 紧接第二个冒号). 
-            * `output` `input` `modify`中有多个时, 可用逗号隔开. 
-            * '&'表示寄存器不能重复. 
-            * 寄存器`%0`, `%1`依次从`output`, `input`中用到的寄存器开始编码(如上面的代码, 则是将`__lm`变量值存到`%0`寄存器, 将`%1`寄存器的值存到`seg`变量)
-            * `jne 2f`中, `2`是汇编代码段的编号(作为跳转目标), `f`表示向前(在它下面的代码), `b`表示向后(在它上面的代码). 每行汇编指令后面有`\n\t`, `\n`换行, `\t`是为了gcc把嵌入式汇编代码翻译成汇编代码时能保证换行和留有一定空格. 
-            * 字母含义如下表. 
+            |字母|含义|
+            |-|-|
+            | m, v, o | 表示内存单元 |
+            | R | 表示任何通用寄存器 |
+            | Q | 表示寄存器eax, ebx, ecx,edx之一 |
+            | I, h | 表示直接操作数 |
+            | E, F | 表示浮点数 |
+            | G | 表示“任意” |
+            | a, b, c, d | 表示要求使用寄存器eax/ax/al, ebx/bx/bl,  ecx/cx/cl或edx/dx/dl |
+            | S, D | 表示要求使用寄存器esi或edi |
 
-                |字母|含义|
-                |-|-|
-                | m, v, o | 表示内存单元 |
-                | R | 表示任何通用寄存器 |
-                | Q | 表示寄存器eax, ebx, ecx,edx之一 |
-                | I, h | 表示直接操作数 |
-                | E, F | 表示浮点数 |
-                | G | 表示“任意” |
-                | a, b, c, d | 表示要求使用寄存器eax/ax/al, ebx/bx/bl,  ecx/cx/cl或edx/dx/dl |
-                | S, D | 表示要求使用寄存器esi或edi |
-
-        * `asm volatile("rdtsc": "=a" (low), "=d" (high));` // 调用rdtsc指令, 返回64位时间戳(`tsc`寄存器), 低32位和高32位分别存于low和high变量
+    * `asm volatile("rdtsc": "=a" (low), "=d" (high));` // 调用`rdtsc`指令, 返回64位时间戳(`tsc`寄存器), 低32位和高32位分别存于low和high变量
 
 * hello world
 

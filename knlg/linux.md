@@ -980,8 +980,11 @@ typedef struct {
     * 例: `chroot /home/test //home/test/busybox`
 ### 进程
 * `ps`: 查看进程信息. 
-    * `ps aux`
-    * `ps elf`
+    * `-ef`: 查看所有进程. (使用标准语法)
+    * `-eLf`: 查看线程信息. 
+    * `-ejH`: 打印进程树. 
+    * `aux`: 查看所有进程. (使用bsd语法)
+    * `-eo pid,args,psr`: 可以查看分配给各个进程的逻辑cpu(即`psr`列)
 * `pidof <进程名>`: 按名称, 列出进程及其父进程的pid
 * `top`
 * `jobs`: 查看后台进程的工作状态. 
@@ -1233,8 +1236,29 @@ typedef struct {
         * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
         * `-T`: 指定链接器脚本. 
         * `-shared`: 产生一个共享object, 这个对象后面可以跟其他对象链接以组成一个可执行文件. 
-        * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
-        * `-fPIC`: 
+        * 安全相关的编译选项
+            * `NX(DEP)`: 将数据所在内存页标识为不可执行. 
+                * `-z execstack`: 禁用NX保护
+                * `-z noexecstack`: 开启NX保护
+            * `RELRO`: read only relocation. GOT保护. 
+                * `-z norelro`: 关闭. 
+                * `-z lazy`: 部分开启. 此时对GOT表仍有写权限. 
+                * `-z now`: 全部开启. 
+            * `PIE(ASLR)`
+                * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
+                * `-fPIC`: 生成位置无关代码. 
+                * 下面选项仅能用于编译可执行程序, 不能用于编译库: 
+                    * `-fpie -pie`: 生成位置无关代码. (强度为1, 半随机, 包括code, data, stack, mmap, vdso的随机化)
+                    * `-fPIE -pie`: 生成位置无关代码. (强度为2, 随机, 在1的基础上加上对heap地址的随机化)
+            * `CANARY`: 使用cookie的栈保护. 
+                * `-fno-stack-protector`: 禁用
+                * `-fstack-protector`: 开启
+                * `-fstack-protector-all`: 完全开启
+            * `FORTIFY`: 生成了一些附加代码, 通过对数组大小的判断替换`strcpy`, `memcpy`, `memset`等函数名, 达到防止缓冲区溢出的作用. 
+                * `-D_FORTIFY_SOURCE=1`: 较弱的检查(只在编译时进行检查)
+                * `-D_FORTIFY_SOURCE=2`: 在1的基础上, 对栈变量进行检测, 且会在运行时进行检查. 
+                * `-D_FORTIFY_SOURCE=3`: 在2的基础上, 可以对`malloc`出来的内存进行检测(gcc 12以上)
+
         * 链接器脚本(lds文件)
             * 参考: 
                 * `https://www.codenong.com/cs109007373/`

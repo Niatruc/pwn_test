@@ -31,36 +31,8 @@
     * `%*c`: 读入一个字符到缓冲区, 但是不向任何地方输入. 
         * 例如, `sscanf(buffer, "%*d %c", c1);` 会把buffer中第一个整数匹配到, 但是没赋值给任何变量; 把接下来匹配到的字符赋给c1. 
 
-* 拷贝函数
-    * `strcpy_s(dst, len, src)`: `len`的长度需为`strlen(src) + 1`. 如果用`strlen(src)`, 则`src`的第一个字符拷贝不到(对应位置是0)
-
-* 执行程序
-    * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
-    * 有windows界面的程序: `WinMainCRTStartup` -> `WinMain`
-    * 在`main`执行前执行自定义代码:
-        * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute__((constructor)) void before() {}`
-        * VC: 如下定义`.CRT$XIU`段, 链接器就会形成日下的C初始化函数表: 
-
-        [__xi_a, ..., before1(xiu), ..., __xi_z]
-
-        以及C++初始化函数表: 
-
-        [__xc_a, ..., before2(xcu), ..., __xc_z]
-            ```cpp
-            void before_main () {}
-            typedef void func();
-            #pragma data_seg(".CRT$XIU")
-            static func *before[] = { before_main };
-            #pragma data_seg()
-            ```
-        * C++: 全局对象的初始化函数会在`main`前执行. 下面的`g_iValue`赋值也会先执行, 故而`func`先于`main`执行.
-            ```cpp
-            A a;
-            int g_iValue = func();
-            ```
-
 ## 数据长度(32位及64位系统)
-    
+
 |数据类型或数据|长度(字节)|
 |-|-|
 |char|1|
@@ -139,7 +111,7 @@
 
         * 因为最高位视为符号位, 所以打印b和c得到了负数. 
 
-## 存储
+## 运行时存储
 * 全局变量: 静态区(`.data`存已初始化变量, `.bss`存未初始化变量). 用了`static`关键字声明的变量不可被其它文件通过`extern`导入.
 * 在函数中定义的局部变量: 
     * `char s1[] = "123";` `s1`和"123"都存在栈上, 因而`s1`的值将是栈上地址(指向"123"); 
@@ -168,8 +140,8 @@
     ```
 
 * 内存布局
-    * x86为32位寻址, 因此寻址空间上限为4GB, 也可通过PAE(Physical address extension)扩到36位(64GB)
-    * x64理论最大寻址2^64. Windows支持44位(16TB). Linux则48位(256TB)
+    * x86为32位寻址, 因此寻址空间上限为4GB, 也可通过`PAE`(Physical address extension)扩到36位(64GB)
+    * x64理论最大寻址`2^64`. Windows支持44位(16TB). Linux则48位(256TB)
     * 栈大小: 
         * Windows: 应用栈默认1M(可用编译指令`/stack`指定). 内核栈: 12K(x86), 24K(x64)
         * Linux: 应用栈10M(`ulimit -s`查看或设置). 内核栈4K或8K
@@ -266,6 +238,10 @@
     }
     ```
 
+* 常用标准函数
+    * 拷贝函数
+        * `strcpy_s(dst, len, src)`: `len`的长度需为`strlen(src) + 1`. 如果用`strlen(src)`, 则`src`的第一个字符拷贝不到(对应位置是0)
+
 ## 错误/异常
 * 类型
     * 文件打开失败
@@ -292,35 +268,35 @@
 
 ## 宏
 ```cpp
-// 把宏参数拼接到字符串中: 
-#define WARN(msg) printf("warning: " #msg "\n")
+    // 把宏参数拼接到字符串中: 
+    #define WARN(msg) printf("warning: " #msg "\n")
 
-// 把宏参数拼接到另一个c语言token
-#define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
+    // 把宏参数拼接到另一个c语言token
+    #define COMMAND(name) cmd_##name // 如, COMMAND(ls)扩展为 cmd_ls
 
-// 单字符化操作符#@
-#define simplech(b) #@b // 如, simplech(#) 扩展成 '#'
+    // 单字符化操作符#@
+    #define simplech(b) #@b // 如, simplech(#) 扩展成 '#'
 
-// 可变参数宏(把...原封不动转到__VA_ARGS__位置)
-#define DEBUG(...) printf(__VA_ARGS__)
-// 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
-#define DEBUG2(format, ...) printf(format, ##__VA_ARGS__)
+    // 可变参数宏(把...原封不动转到__VA_ARGS__位置)
+    #define DEBUG(...) printf(__VA_ARGS__)
+    // 用 ##__VA_ARGS__ , 则可以在没有可选参数时, 把多余的逗号去掉. 
+    #define DEBUG2(format, ...) printf(format, ##__VA_ARGS__)
 
-#define A 1
-#undef A
+    #define A 1
+    #undef A
 
-// 可在编译时打印信息
-#ifndef A
-#error A is not defined 
-#warning A is not defined 
-#endif
+    // 可在编译时打印信息
+    #ifndef A
+    #error A is not defined 
+    #warning A is not defined 
+    #endif
 
-// 可以判断条件
-#if ((defined A) && (!defined B))
-...
-#elif
-...
-#endif
+    // 可以判断条件
+    #if ((defined A) && (!defined B))
+    ...
+    #elif
+    ...
+    #endif
 ```
 
 * 预定义宏
@@ -337,34 +313,63 @@
     * `#pragma execution_character_set("utf-8")`: 告诉msvc编译器, 当前文件以utf8编码编译. 
     * `#pragma message("asdf")`: 会在编译时打印字符串的内容(在确认`ifdef`或`ifndef`宏的代码块有没有被编译时有用处)
 
-# 问题代码
+## 执行程序
+* Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
+* 有Windows界面的程序: `WinMainCRTStartup` -> `WinMain`
+* 在`main`执行前执行自定义代码:
+    * gcc: 使用`attribute`关键字, 声明 `constructor`和`destructor`函数: `__attribute__((constructor)) void before() {}`
+    * VC: 如下定义`.CRT$XIU`段, 链接器就会形成: 
+        * C初始化函数表: 
+            > `[__xi_a, ..., before1(xiu), ..., __xi_z]`
+        * 以及C++初始化函数表: 
+            > `[__xc_a, ..., before2(xcu), ..., __xc_z]`
 
+        ```cpp
+            void before_main () {}
+            typedef void func();
+            #pragma data_seg(".CRT$XIU")
+            static func *before[] = { before_main };
+            #pragma data_seg()
+        ```
+    * C++: 全局对象的初始化函数会在`main`前执行. 下面的`g_iValue`赋值也会先执行, 故而`func`先于`main`执行.
+        ```cpp
+        A a;
+        int g_iValue = func();
+        ```
+
+## GCC扩展
+* 参考
+    * [C语言 GCC扩展特性](https://www.jianshu.com/p/755089d1304e)
+* 注意, **源文件后缀必须是c, 不能是cpp**, 否则编译会报错. 
+
+## 问题代码
+* 
     ```cpp
-    void GetMemory(char *p) 
-    {
-        p = (char *)malloc(100);
-    } 
-    void Test(char *s) 
-    { 
-        char *str = NULL; 
-        GetMemory(str); 
-        strcpy(str, s); 
-        printf(str); 
-    }
+        void GetMemory(char *p) 
+        {
+            p = (char *)malloc(100);
+        } 
+        void Test(char *s) 
+        { 
+            char *str = NULL; 
+            GetMemory(str); 
+            strcpy(str, s); 
+            printf(str); 
+        }
 
-    // 改进后
-    void GetMemory(char **p) 
-    {
-        *p = (char *)malloc(100);
-    } 
-    void Test(char *s) 
-    { 
-        char *str = NULL; 
-        GetMemory(&str); 
-        strcpy(str, s); 
-        printf("%s", str); 
-        free(str);
-    }
+        // 改进后
+        void GetMemory(char **p) 
+        {
+            *p = (char *)malloc(100);
+        } 
+        void Test(char *s) 
+        { 
+            char *str = NULL; 
+            GetMemory(&str); 
+            strcpy(str, s); 
+            printf("%s", str); 
+            free(str);
+        }
     ```
         
     * 问题
@@ -372,24 +377,23 @@
         * `GetMemory`还是会malloc一段内存, 之后没有free, 有内存泄漏. 
         * `strcpy`会有堆溢出.
         * `printf(str)`有格式化字符串漏洞.
-
+* 
     ```cpp
-    #include <stdio.h>
-    int main(int argc,char *argv[])
-    {
-        char x,y,z;
-        int i;
-        int a[16];
-        for(i=0;i<=16;i++)
+        #include <stdio.h>
+        int main(int argc,char *argv[])
         {
-            a[i]=0;
-            printf("\n");
-    }
-    return 0;
-    }
+            char x, y, z;
+            int i;
+            int a[16];
+            for(i = 0; i <= 16; i++) {
+                a[i] = 0;
+                printf("\n");
+            }
+            return 0;
+        }
     ```
 
-# 编码经验
+## 编码经验
 * 参数检查
     * 指针是否为NULL
     * 参数中缓存长度是否在合理范围内
@@ -397,20 +401,19 @@
 * 边界
     * 应考虑的特征: 第一个/最后一个, 开始/完成, 空/满, 最慢/最快, 相邻/最远, 最小值/最大值, 超过/在内, 最短/最长, 最早/最迟, 最高/最低. 
     * 在循环体中使用`continue`前, 切记**检查是否有记得修改循环判断条件值, 不然可能陷入死循环**. 
-
 * 内存, 指针, 字符串
     * 初始化时清零是好习惯(`memset`, `RtlZeroMemory`), 否则字符串可能不结束, 这样可能导致溢出. 
     * 涉及指针运算时, 比如`ptr->item`, `*ptr`, 要判断ptr是不是有效地址. 可以用__try__except捕获访问地址异常. 
     * 在使用系统的未导出结构体时, 如果如果只需要用到其中某个字段, 可以自定义一个结构体类型, 把其他字段笼统合为一个buffer. 
         ```cpp
-        typedef struct _KPROCESS {
-            BYTE NotUsed1[0x30];
-            LIST_ENTRY ThreadListHead;
-            BYTE NotUsed2[0x400 - 0x40];
-        } KPROCESS, *PKPROCESS;
+            typedef struct _KPROCESS {
+                BYTE NotUsed1[0x30];
+                LIST_ENTRY ThreadListHead;
+                BYTE NotUsed2[0x400 - 0x40];
+            } KPROCESS, *PKPROCESS;
 
-        ((PKPROCESS) ptr)->ThreadListHead;
-        
+            ((PKPROCESS) ptr)->ThreadListHead;
+            
         ```
     * 在内核编程中, 传参基本都是引用传递(即参数类型为指针类型)
 * 数组
@@ -431,44 +434,44 @@
 ## 奇技淫巧
 * 有时为了在捕获到错误时终止一段代码, 会用到大量if-else或goto语句. 可以如下用do-while: 
     ```cpp
-    if (a) goto NEXT;
-    ...
-    if (b) goto NEXT;
-    ...
-    NEXT: ;
-
-    // 替换写法
-    do {
-        if (a) break;
+        if (a) goto NEXT;
         ...
-        if (b) break;
-    } while (FALSE);
+        if (b) goto NEXT;
+        ...
+        NEXT: ;
+
+        // 替换写法
+        do {
+            if (a) break;
+            ...
+            if (b) break;
+        } while (FALSE);
     ```
 
 * 复合语句
 ```cpp
-char *a = ({
-    unsigned int *p = __builtin_alloca(16);
-    p[0] = 0x12345678;
-    (char *)p; // 返回值
-});
+    char *a = ({
+        unsigned int *p = __builtin_alloca(16);
+        p[0] = 0x12345678;
+        (char *)p; // 返回值
+    });
 ```
 
 * 结构体赋值
 ```cpp
-struct S1 *s;
-s = malloc(sizeof(s));
-*s = (struct S1) { // 实质是强制类型, 值传递
-    .a = 1,
-    .b = 2
-};
+    struct S1 *s;
+    s = malloc(sizeof(s));
+    *s = (struct S1) { // 实质是强制类型, 值传递
+        .a = 1,
+        .b = 2
+    };
 ```
 
 * 编译时打印宏参数的值
     ```cpp
-    #define __PRINT_MACRO(x) #x
-    #define PRINT_MACRO(x) #x"="__PRINT_MACRO(x)
-    #pragma message(PRINT_MACRO(MYOPT))
+        #define __PRINT_MACRO(x) #x
+        #define PRINT_MACRO(x) #x"="__PRINT_MACRO(x)
+        #pragma message(PRINT_MACRO(MYOPT))
     ```
 
 * `typeof`
@@ -523,10 +526,10 @@ s = malloc(sizeof(s));
 ## 控制流
 * range-for
     ```cpp
-    vector<int> vec(10, 0);
-    for (auto v : vec) {
-        v;
-    }
+        vector<int> vec(10, 0);
+        for (auto v : vec) {
+            v;
+        }
     ```
 
 ## 命名空间
@@ -1026,7 +1029,7 @@ s = malloc(sizeof(s));
     * 调试发现, 对非对象变量(如int变量), 要以值传递的形式捕获. 
     * 要将lambda转为C语言的函数指针, 则不能捕获表达式外变量. 
 
-# 问题
+## 问题
 * 编译时报错: 
     * `multiple definition of ...`, 即多重定义问题. 
         * 注意在头文件中使用namespace时, 不要在里头定义变量或函数, 只能声明. 
