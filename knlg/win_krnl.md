@@ -1478,7 +1478,7 @@
         ```cpp
         BOOL WINAPI DeviceIoControl(
             _In_ HANDLE hDevice,    // 设备句柄
-            _In_ DWORD dwIoControlCode, // 设备控制码, 在驱动中通过 IoGetCurrentIrpStackLocation Irp)->Parameters.DeviceIoControl.IoControlCode 得到
+            _In_ DWORD dwIoControlCode, // 设备控制码, 在驱动中通过 IoGetCurrentIrpStackLocation(Irp)->Parameters.DeviceIoControl.IoControlCode 得到
             _In_opt_ LPVOID lpInBuffer, // 传给驱动程序的输入缓冲区的地址
             _In_ DWORD nInBufferSize, // 输入缓冲区的大小
             _Out_opt_ LPVOID lpOutBuffer, // 输出缓冲区, 用于接收驱动返回的数据. 一定不能为空!
@@ -1503,7 +1503,7 @@
         * `ReadFileEx`: 可以指定完成例程(即异步操作的回调函数). 
     * 应用层的完成端口(实现类似于异步回调的功能)
         * `CreateIoCompletionPort(__in HANDLE FileHandle, __in_opt HANDLE ExistingCompletionPort, __in ULONG_PTR CompletionKey, __in DWORD NumberOfConcurrentThreads);`: 创建完成端口, 或绑定文件句柄和完成端口
-            * 文件句柄必须是overlapped方式打开的
+            * 文件句柄必须是`overlapped`方式打开的
             * `NumberOfConcurrentThreads`表示工作者线程数量. 0则表示有多少个处理器就开多少个线程. 
         * `BOOL GetQueuedCompletionStatus(HANDLE CompletionPort, LPDWORD lpNumberOfBytes, PULONG_PTR lpCompletionKey, LPOVERLAPPED *lpOverlapped, DWORD dwMilliseconds)`: 尝试从完成端口的队列中取出一个IO完成包. 若无, 则等待pending操作的完成. 
         * 示例
@@ -1516,7 +1516,7 @@
             
             ...
 
-            //将新到来的客户套接字和完成端口绑定到一起. 
+            // 将新到来的客户套接字和完成端口绑定到一起. 
             CreateIoCompletionPort((HANDLE)sClient, CompletionPort, ( DWORD)sClient, 0);
 
             // 工作者线程的例程
@@ -1597,6 +1597,11 @@
             PLARGE_INTEGER Timeout // 以100纳秒为单位, 负数表示相对于当前时间, 正数则相对于1601/01/01,  0则不等待, 若提供了NULL指针, 则无限等待. 
         );
         ```
+* 驱动
+    * `NTSYSAPI NTSTATUS ZwLoadDriver(PUNICODE_STRING DriverServiceName);`: 加载驱动到系统. `DriverServiceName`指定驱动的注册表键, 形如`\Registry\Machine\System\CurrentControlSet\Services\<DriverName>`
+        * 注: 
+            * 若系统运行于安全模式, 而驱动因未属于安全模式列表而加载失败, 该函数返回的是`STATUS_SUCCESS`. 
+            * minifilter驱动中用`FltLoadFilter`代替此函数. 
 * 一些全局变量
     * `KeLoaderBlock`: 该指针指向一个由OS的加载器构造的一个"加载器参数块". 
 

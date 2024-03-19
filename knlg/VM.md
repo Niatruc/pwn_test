@@ -17,8 +17,8 @@
 
 # cuckoo
 * Locker文件: 
-1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受), 如文件操作, 操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
-2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行); behavior的generic和processes节中项也很多(都能占到10万行)
+    1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受), 如文件操作, 操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
+    2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行); behavior的generic和processes节中项也很多(都能占到10万行)
 
 # docker
 ## 知识点
@@ -63,12 +63,22 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * 查看镜像分层: `docker history <镜像名>`
 * 删除镜像: `docker rmi <镜像id>`
 * 重命名: `docker tag <镜像id> <新名>`
-* Dockerfile构建镜像
+* Dockerfile构建镜像: 
     * 首先新建一个目录, 在其中新建文件`Dockerfile`, 写入内容如下(使用`centos`这个镜像为基础, 之后运行`yum`):
-    ```
-    FROM centos
-    RUN yum install vim -y
-    ```
+        ```sh
+            FROM centos # 指定原始镜像
+            RUN yum install vim -y # `docker build`时运行bash命令 # RUN每执行一次都会新建一层. 要避免过多使用, 尽量合成一条命令
+            COPY myfile /home/ # 拷贝文件到镜像 中
+            ENV <key1>=<value1> <key2>=<value2> # 设置环境变量
+            ARG <参数名>[=<默认值>] # 
+
+            CMD ["<executeable>","<param1>","<param2>",...] # `docker run`时运行bash命令
+
+            ENTRYPOINT ["<executeable>","<param1>","<param2>",...] # 类似`CMD`, 但不会被`docker run`的命令行参数指定的指令所覆盖. 如果运行`docke    r run`时使用了`--entrypoint`选项, 将覆盖`ENTRYPOINT`指令指定的程序
+            CMD ["<param1>","<param2>",...]  # 该写法是为 ENTRYPOINT 指令指定的程序提供默认参数
+
+            EXPOSE <端口1> [<端口2>...] # `docker run -P`时, 会自动随机映射这些端口
+        ```
     * 之后运行`docker build -t <镜像名> .`
 * `save`, `load`, `import`, `export`
     ```sh
@@ -86,16 +96,16 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 ## 常用配置
 * 修改docker文件存放位置
     ```sh
-    systemctl stop docker.service
+        systemctl stop docker.service
 
-    mv /var/lib/docker/ <新路径>
+        mv /var/lib/docker/ <新路径>
 
-    # 在/lib/systemd/system/docker.service中修改:
-    ExecStart=/usr/bin/dockerd --graph <新路径>
+        # 在/lib/systemd/system/docker.service中修改:
+        ExecStart=/usr/bin/dockerd --graph <新路径>
 
-    # 重启docker 
-    systemctl daemon-reload # 这个后面每次启动docker前可能都要执行一次
-    systemctl restart docker.service
+        # 重启docker 
+        systemctl daemon-reload # 这个后面每次启动docker前可能都要执行一次
+        systemctl restart docker.service
 
     ```
 * `/var/docker/containers/<容器id>`目录下的`hostconfig.json`文件, 可改容器的某些配置:
@@ -104,7 +114,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 ## 错误记录
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
     * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 
-        > docker run -tid --name <容器名> --privileged=true <镜像> /sbin/init
+        > `docker run -tid --name <容器名> --privileged=true <镜像> /sbin/init`
 
 ## 其他
 * 更换apt源
@@ -122,9 +132,8 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys <公钥编码>
     ```
 
-* 移除\<none\>镜像
-
-    `docker rmi $(docker images -f "dangling=true" -q)`
+* 移除\<none\>镜像: 
+    * `docker rmi $(docker images -f "dangling=true" -q)`
 
 # Qemu
 * 参考

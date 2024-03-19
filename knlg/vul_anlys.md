@@ -913,7 +913,9 @@
         * `__afl_fork_pid`: 由fork产生的子进程的pid
         * `__afl_temp`: 缓冲区
         * `__afl_setup_failure`: 标志位，如果置位则直接退出
-        * `__afl_global_area_ptr`: 全局指针。
+        * `__afl_global_area_ptr`: 全局指针
+    * 函数/过程:
+        * `__afl_maybe_log`: 判断`__afl_area_ptr`是否为0, 是则跳转到`__afl_setup`
 * `afl-gcc.c`: 
     * 要点
         * 需要知道`afl-as`程序的路径(默认为`/usr/local/lib/afl/`)(可以设置环境变量`AFL_PATH`); 
@@ -923,8 +925,8 @@
             // 构建参数列表, 放到`cc_params`: 
             //      [0]: "clang++"/"clang"/"g++"/"gcj"/"gcc"
             //      剩余: 
-            //          -B <as_path>
-            //          若使用clang: -no-integrated-as
+            //          -B<as_path>
+            //          若使用clang, 加上: -no-integrated-as
             //          根据环境变量加参: 
             //              AFL_HARDEN: -fstack-protector-all
             //                  若未用fotify: -D_FORTIFY_SOURCE=2
