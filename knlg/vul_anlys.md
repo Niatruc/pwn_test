@@ -754,8 +754,6 @@
     * `!mona jmp -r esp`: 搜索`jmp esp`指令
         * `-m "kernel32.dll"`: 在指定模块中寻找指令
 
-
-
 ## AFL
 * 项目地址: [https://github.com/mirrorer/afl](https://github.com/mirrorer/afl)
 * 参考
@@ -860,13 +858,19 @@
 * 参考
     * [基于qemu和unicorn的Fuzz技术分析](https://xz.aliyun.com/t/6457?time__1311=n4%2BxnD0DRDB73SxBqooGkYY%2B4Qwx0KGC0ieD&alichlgref=https%3A%2F%2Fwww.google.com%2F)
 * qemu模式
+    * `build_qemu_support.sh`: 下载qemu源码, 并编译与本系统相同架构的用户模式
+        ```sh
+            # CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm --enable-debug 
+            CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm
+        ```
     * 打补丁: 
         * `accel/tcg/cpu-exec.c`: 
             * 引入头文件`../patches/afl-qemu-cpu-inl.h`
-            * 在`cpu_tb_exec`函数加了宏`AFL_QEMU_CPU_SNIPPET2`
-            * 在`tb_find`函数加了宏`AFL_QEMU_CPU_SNIPPET1`
+            * 在`cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)`函数最开始处加了宏`AFL_QEMU_CPU_SNIPPET2`, 执行`afl_maybe_log`函数, 记录覆盖率. 
+            * 在`tb_find`函数中: 在调用`tb_gen_code(cpu, pc, cs_base, flags, 0)`对基本块进行翻译生成`tb`后, 使用宏`AFL_QEMU_CPU_SNIPPET1`, 向管道写入信息(`pc`, `cs_base`, `flags`), 通知fork_server
         * `linux-user/elfload.c`: 
-            * 在`load_elf_image`函数中, 赋值: `afl_entry_point = info->entry;`
+            * `extern abi_ulong afl_entry_point, afl_start_code, afl_end_code;`
+            * 在`load_elf_image`函数中, 赋值: `afl_entry_point = info->entry;` (`info`指向`image_info`结构体, 保存elf内存镜像的具体信息. `entry`即保存程序入口点)
         * `linux-user/syscall.c`: 
             * 在`do_syscall`函数中, 在对`TARGET_NR_tgkill`的处理中, 原来的操作是`safe_tgkill((int)arg1, (int)arg2, target_to_host_signal(arg3))`, 三个参数分别对应`tid`, `tgid`, `sig`, 现添加判断: 
                 ```cpp
@@ -880,25 +884,34 @@
                     //  afl_request_tsl(pc, cs_base, flags); 
                 #define AFL_QEMU_CPU_SNIPPET2 
                     // 执行:  
-                    //  afl_setup(); 
-                    //  afl_forkserver(cpu); 
+                    //  if (itb->pc == afl_entry_point) {
+                        //  afl_setup(); 
+                        //  afl_forkserver(cpu); 
+                    //  } 
                     //  afl_maybe_log(itb->pc); 
-                #define TSL_FD (FORKSRV_FD - 1)
+                #define TSL_FD (FORKSRV_FD - 1) // 这个管道用来在子进程和fork服务器之间传递`需要翻译`的信息
 
                 // 设置SHM区域; 根据环境变量, 初始化一些全局变量
                 static void afl_setup(void); 
 
-                // 
-                // 创建管道(存于t_fd[0]和t_fd[1], 后者通过dup2赋予TSL_FD), 与子进程通信, 以获取翻译的指令(父进程读t_fd[0], 子进程写TSL_FD)
+                // 创建管道(存于`t_fd[0]`和`t_fd[1]`, 后者通过`dup2`赋予`TSL_FD`), 与子进程通信, 以获取翻译的指令(父进程读`t_fd[0]`, 子进程写`TSL_FD`)
+                // 循环: 
+                //  fork一个子进程: 关闭管道`FORKSRV_FD`, `FORKSRV_FD + 1`, `t_fd[0]`, 然后返回
+                //  父进程: 
+                //    afl_wait_tsl(cpu, t_fd[0]): 确保哈希表中有tb块(没有则生成之)
                 static void afl_forkserver(CPUState *cpu); 
 
-                // 
+                // 记录每条执行路径(基本块A -> 基本块B)的覆盖率
+                // `cur_loc`是一个随机数
                 static inline void afl_maybe_log(abi_ulong cur_loc); 
 
-                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数()写入管道TSL_FD)
+                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数写入`TSL_FD`管道)
                 static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags); 
 
-                // 
+                // 循环: 
+                //  读管道`fd`, 获取`t`(包含`pc`, `cb`, `flags`)
+                //  `tb = tb_htable_lookup(cpu, t.pc, t.cs_base, t.flags);` 在哈希表中找tb
+                //  `tb_gen_code(cpu, t.pc, t.cs_base, t.flags, 0);` 上面找不到tb时, 调用此函数, 将TCG代码转换成主机代码. 
                 static void afl_wait_tsl(CPUState *cpu, int fd); 
 
             ```
