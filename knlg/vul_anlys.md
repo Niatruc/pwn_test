@@ -796,15 +796,29 @@
         cd /sys/devices/system/cpu
         echo performance | tee cpu*/cpufreq/scaling_governor
 
-        # @@表示程序从文件中获取输入, --可能是将目标程序和前面的参数分开来
         afl-fuzz -i input -o output -- ./heap_afl @@
+        # 当程序需要读取文件作为输入时, 则使用`@@`作为文件的占位符, 并对读取的文件作变异操作. (afl会创建`out/.cur_input`作为读取的文件, 用`input`目录中的测试用例对其作初始化)
+        # 如果没有`@@`, 则`input`目录下的测试用例会被读到stdin, 因而`heap_afl`中的`scanf`等函数会读到这些数据. 
+        # `--`可能是将目标程序和前面的参数分开来
         # 其他参数
-        # -f <file>: 表示将文件的内容作为stdin输入
+            # 运行参数
+                # -f <file>: 表示将文件的内容作为stdin输入
+                # -t <毫秒>: 每次运行程序的超时时间(默认是自动在50-1000毫秒间变化)
+                # -m <MB>|none: 最大运行内存(默认50MB)
+                # -Q: QEMU模式
+            # fuzz行为参数
+                # -d: 快速&脏模式(跳过确定性检查)
+                # -n: 不插桩的fuzz(dumb模式)
+                # -x <字典文件>: 选用fuzz字典
+            # 其他
+                # -b <cpu_id>: 将fuzz进程绑定到指定cpu
     ```
 * 用法
     * fuzzer字典
         * 针对带有语法(使用了格式化数据, 比如图像, 多媒体, 压缩数据, 正则表达式, shell脚本)的程序, 可提供字典, 给定语言关键字, 文件头魔数, 以及其他跟目标数据关联的分词. 
         * 如果不确定用什么字典, 可以先运行一段时间fuzzer, 然后利用`libtokencap`获取捕获的分词. 
+        * 注: 
+            * 若分词中含有不可打印字符, 需要写成`\x`的形式(比如换行符不能用`\n`, 要写成`\x0d`)
     * 并行模式
         * 添加参数`-M <主进程输出目录>`或`-S <从进程输出目录>`. 主进程的策略是确定性检查(deterministic checks), 从进程则是进行随机调整. `-o`则指定同步输出目录.
         * 观察多个进程的状态: `afl-whatsup sync/`
@@ -1049,6 +1063,8 @@
             static void write_to_testcase(void* mem, u32 len) { }
             static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) { }
             static void show_stats(void); { }
+
+            // 校准一个新的测试用例. 运行时机: 1. 每当对input目录进行处理, 提示之前产生了有问题的测试用例时; 2. 每次发现新的执行路径时. 
             static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap, u8 from_queue) { }
             static void check_map_coverage(void) { }
             static void perform_dry_run(char** argv) { }

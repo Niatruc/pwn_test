@@ -11,6 +11,7 @@
         * `/tcp`: 记录tcp连接信息. `nethogs`会用到. 
     * `/sys`
         * `/kernel`
+            * `/core_pattern`: 系统产生的coredump文件将以此文件的格式化字符串为准进行命名. 
             * `/random`
                 * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
             * `/randomize_va_space`: 设为0, 可关闭地址随机化
@@ -413,7 +414,7 @@
                     * `O_EXCL`: 用了`O_CREAT`但文件存在, 则返回错误消息
                     * `O_NOCTTY`: 若文件为终端设备, 则不会将该终端机当成进程控制终端机
                     * `O_TRUNC`: 若文件已存在, 删除文件中原有数据
-                    * `O_APPEND`: 以追加的方式打开 
+                    * `O_APPEND`: 以追加的方式打开. 需要跟`O_WRONLY`结合用, 不然会出现`bad file descriptor`
             * `mode`: 文件访问权限的初始值. 
         * 返回值: 大于0则打开文件成功. 
             * -1: 失败
@@ -427,7 +428,7 @@
         * 返回值: 若成功, 返回设置后文件指针的位置. 
             * 可获取文件大小: `lseek(fd, 0, SEEK_END);`
 
-    * `ssize_t write(int fd,const void * buf,size_t count);` 
+    * `ssize_t write(int fd, const void * buf,size_t count);` 
         * 参数: 
             * `buf`: 存放要写入的内容
             * `count`: 要写入的字节数
@@ -462,7 +463,7 @@
                 FD_ZERO(&set); // 将set清空 
                 FD_SET(s, &set); // 将套接字s加入set
                 select(s + 1, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读(会阻塞)
-                if(FD_ISSET(s, &set) { // 检查s是否在set中(即s是否被唤醒)
+                if(FD_ISSET(s, &set)) { // 检查s是否在set中(即s是否被唤醒)
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
                 } 
             }
@@ -1372,7 +1373,7 @@ typedef struct {
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
             * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
-            * `M=<工作目录绝对路径>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. M是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
+            * `M=<工作目录绝对路径>`: 在读取上述Makefile后, 跳转到`工作目录`, 继续读入Makefile. `M`是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
             * 注意上述选项后面接的路径都**必须是完整路径**. 
             * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
                 * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 

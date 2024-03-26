@@ -211,7 +211,8 @@
     * `-E`: (用户模式)指定环境变量 
         * `LD_PRELOAD='<custom_lib.so>'`
 * user模式
-    * 参数
+    * 参数: 
+        * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`
         * `-d`: 可以在运行时打印中间码, guest和host反汇编, guest cpu的寄存器等值, 便于调试分析. 
             ```sh
                 out_asm         显示为每个编译后的TB生成的宿主机汇编代码
@@ -236,12 +237,21 @@
     * 快速示例: 运行一个32位arm程序. 
         * 安装arm交叉编译工具: `sudo apt install gcc-arm-linux-gnueabihf`
         * 编译一个helloworld程序(使用`--static`以进行静态链接). 
-            > ``
+            > `arm-linux-gnueabihf-gcc helloworld.c --static -o helloworld`
         * 编译用户模式qemu(使用`--static`以进行静态链接). 
             > `CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user  --disable-gtk --disable-sdl --disable-vnc --target-list="arm-linux-user" --enable-kvm --static`
             > `make`
         * 将helloworld和qemu放到同一目录, 然后执行: 
             > `sudo chroot . ./qemu-arm ./helloworld`
+    * 示例: 运行动态链接的arm程序
+        * `binfmt_misc`: 由它为目标程序指定要是有的elf解释器, 这样就不用在运行异架构程序时手打`qemu-<arch>`
+            * `apt install binfmt-support`: 安装. 
+            * `update-binfmts --display`: 查看所有解释器的启用状态以及解释器路径. 
+                * 也可以: `cat /proc/sys/fs/binfmt_misc/qemu-<arch>`
+        * 解决问题: `Could not open '/lib/ld-linux-armhf.so.3'`
+            * `sudo ln -s /usr/arm-linux-gnueabihf/lib/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3`
+        * 解决问题: `error while loading shared libraries: libc.so.6`
+            * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
 
 * 原理
     * 参考
