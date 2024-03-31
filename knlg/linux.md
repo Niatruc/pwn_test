@@ -1306,7 +1306,7 @@ typedef struct {
             }
             ```
 
-            * 把定位器符号置为0×10000(若不指定, 则该符号的初始值为0).
+            * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
             * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
             * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
         * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
@@ -1314,6 +1314,8 @@ typedef struct {
             __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
 
             __attribute__((stdcall)) void f2(); // 指定函数的调用约定
+
+            __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
 
             // 给结构体变量s指定属性
             struct my_struct
