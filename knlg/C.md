@@ -1,3 +1,23 @@
+# 标准
+* 参考: (ax3l/CXXdefaults.md)[https://gist.github.com/ax3l/53db9fa8a4f4c21ecc5c4100c0d93c94]
+* `__STDC_VERSION__`常量与C标准的对应关系: 
+    * undefined: earlier
+    * 199409L: C95
+    * 199901L: C99
+    * 201112L: C11
+    * 201710L: C18
+    * TBD: C23
+* `__cplusplus`常量与C++标准的对应关系: 
+    * 199711L: C++98
+    * 201103L: C++11
+    * 201402L: C++14
+    * 201703L: C++17
+    * 202002L: C++20
+    * TBD: C++23
+* 查看当前编译器使用的默认C标准: 
+    * gcc: `echo | gcc -E -dM -x c - | grep __STDC_VERSION__`
+* 查看当前编译器使用的默认C++标准: 
+    * g++: `echo | g++ -E -dM -x c++ - | grep __cplusplus` (gcc也可以)
 # C语言
 * 空指针
 ```cpp
