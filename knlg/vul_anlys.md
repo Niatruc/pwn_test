@@ -290,6 +290,8 @@
     * 参考
         * [loldrivers](https://www.loldrivers.io/)
         * [Microsoft 推荐的驱动程序阻止规则](https://learn.microsoft.com/zh-cn/windows/security/application-security/application-control/windows-defender-application-control/design/microsoft-recommended-driver-block-rules)
+        * 项目
+            * https://github.com/zeze-zeze/CYBERSEC2023-BYOVD-Demo/blob/master/BYOVD/BYOVD.cpp
 
 # Linux漏洞
 * linux下的竞争条件漏洞(race condition)
@@ -1178,6 +1180,8 @@
     ```
 
 ## 其他插桩和fuzz工具或框架
+* 参考
+    * [Are there any static binary rewriting tools？](https://reverseengineering.stackexchange.com/questions/14841/are-there-any-static-binary-rewriting-tools)
 * peafl64
     * https://github.com/Sentinel-One/peafl64
     * 要点: 

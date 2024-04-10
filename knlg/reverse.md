@@ -604,10 +604,23 @@
         * `c`: 开始或继续运行(continue)
             * ` <pid>`: 继续运行pid进程
             * ` -<pid>`: 停止运行pid进程
-
     * `v`: 平板模式(panel)
         * `m`: 打开菜单
     * `V`: 可视模式(visual)
+* python编程
+    * 安装: `pip install r2pipe`
+    * 编码
+        ```py
+            import r2pipe
+
+            r = r2pipe.open('binary') # 加载
+            # r = r2pipe.open('binary', flags=['-2']) # 可以传参给radare2. `-2`表示关闭stderr
+
+            r.cmd('doo; db main; dc') # 执行多条命令, 返回打印的结果(字符串)
+
+            json = r.cmdj('iij') # `j`命令生成json结果, `cmdj`方法对json进行转换生成对象
+        ```
+
 * 插件
     * `r2dec`
         * 安装: `r2pm -i r2dec`
