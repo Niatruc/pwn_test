@@ -1,31 +1,31 @@
 # Linux系统目录及文件
 * `/proc`: 每个进程在此目录下都有一个文件. 
     * `/<pid>`
-        * `/map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
         * `/fd`: 其下文件都是数字(代表文件描述符). 各个文件都链接到实际文件, 比如设备, 套接字等. 
+        * `/map`: 文件保存了一个进程镜像的布局(可执行文件, 共享库, 栈, 堆和 VDSO 等)
+    * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟**系统内存**相关的
     * `/kcore`: Linux 内核的动态核心文件. 
     * `/kallsyms`: 内核符号. 如果在 `CONFIG_KALLSYMS_ALL` 内核配置中指明, 则可以包含内核中全部的符号. 
     * `/modules`: 内核模块信息. 
     * `/net`
         * `/tcp`: 记录tcp连接信息. `nethogs`会用到. 
-    * `/iomem`: 与`/proc/<pid>/maps`类似, 不过它是跟**系统内存**相关的
     * `/sys`
         * `/kernel`
-            * `/randomize_va_space`: 设为0, 可关闭地址随机化
+            * `/core_pattern`: 系统产生的coredump文件将以此文件的格式化字符串为准进行命名. 
             * `/random`
                 * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
+            * `/randomize_va_space`: 设为0, 可关闭地址随机化
 * `/boot`:
-    * `/System.map`: 内核符号. 
     * `/grub`
         * `/grub.cfg`
             * 其中`menuentry`处有启动项. 
     * `/initrd.img-<内核版本号>`: initrd的目的就是在kernel加载系统识别cpu和内存等核心信息之后, 让系统进一步知道还有那些硬件是启动所必须使用的
+    * `/System.map`: 内核符号. 
 * `/dev`
     * `/input`
         * `/event<数字>`: 键盘等输入设备的实时数据可从这些文件读取. 
-    * `/urandom`: 随机数据. 
     * `/loop`: loop设备是一种仿真设备, 其将一个文件模拟成一个块设备, 使得该文件能够像真正的磁盘或光盘一样被使用和管理. 使用前需先将一个loop设备与一个文件关联(`losetup`命令)
-
+    * `/urandom`: 随机数据. 
 * `/lib`
     * `/udev`: 
 * `/etc`
@@ -414,7 +414,7 @@
                     * `O_EXCL`: 用了`O_CREAT`但文件存在, 则返回错误消息
                     * `O_NOCTTY`: 若文件为终端设备, 则不会将该终端机当成进程控制终端机
                     * `O_TRUNC`: 若文件已存在, 删除文件中原有数据
-                    * `O_APPEND`: 以追加的方式打开 
+                    * `O_APPEND`: 以追加的方式打开. 需要跟`O_WRONLY`结合用, 不然会出现`bad file descriptor`
             * `mode`: 文件访问权限的初始值. 
         * 返回值: 大于0则打开文件成功. 
             * -1: 失败
@@ -428,7 +428,7 @@
         * 返回值: 若成功, 返回设置后文件指针的位置. 
             * 可获取文件大小: `lseek(fd, 0, SEEK_END);`
 
-    * `ssize_t write(int fd,const void * buf,size_t count);` 
+    * `ssize_t write(int fd, const void * buf,size_t count);` 
         * 参数: 
             * `buf`: 存放要写入的内容
             * `count`: 要写入的字节数
@@ -463,7 +463,7 @@
                 FD_ZERO(&set); // 将set清空 
                 FD_SET(s, &set); // 将套接字s加入set
                 select(s + 1, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读(会阻塞)
-                if(FD_ISSET(s, &set) { // 检查s是否在set中(即s是否被唤醒)
+                if(FD_ISSET(s, &set)) { // 检查s是否在set中(即s是否被唤醒)
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
                 } 
             }
@@ -825,6 +825,7 @@ typedef struct {
     * `$?`: 若上一条指令执行成功, 则此值为0. 
     * `$$`: 脚本运行的当前进程的id号. 
     * `$!`: 后台运行的最后一个进程的id号. 
+    * `shift n`: 将参数列表左移n个. 相当于移除`$@`列表中前n个参数, 而`$#`的大小也会减去n. 
 * `$(cmd)`: 表示执行`cmd`后输出的字符串. 
 * `$[a+1]`: 获取算术运算结果. 
 * `${a}`: 得到变量a的值(作为字符串)
@@ -1128,6 +1129,33 @@ typedef struct {
     * 创建完成后, 即可像其他网络接口一样配置: 
         * `ifconfig tap0 192.168.1.100 up`: 为`tap0`设置ip地址并启动
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
+* `ip`:
+    * `netns`: 网络命名空间. 能创建多个隔离的网络空间, 它们有独自网络栈信息. 
+        * `list`: 列出名称空间
+        * `add NAME`: 添加名称空间
+        * `attach NAME PID`: 进入名称空间
+        * `set NAME NETNSID`: 设置名称空间
+        * `[-all] delete <NAME>`: 删除名称空间
+        * `monitor`: 监控
+        * `exec <NAME> <CMD>`: 在`<NAME>`命名空间执行命令查看其信息. 
+            * 例子: `ip a`: 查看`<NAME>`命名空间的网卡信息
+    * `address`, `a`: 网卡操作(网络层)
+        * `show <DEVICE>`
+        * `add 192.168.10.10/24 dev <DEVICE>`: 向网卡添加一个临时ip地址
+        * `del 192.168.10.10/24 dev <DEVICE>`: 删除网卡的临时ip地址
+    * `route`, `r`: 路由操作
+        * `add 192.168.10.0/24 dev <DEVICE> [src <IP_ADDR>]`: 目的地址段为`192.168.10.0/24`(直连网络)的数据包将通过`<DEVICE>`网卡发出. 如果该网卡上有多个IP, 可指定要用的源IP. 
+        * `add 192.168.10.0/24 via 172.17.0.1 dev <DEVICE> [src <IP_ADDR>]`: 目的地址段为`192.168.10.0/24`(非直连网络)的数据包将通过`<DEVICE>`网卡发出, 且下一跳为`172.17.0.1`. 
+        * `ip r add default via 172.17.0.1`: 指定默认网关为`172.17.0.1`. 
+    * `link`, `l`: 网卡操作(链路层)
+        * `set <DEVICE>`
+            * `up`: 开启网卡. 
+            * `down`: 关闭网卡. 
+    * `neigh`, `n`: 操作ARP表. 
+        * `add 192.168.1.1 lladdr 1:2:3:4:5:6 dev ens33`: 在`ens33`的ARP表中新增记录, 指定IP地址和对应的MAC地址. `lladdr`意思是链路层地址. 
+        * `del 192.168.1.1 dev ens33`: 删除条目. 
+                        
+原文链接：https://blog.csdn.net/yi_qingjun/article/details/131837132
 
 ### 系统信息
 * `uname`
@@ -1278,7 +1306,7 @@ typedef struct {
             }
             ```
 
-            * 把定位器符号置为0×10000(若不指定, 则该符号的初始值为0).
+            * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
             * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
             * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
         * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
@@ -1286,6 +1314,8 @@ typedef struct {
             __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
 
             __attribute__((stdcall)) void f2(); // 指定函数的调用约定
+
+            __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
 
             // 给结构体变量s指定属性
             struct my_struct
@@ -1345,7 +1375,7 @@ typedef struct {
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
             * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
-            * `M=<工作目录绝对路径>`: 在读取上述Makefile, 跳转到`工作目录`, 继续读入Makefile. M是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
+            * `M=<工作目录绝对路径>`: 在读取上述Makefile后, 跳转到`工作目录`, 继续读入Makefile. `M`是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
             * 注意上述选项后面接的路径都**必须是完整路径**. 
             * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
                 * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 

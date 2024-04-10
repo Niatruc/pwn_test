@@ -756,8 +756,6 @@
     * `!mona jmp -r esp`: 搜索`jmp esp`指令
         * `-m "kernel32.dll"`: 在指定模块中寻找指令
 
-
-
 ## AFL
 * 项目地址: [https://github.com/mirrorer/afl](https://github.com/mirrorer/afl)
 * 参考
@@ -800,15 +798,29 @@
         cd /sys/devices/system/cpu
         echo performance | tee cpu*/cpufreq/scaling_governor
 
-        # @@表示程序从文件中获取输入, --可能是将目标程序和前面的参数分开来
         afl-fuzz -i input -o output -- ./heap_afl @@
+        # 当程序需要读取文件作为输入时, 则使用`@@`作为文件的占位符, 并对读取的文件作变异操作. (afl会创建`out/.cur_input`作为读取的文件, 用`input`目录中的测试用例对其作初始化)
+        # 如果没有`@@`, 则`input`目录下的测试用例会被读到stdin, 因而`heap_afl`中的`scanf`等函数会读到这些数据. 
+        # `--`可能是将目标程序和前面的参数分开来
         # 其他参数
-        # -f <file>: 表示将文件的内容作为stdin输入
+            # 运行参数
+                # -f <file>: 表示将文件的内容作为stdin输入
+                # -t <毫秒>: 每次运行程序的超时时间(默认是自动在50-1000毫秒间变化)
+                # -m <MB>|none: 最大运行内存(默认50MB)
+                # -Q: QEMU模式
+            # fuzz行为参数
+                # -d: 快速&脏模式(跳过确定性检查)
+                # -n: 不插桩的fuzz(dumb模式)
+                # -x <字典文件>: 选用fuzz字典
+            # 其他
+                # -b <cpu_id>: 将fuzz进程绑定到指定cpu
     ```
 * 用法
     * fuzzer字典
         * 针对带有语法(使用了格式化数据, 比如图像, 多媒体, 压缩数据, 正则表达式, shell脚本)的程序, 可提供字典, 给定语言关键字, 文件头魔数, 以及其他跟目标数据关联的分词. 
         * 如果不确定用什么字典, 可以先运行一段时间fuzzer, 然后利用`libtokencap`获取捕获的分词. 
+        * 注: 
+            * 若分词中含有不可打印字符, 需要写成`\x`的形式(比如换行符不能用`\n`, 要写成`\x0d`)
     * 并行模式
         * 添加参数`-M <主进程输出目录>`或`-S <从进程输出目录>`. 主进程的策略是确定性检查(deterministic checks), 从进程则是进行随机调整. `-o`则指定同步输出目录.
         * 观察多个进程的状态: `afl-whatsup sync/`
@@ -862,13 +874,19 @@
 * 参考
     * [基于qemu和unicorn的Fuzz技术分析](https://xz.aliyun.com/t/6457?time__1311=n4%2BxnD0DRDB73SxBqooGkYY%2B4Qwx0KGC0ieD&alichlgref=https%3A%2F%2Fwww.google.com%2F)
 * qemu模式
+    * `build_qemu_support.sh`: 下载qemu源码, 并编译与本系统相同架构的用户模式
+        ```sh
+            # CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="mipsel-linux-user" --enable-pie --enable-kvm --enable-debug 
+            CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user --disable-gtk --disable-sdl --disable-vnc --target-list="${CPU_TARGET}-linux-user" --enable-pie --enable-kvm
+        ```
     * 打补丁: 
         * `accel/tcg/cpu-exec.c`: 
             * 引入头文件`../patches/afl-qemu-cpu-inl.h`
-            * 在`cpu_tb_exec`函数加了宏`AFL_QEMU_CPU_SNIPPET2`
-            * 在`tb_find`函数加了宏`AFL_QEMU_CPU_SNIPPET1`
+            * 在`cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)`函数最开始处加了宏`AFL_QEMU_CPU_SNIPPET2`, 执行`afl_maybe_log`函数, 记录覆盖率. 
+            * 在`tb_find`函数中: 在调用`tb_gen_code(cpu, pc, cs_base, flags, 0)`对基本块进行翻译生成`tb`后, 使用宏`AFL_QEMU_CPU_SNIPPET1`, 向管道写入信息(`pc`, `cs_base`, `flags`), 通知fork_server
         * `linux-user/elfload.c`: 
-            * 在`load_elf_image`函数中, 赋值: `afl_entry_point = info->entry;`
+            * `extern abi_ulong afl_entry_point, afl_start_code, afl_end_code;`
+            * 在`load_elf_image`函数中, 赋值: `afl_entry_point = info->entry;` (`info`指向`image_info`结构体, 保存elf内存镜像的具体信息. `entry`即保存程序入口点)
         * `linux-user/syscall.c`: 
             * 在`do_syscall`函数中, 在对`TARGET_NR_tgkill`的处理中, 原来的操作是`safe_tgkill((int)arg1, (int)arg2, target_to_host_signal(arg3))`, 三个参数分别对应`tid`, `tgid`, `sig`, 现添加判断: 
                 ```cpp
@@ -882,25 +900,34 @@
                     //  afl_request_tsl(pc, cs_base, flags); 
                 #define AFL_QEMU_CPU_SNIPPET2 
                     // 执行:  
-                    //  afl_setup(); 
-                    //  afl_forkserver(cpu); 
+                    //  if (itb->pc == afl_entry_point) {
+                        //  afl_setup(); 
+                        //  afl_forkserver(cpu); 
+                    //  } 
                     //  afl_maybe_log(itb->pc); 
-                #define TSL_FD (FORKSRV_FD - 1)
+                #define TSL_FD (FORKSRV_FD - 1) // 这个管道用来在子进程和fork服务器之间传递`需要翻译`的信息
 
                 // 设置SHM区域; 根据环境变量, 初始化一些全局变量
                 static void afl_setup(void); 
 
-                // 
-                // 创建管道(存于t_fd[0]和t_fd[1], 后者通过dup2赋予TSL_FD), 与子进程通信, 以获取翻译的指令(父进程读t_fd[0], 子进程写TSL_FD)
+                // 创建管道(存于`t_fd[0]`和`t_fd[1]`, 后者通过`dup2`赋予`TSL_FD`), 与子进程通信, 以获取翻译的指令(父进程读`t_fd[0]`, 子进程写`TSL_FD`)
+                // 循环: 
+                //  fork一个子进程: 关闭管道`FORKSRV_FD`, `FORKSRV_FD + 1`, `t_fd[0]`, 然后返回
+                //  父进程: 
+                //    afl_wait_tsl(cpu, t_fd[0]): 确保哈希表中有tb块(没有则生成之)
                 static void afl_forkserver(CPUState *cpu); 
 
-                // 
+                // 记录每条执行路径(基本块A -> 基本块B)的覆盖率
+                // `cur_loc`是一个随机数
                 static inline void afl_maybe_log(abi_ulong cur_loc); 
 
-                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数()写入管道TSL_FD)
+                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数写入`TSL_FD`管道)
                 static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags); 
 
-                // 
+                // 循环: 
+                //  读管道`fd`, 获取`t`(包含`pc`, `cb`, `flags`)
+                //  `tb = tb_htable_lookup(cpu, t.pc, t.cs_base, t.flags);` 在哈希表中找tb
+                //  `tb_gen_code(cpu, t.pc, t.cs_base, t.flags, 0);` 上面找不到tb时, 调用此函数, 将TCG代码转换成主机代码. 
                 static void afl_wait_tsl(CPUState *cpu, int fd); 
 
             ```
@@ -1038,6 +1065,8 @@
             static void write_to_testcase(void* mem, u32 len) { }
             static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) { }
             static void show_stats(void); { }
+
+            // 校准一个新的测试用例. 运行时机: 1. 每当对input目录进行处理, 提示之前产生了有问题的测试用例时; 2. 每次发现新的执行路径时. 
             static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap, u8 from_queue) { }
             static void check_map_coverage(void) { }
             static void perform_dry_run(char** argv) { }

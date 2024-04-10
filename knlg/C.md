@@ -297,6 +297,11 @@
     #elif
     ...
     #endif
+
+    
+    // 预编译选项
+    #pragma execution_character_set("utf-8") // 告诉msvc编译器, 当前文件以utf8编码编译. 
+    #pragma message("asdf") // 会在编译时打印字符串的内容(在确认`ifdef`或`ifndef`宏的代码块有没有被编译时有用处)
 ```
 
 * 预定义宏
@@ -309,9 +314,6 @@
     |`__TIME__`|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
     |`__builtin_return_address(LEVEL)`|	gcc支持, `LEVEL`为0时获取当前函数的返回地址. |
 
-* 预编译选项
-    * `#pragma execution_character_set("utf-8")`: 告诉msvc编译器, 当前文件以utf8编码编译. 
-    * `#pragma message("asdf")`: 会在编译时打印字符串的内容(在确认`ifdef`或`ifndef`宏的代码块有没有被编译时有用处)
 
 ## 执行程序
 * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.

@@ -25,23 +25,23 @@
 * 文件默认在`/var/lib/docker`下
 * 镜像可看成不包含系统内核(Linux内核)的操作系统. 
 * 镜像是分层结构, 每一次`commit`操作后得到的新镜像都会比原镜像多一层.
-
-```sh
-docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_test/:/pwn_test -p 23946:23946 -p 12345:12345 aflpp_installed_pwndbg /sbin/init
-```
+* 快速示例: 以`aflpp_installed_pwndbg`为镜像, 启动一个容器, 名称为`zbh`, 映射端口`23946`和`12345`, 共享目录`/home/bohan/res/ubuntu_share/pwn_test/`(映射到容器的`/pwn_test`目录), 启动后运行`/sbin/init`. 
+    ```sh
+        docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_test/:/pwn_test -p 23946:23946 -p 12345:12345 aflpp_installed_pwndbg /sbin/init
+    ```
 
 ## 常用命令
 ### 容器
 * 列出所有容器: `docker ps -a --no-trunc`
 * 打印docker容器信息: `docker inspect <容器id> <命令> <参数>`
-* 查看容器文件系统位置: `docker inspect --format='{{.GraphDriver.Data.MergedDir}}' <容器 ID>`
+    * 查看容器文件系统位置: `docker inspect --format='{{.GraphDriver.Data.MergedDir}}' <容器 ID>`
 * 运行容器
     * `docker run <镜像名>`: 创建新容器并在其中运行一个命令. 
         * `--name <容器名>`
         * `-i`: 表示交互式操作
-        * `-t`表示终端
-        * `-v <宿主机目录>:<容器目录>`指定挂载目录. 
-        * `-d`可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入.
+        * `-t`: 表示终端
+        * `-v <宿主机目录>:<容器目录>`: 指定挂载目录. 
+        * `-d`: 可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入.
     * `docker start <容器名>`: 启动一个已经关闭的容器.
 * 停止容器: `docker stop <容器id>`
 * 重启容器: `docker restart <容器id>`
@@ -56,6 +56,12 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     ```
 * 拷贝文件
     * 拷贝进容器: `docker cp <宿主机目录> <容器名>:<容器内目录>`. 也可从容器拷贝出到宿主机.
+* 网络
+    * 启动参数`--network`: 
+        * `host`: 指定使用host模式, 和宿主机共享网络命名空间. 
+        * `bridge`: 指定使用桥接模式(默认). 
+        * `none`: 使用独立的网络命名空间. 
+        * `container:<容器名或ID>`: 与另一个容器共享网络命名空间. 
 
 ### 镜像
 * 列出镜像: `docker images`
@@ -64,7 +70,7 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
 * 删除镜像: `docker rmi <镜像id>`
 * 重命名: `docker tag <镜像id> <新名>`
 * Dockerfile构建镜像: 
-    * 首先新建一个目录, 在其中新建文件`Dockerfile`, 写入内容如下(使用`centos`这个镜像为基础, 之后运行`yum`):
+    * 首先新建一个目录, 在其中新建文件`Dockerfile`, 写入内容如下(使用`centos`这个镜像为基础, 之后运行`yum`): 
         ```sh
             FROM centos # 指定原始镜像
             RUN yum install vim -y # `docker build`时运行bash命令 # RUN每执行一次都会新建一层. 要避免过多使用, 尽量合成一条命令
@@ -149,10 +155,14 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     * `configure`: 运行后生成`config-host.mak`文件. 
         * `--enable-debug`: 加入调试符号
         * `--static`: 生成静态程序
-        * `--target-list=`: 指定编译的目标
+        * `--target-list=`: 指定编译的目标. 可以用逗号隔开. 
             * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
             * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
-
+* 镜像
+    * `qemu-img convert win2kpro.vmdk -O qcow win2kpro.img`: 将一个vmdk文件转成qcow2文件
+    * 将一个vdi文件转成qcow2文件: 
+        > `VBoxManage clonehd --format RAW img.vdi img.raw`
+        > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
 * 快照
     * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
 * 运行
@@ -205,7 +215,8 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     * `-E`: (用户模式)指定环境变量 
         * `LD_PRELOAD='<custom_lib.so>'`
 * user模式
-    * 参数
+    * 参数: 
+        * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`
         * `-d`: 可以在运行时打印中间码, guest和host反汇编, guest cpu的寄存器等值, 便于调试分析. 
             ```sh
                 out_asm         显示为每个编译后的TB生成的宿主机汇编代码
@@ -230,14 +241,26 @@ docker run -it --name zbh --privileged=true -v /home/bohan/res/ubuntu_share/pwn_
     * 快速示例: 运行一个32位arm程序. 
         * 安装arm交叉编译工具: `sudo apt install gcc-arm-linux-gnueabihf`
         * 编译一个helloworld程序(使用`--static`以进行静态链接). 
-            > ``
+            > `arm-linux-gnueabihf-gcc helloworld.c --static -o helloworld`
         * 编译用户模式qemu(使用`--static`以进行静态链接). 
             > `CFLAGS="-O3 -ggdb" ./configure --disable-system --enable-linux-user  --disable-gtk --disable-sdl --disable-vnc --target-list="arm-linux-user" --enable-kvm --static`
             > `make`
         * 将helloworld和qemu放到同一目录, 然后执行: 
             > `sudo chroot . ./qemu-arm ./helloworld`
+    * 示例: 运行动态链接的arm程序
+        * `binfmt_misc`: 由它为目标程序指定要是有的elf解释器, 这样就不用在运行异架构程序时手打`qemu-<arch>`
+            * `apt install binfmt-support`: 安装. 
+            * `update-binfmts --display`: 查看所有解释器的启用状态以及解释器路径. 
+                * 也可以: `cat /proc/sys/fs/binfmt_misc/qemu-<arch>`
+        * 解决问题: `Could not open '/lib/ld-linux-armhf.so.3'`
+            * `sudo ln -s /usr/arm-linux-gnueabihf/lib/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3`
+        * 解决问题: `error while loading shared libraries: libc.so.6`
+            * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
 
 * 原理
+    * 参考
+        * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
+        * https://binhack.readthedocs.io/zh/latest/virtual/qemu/index.html : 中文; 简洁易懂
     * 二进制翻译
         * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 
     * 代码生成
