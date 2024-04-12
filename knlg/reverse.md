@@ -142,6 +142,13 @@
 # 工具
 ## capstone
 
+## unicorn
+* 基本信息
+    * 基于qemu的仿真框架
+
+## qiling
+* 基本信息
+    * 基于unicorn的仿真框架
 
 ## binwalk
 * `binwalk <bin文件>`
