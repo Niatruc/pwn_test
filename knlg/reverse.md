@@ -145,6 +145,38 @@
 ## unicorn
 * 基本信息
     * 基于qemu的仿真框架
+* 示例
+    ```py
+        from unicorn import *
+        from unicorn.x86_const import *
+
+        def read(name):
+            with open(name,"rb") as f:
+                return f.read()
+        
+        def hook_code(uc, address, size, user_data):
+            print('>>> Tracing instruction at 0x%x, instruction size = 0x%x' %(address, size))
+            print("[+] RIP=0x%x RAX=0x%x RBX=0x%x RCX=0x%x RDX=0x%x" % (uc.reg_read(UC_X86_REG_RIP), uc.reg_read(UC_X86_REG_RAX), uc.reg_read(UC_X86_REG_RBX), uc.reg_read(UC_X86_REG_RCX), uc.reg_read(UC_X86_REG_RDX)))
+        
+        BASE_ADDRESS = 0x400000
+        STACK_ADDR = 0x0
+        STACK_SIZE = 1024*1024
+
+        # 初始化 Unicorn 引擎和内存空间
+        mu = Uc(UC_ARCH_X86, UC_MODE_64)
+        mu.mem_map(BASE_ADDRESS, 1024*1024)
+        mu.mem_map(STACK_ADDR, STACK_SIZE)
+
+        # 设置 RIP 和 RSP
+        mu.mem_write(BASE_ADDRESS, read("/home/cmtest/Desktop/ctest/t2"))
+        mu.reg_write(UC_X86_REG_RSP, STACK_ADDR + STACK_SIZE - 1)
+
+        # 注册hook函数
+        mu.hook_add(UC_HOOK_CODE, hook_code)
+
+        # 开始模拟执行
+        mu.emu_start(0x0000000000401149, 0x0000000000401169)
+    ```
 
 ## qiling
 * 基本信息
