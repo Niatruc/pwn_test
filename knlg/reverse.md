@@ -145,6 +145,7 @@
 ## unicorn
 * 基本信息
     * 基于qemu的仿真框架
+    * 支持细粒度插桩
 * 示例
     ```py
         from unicorn import *
@@ -181,6 +182,36 @@
 ## qiling
 * 基本信息
     * 基于unicorn的仿真框架
+    * 相比unicorn, 多了如下功能: 
+        * 解析多种格式文件: PE, MachO, ELF, COM, MBR
+        * 支持多种系统内核模块(利用`Demigod`): Windows(.sys), Linux(.ko), MacOS(.kext)
+        * 多个级别的细粒度插桩: 指令, 基本块, 内存访问, 异常, 系统调用, IO
+        * 内置调试器, 用于逆向分析
+        * 支持热补丁
+* 安装和配置
+    * `pip install qiling`
+    * 下载各操作系统的必要文件: 
+        * `git clone https://github.com/qilingframework/qiling`
+        * `git submodule update --init --recursive`: 会下载到`examples/rootfs`目录下. 
+        * 收集windows系统的必要文件: 在windows中以管理员运行`examples/scripts/dllscollector.bat`. 
+* 初始化及运行: 
+    ```py
+        # 例一
+        ql = Qiling(
+            [r'examples/rootfs/x86_windows/bin/wannacry.bin'],
+            r'examples/rootfs/x86_windows'
+        )
+        ql.run()
+        
+        # 例二
+        ql = Qiling(
+            code=shellcode,
+            rootfs=r'examples/rootfs/x8664_windows',
+            archtype=QL_ARCH.X8664, ostype=QL_OS.WINDOWS,
+            verbose=QL_VERBOSE.DEBUG
+        )
+        ql.run()
+    ```
 
 ## binwalk
 * `binwalk <bin文件>`
