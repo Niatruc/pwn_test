@@ -661,10 +661,10 @@
 
 * 继承
     * 三种继承方式
-        * public 继承: 基类 public 成员, protected 成员, private 成员的访问属性在派生类中分别变成: public, protected, private
-        * protected 继承: 基类 public 成员, protected 成员, private 成员的访问属性在派生类中分别变成: protected, protected, private
-        * private 继承: 基类 public 成员, protected 成员, private 成员的访问属性在派生类中分别变成: private, private, private
-        * 写法: `class C: public A {}` 即为public继承
+        * `public` 继承: 基类 `public` 成员, `protected` 成员, private 成员的访问属性在派生类中分别变成: `public`, `protected`, `private`
+        * `protected` 继承: 基类 `public` 成员, `protected` 成员, `private` 成员的访问属性在派生类中分别变成: `protected`, `protected`, `private`
+        * `private` 继承: 基类 `public` 成员, `protected` 成员, `private` 成员的访问属性在派生类中分别变成: `private`, `private`, `private`
+        * 写法: `class C: public A {}` 即为`public`继承
     * 多继承
         * `class <派生类名>:<继承方式1><基类名1>,<继承方式2><基类名2>,… {}`
 

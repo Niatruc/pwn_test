@@ -1202,11 +1202,12 @@
 ## AFL++
 * 项目地址: [https://github.com/AFLplusplus/AFLplusplus](https://github.com/AFLplusplus/AFLplusplus)
 * 安装:
-
-    ```sh
-        docker pull aflplusplus/aflplusplus
-        docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
-    ```
+    * 
+        ```sh
+            docker pull aflplusplus/aflplusplus
+            docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
+        ```
+    * 手动编译: 参考`https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md`
 
 ## 其他插桩和fuzz工具或框架
 * 参考

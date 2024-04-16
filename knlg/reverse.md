@@ -178,6 +178,25 @@
         # 开始模拟执行
         mu.emu_start(0x0000000000401149, 0x0000000000401169)
     ```
+* hook类型
+    * 指令执行类
+        * `UC_HOOK_INTR`: 中断, 系统调用
+        * `UC_HOOK_INSN`
+        * `UC_HOOK_CODE`
+        * `UC_HOOK_BLOCK`
+    * 内存访问类
+        * `UC_HOOK_MEM_READ`
+        * `UC_HOOK_MEM_WRITE`
+        * `UC_HOOK_MEM_FETCH`
+        * `UC_HOOK_MEM_READ_AFTER`
+        * `UC_HOOK_MEM_PROT`
+        * `UC_HOOK_MEM_FETCH_INVALID`
+        * `UC_HOOK_MEM_INVALID`
+        * `UC_HOOK_MEM_VALID`
+    * 异常处理类
+        * `UC_HOOK_MEM_READ_UNMAPPED`
+        * `UC_HOOK_MEM_WRITE_UNMAPPED`
+        * `UC_HOOK_MEM_FETCH_UNMAPPED`
 
 ## qiling
 * 基本信息
