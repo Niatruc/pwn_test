@@ -513,6 +513,8 @@
     pip3 install -e .
     jupyter-kernelspec install [--user] cling-cpp17
   ```
+* `xeus-cling`: 安装该工具将直接在conda环境中安装cling以及jupyter内核. jupyter中支持补全以及文档查询. 
+    * 安装: `mamba install xeus-cling -c conda-forge`
 ## 数据类型
 * 引用
     * `int& r = i;` r 是一个初始化为 i 的整型引用

@@ -1224,6 +1224,7 @@ typedef struct {
     * `--version`: 可得到glibc版本
     * `<可执行程序>`: 看目标程序依赖的库的名称及路径. 
 * `ldconfig`: 在默认搜寻目录`/lib`和`/usr/lib`以及动态库配置文件`/etc/ld.so.conf`内所列的目录下, 搜索出可共享的动态链接库, 进而创建出`ld.so`所需的连接和缓存文件. 缓存文件默认为`/etc/ld.so.cache`. 
+    * 在编译新的动态库并安装到系统库目录(如`/usr/local/lib`)后, 记得`sudo ldconfig`, 不然后面使用此动态库的程序时会报错`cannot open shared object file: No such file or directory`. 
     * `-p`: 打印出当前缓存文件所保存的所有共享库的名字. 
 * `xdd`
     * 查看16进制
@@ -1358,6 +1359,13 @@ typedef struct {
                 %.o:%.c
                     gcc -o $@ $<
                 
+                # 可使用循环语句: 
+                fortest: 
+                    for arch in arm aarch64 mips powerpc ; do \
+                        echo $$arch ; \
+                    done
+
+                ########################################################################################################################
                 # 示例: 构建一个动态库
                 libmy.so: add.o sub.o
                     gcc -shared -o $@ $^
@@ -1371,11 +1379,12 @@ typedef struct {
 
                 %.o: %.c
                     gcc -c $<
+                
             ```
 
             * 默认执行第一个目标(在上面的文件中, 指`all`). 
-            * `-C <目录>`: 指定跳转目录, 读取那里的Makefile. 
-            * `M=<工作目录绝对路径>`: 在读取上述Makefile后, 跳转到`工作目录`, 继续读入Makefile. `M`是内核头文件目录下的Makefile中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
+            * `-C <目录>`: 指定跳转目录, 读取那里的`Makefile`. 
+            * `M=<工作目录绝对路径>`: 在读取上述`Makefile`后, 跳转到`工作目录`, 继续读入`Makefile`. `M`是内核头文件目录下的`Makefile`中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
             * 注意上述选项后面接的路径都**必须是完整路径**. 
             * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
                 * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
@@ -1388,13 +1397,21 @@ typedef struct {
                 * `$?`: 表示比目标还新的依赖文件列表. 
             * 符号
                 * 赋值符号
-                    * `=`: 给变量赋值. 会在整个makefile展开后, 再决定变量的值. 
-                    * `:=`: 表示变量的值取决于它在makefile中的位置, 而不是整个makefile展开后的最终值
+                    * `=`: 给变量赋值. 会在整个`Makefile`展开后, 再决定变量的值. 
+                    * `:=`: 表示变量的值取决于它在`Makefile`中的位置, 而不是整个`Makefile`展开后的最终值
                     * `?=`: 如果没有被赋值过就赋予等号后面的值. 
                     * `+=`: 添加等号后面的值. 
-                    * `override VAR:= $(VAR)_blabla`: 使用override关键字, 可对已经赋值的变量追加赋值. 
+                    * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
     * `cmake`
         * 用法: 
+            * 基本流程: 
+                1. 编辑`CMakeLists.txt`
+                2. 在源码目录下新建一个目标目录, 比如叫`build`. 
+                3. 进入`build`目录, 执行`cmake ..`, 将会在该目录下生成`Makefile`. 
+                4. 执行`make`
+            * 启用调试: 
+                * 在`CMakeLists.txt`添加: `add_definitions("-Wall -g")`
+                * 或者: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
     * `ar`
         * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
         * `-x`: 从静态库文件中抽取文件 objfile

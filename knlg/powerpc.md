@@ -1,3 +1,4 @@
+* PowerPC:  Performance Optimization With Enhanced RISC – Performance Computing
 * 参考
     * 参考手册: https://math-atlas.sourceforge.net/devel/assembly/ppc_isa.pdf
     * https://blog.csdn.net/whatday/article/details/87253637
