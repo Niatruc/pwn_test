@@ -1019,6 +1019,8 @@ typedef struct {
 
 ### 文件和目录
 * `nautilus`: 打开文件管理器(gnome)
+* `zip`
+    * `zip -q -r mypack.zip .`: 将当前目录打包为`mypack.zip`
 * `ls`
     * `-F`: 后缀表示文件类型
         * `/`: 目录
@@ -1055,8 +1057,8 @@ typedef struct {
     ```sh
         # 使用kpartx挂载镜像
         losetup -f # 查看空闲的loop设备
-        losetup /dev/loop0 xxx.img # 将loop0设备和一个img文件关联
-        kpartx -av /dev/loop0 # 会在`/dev/mapper`目录下出现`loop0p1`等文件, 代表img文件中的文件系统分区
+        sudo losetup /dev/loop0 xxx.img # 将loop0设备和一个img文件关联
+        sudo kpartx -av /dev/loop0 # 会在`/dev/mapper`目录下出现`loop0p1`等文件, 代表img文件中的文件系统分区
         mkdir /vmdisk1 
         mount /dev/mapper/loop0p1 /vmdisk1 # 把第一个分区挂载到/vmdisk1
         mkdir /vmdisk2
@@ -1067,6 +1069,8 @@ typedef struct {
         kpartx -dv /dev/loop0
         losetup -d /dev/loop0
     ```
+* `fdisk < /dev 目录下的设备文件 | 镜像文件>`: 磁盘分区工具
+    * `-l`: 查看分区表详细信息
 * `mknod <设备路径> <设备类型> <主设备号> <次设备号>`: 创建设备文件和对应的inode
     * 例子: `mknod /dev/hello c 520 0`
 * `lspci`: 列出整个系统的PCI接口. 

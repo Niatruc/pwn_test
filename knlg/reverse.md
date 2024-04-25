@@ -199,6 +199,8 @@
         * `UC_HOOK_MEM_FETCH_UNMAPPED`
 
 ## qiling
+* 参考
+    * https://docs.qiling.io/en/latest/
 * 基本信息
     * 基于unicorn的仿真框架
     * 相比unicorn, 多了如下功能: 
@@ -231,7 +233,15 @@
         )
         ql.run()
     ```
-
+* 劫持/挂钩
+    * 
+* 调试
+    * `ql.debugger = True`
+    * 运行仿真后, 会出现一行`gdb> listening on 127.0.0.1:9999`, 这时可运行`gdb-multiarch`, 然后执行`set remotetimeout 100`, `target remote 127.0.0.1:9999`附加调试. 
+* 方法
+    * 打印
+        * `ql.log`
+            * `.print`
 ## binwalk
 * `binwalk <bin文件>`
 * 参数

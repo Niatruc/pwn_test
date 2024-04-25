@@ -178,17 +178,28 @@
                 -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
                 -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
         ```
-    * 挂载设备
-        * `-drive`
-            * `file=/kvm/images/winxp.qcow2,if=ide,meida=disk,format=qcow2`: 挂一个qcow2文件, 作为磁盘
-            * `file=/root/winxp_ghost.iso,media=cdrom`: 挂一个CDROM
-            * `if=ide,format=raw,file=/home/cmtest/image.raw`
-        * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
-        * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
-        * `-cdrom file`: 使用指定file作为CD-ROM镜像, 需要注意的是-cdrom和-hdc不能同时使用; 将file指定为`/dev/cdrom`可以直接使用物理光驱. 
     * 针对不同架构: 
         * arm
-            * `-machine`: 需指定此参数, 可选如`virt`
+            * `-machine`(`-M`): 需指定此参数, 可选如`virt`
+* 挂载设备
+    * `-drive`
+        * `file=/kvm/images/winxp.qcow2,if=ide,meida=disk,format=qcow2`: 挂一个qcow2文件, 作为磁盘
+        * `file=/root/winxp_ghost.iso,media=cdrom`: 挂一个CDROM
+        * `if=ide,format=raw,file=/home/cmtest/image.raw`
+    * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
+    * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
+    * `-cdrom file`: 使用指定file作为`CD-ROM`镜像, 需要注意的是`-cdrom`和`-hdc`不能同时使用; 将file指定为`/dev/cdrom`可以直接使用物理光驱. 
+* 宿主机与虚拟机传文件
+    * 方法1: 共享文件夹
+        * 宿主机新建用于共享的目录(如`/mnt/shared`)
+        * `-virtfs local,path=/mnt/shared,mount_tag=host0,security_model=passthrough,id=host0`
+            * `-virtfs`选项指定了共享文件夹的参数, `local`表示共享文件夹是本地文件夹, `path`指定了共享文件夹的路径, `mount_tag`指定了共享文件夹在虚拟机中的挂载点, `security_model`指定了安全模型, `id`是共享文件夹的标识符
+        * 进入虚拟机后, 执行: 
+            * `mkdir -p /mnt/shared`
+            * `sudo mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/shared`
+                * `-t`选项指定了文件系统类型, `9p`是QEMU支持的文件系统类型, `trans`指定了传输协议, `version`指定了文件系统版本, `host0`是共享文件夹的标识符. 
+    * 方法2: 镜像
+
 * 网络
     * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
         ```sh
@@ -208,12 +219,15 @@
                 # dhcpstart=addr：指定DHCP服务地址池中16个地址的起始IP, 默认为第16个至第31个, 即x.x.x.16-x.x.x.31; 
                 # dns=addr：指定GuestOS可见的dns服务器地址; 默认为GuestOS网络中的第三个地址, 即x.x.x.3; 
                 # tftp=dir：激活内置的tftp服务器, 并使用指定的dir作为tftp服务器的默认根目录; 
-                bootfile=file：BOOTP文件名称, 用于实现网络引导GuestOS; 如：qemu -hda linux.img -boot n # -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
+                # bootfile=file：BOOTP文件名称, 用于实现网络引导GuestOS; 如：qemu -hda linux.img -boot n -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
         ```
     * 端口转发
+        * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
     * TAP桥接
 * 其他参数: 
+    * 注: 在参数后加` help`可以列出可用的值. 
     * `-m <内存大小>`
+    * `-smp <虚拟内核数>`
     * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
     * `-cpu`: 指定cpu架构, 比如`cortex-a9`
     * `-E`: (用户模式)指定环境变量 

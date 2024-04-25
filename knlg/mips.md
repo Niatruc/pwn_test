@@ -58,9 +58,9 @@
                     * 5: 计时器
 
         * 异常代码
-            * 0(`Int`, Interrupt (hardware)): 中断（硬件）
-            * 4(`AdEL`, Address Error exception (Load or instruction fetch)): 地址错误异常（加载或取指令）
-            * 5(`AdES`, Address Error exception (Store)): 地址错误异常（存储）
+            * 0(`Int`, Interrupt (hardware)): 中断(硬件)
+            * 4(`AdEL`, Address Error exception (Load or instruction fetch)): 地址错误异常(加载或取指令)
+            * 5(`AdES`, Address Error exception (Store)): 地址错误异常(存储)
             * 6(`IBE`, Instruction fetch Buss Error): 取指令总线错误
             * 7(`DBE`, Data load or store Buss Error): 数据加载或存储总线错误
             * 8(`Sys`, Syscall exception): 系统调用异常

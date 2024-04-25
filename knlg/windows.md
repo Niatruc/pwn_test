@@ -855,6 +855,31 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
             * ``: 
         * 按f5时, 若没有`launch.json`, 则会生成
             * `program`: 指定要调试的程序
+            * 远程调试: 在目标已通过`gdbserver`开启调试的情况下: 
+                * `configurations`数组中添加如下配置项: 
+                    ```json
+                        {
+                            "name": "GDB for BBB (ARM) Remote Attach",
+                            "type": "cppdbg",
+                            "request": "launch",
+                            "externalConsole": false,
+                            "stopAtEntry": true,
+                            "program": "${workspaceFolder}/my_test", // 为了让gdb找到调试符号
+                            "MIMode": "gdb",
+                            "cwd": "${workspaceFolder}",
+                            "miDebuggerPath": "/usr/bin/gdb",
+                            "miDebuggerServerAddress": "127.0.0.1:9999",
+                            "miDebuggerArgs": " -ex 'handle all print nostop noignore'",
+                            "setupCommands": [
+                                {
+                                    "description": "Enable pretty-printing for gdb",
+                                    "text": "-enable-pretty-printing",
+                                    "ignoreFailures": true
+                                }
+                            ],
+                            "preLaunchTask": "Build embedded application with debug information"
+                        }
+                    ```
         * `c_cpp_properties.json`: 配置c/c++扩展
             * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
 # Win11
