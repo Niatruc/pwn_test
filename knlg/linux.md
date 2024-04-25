@@ -1158,8 +1158,6 @@ typedef struct {
     * `neigh`, `n`: 操作ARP表. 
         * `add 192.168.1.1 lladdr 1:2:3:4:5:6 dev ens33`: 在`ens33`的ARP表中新增记录, 指定IP地址和对应的MAC地址. `lladdr`意思是链路层地址. 
         * `del 192.168.1.1 dev ens33`: 删除条目. 
-                        
-原文链接：https://blog.csdn.net/yi_qingjun/article/details/131837132
 
 ### 系统信息
 * `uname`
