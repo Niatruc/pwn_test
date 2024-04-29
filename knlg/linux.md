@@ -72,8 +72,8 @@
         int main(void)
         {
             /*
-            * RTLD_NOW：将共享库中的所有函数加载到内存 
-            * RTLD_LAZY：会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
+            * RTLD_NOW: 将共享库中的所有函数加载到内存 
+            * RTLD_LAZY: 会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
             */
 
             void *dl = dlopen(LIB, RTLD_LAZY); //打开动态库
@@ -1333,7 +1333,7 @@ typedef struct {
         * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
         * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
         * Makefile
-            ```sh
+            ```makefile
                 MAKE=make
 
                 include ../.config # 可使用其他.config文件中的配置
@@ -1366,6 +1366,12 @@ typedef struct {
                     for arch in arm aarch64 mips powerpc ; do \
                         echo $$arch ; \
                     done
+                
+                # 自定义函数
+                define func
+                    @echo $(0), $(1)
+                endef
+                $(call func, 参数1, 参数2)
 
                 ########################################################################################################################
                 # 示例: 构建一个动态库
@@ -1393,7 +1399,7 @@ typedef struct {
             * 常量
                 * `BASH_SOURCE`: 当前文件路径. 
                     * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
-                * `$@`: 表示目标文件. (也就是紧跟在make指令后面的字符串)
+                * `$@`: 表示目标文件. (也就是紧跟在`make`指令后面的字符串)
                 * `$^`: 表示所有依赖文件. 
                 * `$<`: 表示第一个依赖文件. 
                 * `$?`: 表示比目标还新的依赖文件列表. 
@@ -1404,6 +1410,12 @@ typedef struct {
                     * `?=`: 如果没有被赋值过就赋予等号后面的值. 
                     * `+=`: 添加等号后面的值. 
                     * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
+            * 预定义函数: 
+                * `$(shell command)`: 执行`shell`命令函数, 执行`command`命令并返回其输出结果. 
+                * `$(wildcard pattern)`: 查找文件名函数, 返回匹配`pattern`模式的所有文件名. 
+                * `$(subst from,to,text)`: 字符串替换函数, 将`text`中所有的`from`替换为`to`. 
+                * `$(patsubst pattern,replacement,text)`: 模式字符串替换函数, 将`text`中所有匹配模式`pattern`的字符串替换为`replacement`. 
+                * `$(abspath path)`: 获取`path`的绝对路径. 
     * `cmake`
         * 用法: 
             * 基本流程: 
