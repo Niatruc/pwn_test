@@ -820,68 +820,80 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 ## VSCode
 * 配置vscode以开发windows程序
     * 参考: https://code.visualstudio.com/docs/cpp/config-msvc
-        * `Terminal` -> `Configure Default Build Task` -> `cl.exe build active file`, 生成`task.json`文件, 各个配置项的含义: 
-            * `type`:
-                * `cppbuild`
-                * `shell`: 使用cmd
-                    * 若`cl.exe`等工具没有预先添加到系统路径, 可添加如下选项预先运行`VsDevCmd`: 
-                    ```json
-                    "options": {
-                        "cwd": "${fileDirname}",
-                        "shell": {
-                            "executable": "cmd.exe",
-                            "args": [
-                                "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
-                                "echo %cd% && ",
-                                "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录, 则生成目录
-                                "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
-                            ]
-                        }
-                    },
-                    ```
-            * `command`: 要运行的程序(如`cl.exe`)
-            * `args`: 传给`cl.exe`的参数
-                * `${file}`: 活动文件
-                * `${fileDirname}`: 当前目录的**完整路径**
-                * `${fileBasenameNoExtension}`: 生成的exe文件的名字
-            * `group`: 
-                * `"isDefault": true`: 表示该任务会在按`ctrl+shift+b`时运行
-            * `options`: 
-                * `cwd`: 指定工作目录
-                * `env`: 配置环境变量
-                * `shell`: 
-                    * `executable`: 指定要用的shell程序(如`cmd.exe`)
-                    * `args`: 参数列表
-            * ``: 
-        * 按f5时, 若没有`launch.json`, 则会生成
-            * `program`: 指定要调试的程序
-            * 远程调试: 在目标已通过`gdbserver`开启调试的情况下: 
-                * `configurations`数组中添加如下配置项: 
-                    ```json
-                        {
-                            "name": "GDB for BBB (ARM) Remote Attach",
-                            "type": "cppdbg",
-                            "request": "launch",
-                            "externalConsole": false,
-                            "stopAtEntry": true,
-                            "program": "${workspaceFolder}/my_test", // 为了让gdb找到调试符号
-                            "MIMode": "gdb",
-                            "cwd": "${workspaceFolder}",
-                            "miDebuggerPath": "/usr/bin/gdb",
-                            "miDebuggerServerAddress": "127.0.0.1:9999",
-                            "miDebuggerArgs": " -ex 'handle all print nostop noignore'",
-                            "setupCommands": [
-                                {
-                                    "description": "Enable pretty-printing for gdb",
-                                    "text": "-enable-pretty-printing",
-                                    "ignoreFailures": true
-                                }
-                            ],
-                            "preLaunchTask": "Build embedded application with debug information"
-                        }
-                    ```
-        * `c_cpp_properties.json`: 配置c/c++扩展
-            * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
+    * `Terminal` -> `Configure Default Build Task` -> `cl.exe build active file`, 生成`task.json`文件, 各个配置项的含义: 
+        * `type`:
+            * `cppbuild`
+            * `shell`: 使用cmd
+                * 若`cl.exe`等工具没有预先添加到系统路径, 可添加如下选项预先运行`VsDevCmd`: 
+                ```json
+                "options": {
+                    "cwd": "${fileDirname}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/C \"D:/vs_tools/Common7/Tools/VsDevCmd.bat\" && ",
+                            "echo %cd% && ",
+                            "(if not exist ${fileBasenameNoExtension}_debug mkdir ${fileBasenameNoExtension}_debug) && ", // 若没有目录, 则生成目录
+                            "cd /d ${fileDirname}/${fileBasenameNoExtension}_debug && ",
+                        ]
+                    }
+                },
+                ```
+        * `command`: 要运行的程序(如`cl.exe`)
+        * `args`: 传给`cl.exe`的参数
+            * `${file}`: 活动文件
+            * `${fileDirname}`: 当前目录的**完整路径**
+            * `${fileBasenameNoExtension}`: 生成的exe文件的名字
+        * `group`: 
+            * `"isDefault": true`: 表示该任务会在按`ctrl+shift+b`时运行
+        * `options`: 
+            * `cwd`: 指定工作目录
+            * `env`: 配置环境变量
+            * `shell`: 
+                * `executable`: 指定要用的shell程序(如`cmd.exe`)
+                * `args`: 参数列表
+        * ``: 
+* 按f5时, 若没有`launch.json`, 则会生成
+    * `program`: 指定要调试的程序
+* 远程调试: 在目标已通过`gdbserver`开启调试的情况下: 
+    * `configurations`数组中添加如下配置项: 
+        ```json
+            {
+                "name": "GDB for BBB (ARM) Remote Attach",
+                "type": "cppdbg",
+                "request": "launch",
+                "externalConsole": false,
+                "stopAtEntry": true,
+                "program": "${workspaceFolder}/my_test", // 为了让gdb找到调试符号
+                "MIMode": "gdb",
+                "cwd": "${workspaceFolder}",
+                "miDebuggerPath": "/usr/bin/gdb",
+                "miDebuggerServerAddress": "127.0.0.1:9999",
+                "miDebuggerArgs": " -ex 'handle all print nostop noignore'",
+                "setupCommands": [
+                    {
+                        "description": "Enable pretty-printing for gdb",
+                        "text": "-enable-pretty-printing",
+                        "ignoreFailures": true
+                    }
+                ],
+                "preLaunchTask": "Build embedded application with debug information"
+            }
+        ```
+* `c_cpp_properties.json`: 配置c/c++扩展
+    * 这个文件在vscode的编译中不起作用, vscode找的是`tasks.json`中的配置
+* `resources/app/product.json`
+    * 配置codeserver使用的插件源: 
+        ```json
+            // 使用原生vscode插件地址
+            "extensionsGallery": {
+                "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+                "cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
+                "itemUrl": "https://marketplace.visualstudio.com/items",
+                "controlUrl": "",
+                "recommendationsUrl": ""
+            }
+        ```
 # Win11
 * 安装
     * Vmware
