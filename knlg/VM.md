@@ -147,6 +147,8 @@
 
 # Qemu
 * 参考
+    * [Welcome to QEMU’s documentation!](https://www.qemu.org/docs/master/)
+    * [QEMU User Documentation](https://www.qemu.org/docs/master/system/qemu-manpage.html)
     * https://www.zhaixue.cc/qemu/qemu-param.html
     * [qemu user mode速记](https://wangzhou.github.io/qemu-user-mode%E9%80%9F%E8%AE%B0/)
     * [KVM虚拟化技术之使用Qemu-kvm创建和管理虚拟机 ](https://www.cnblogs.com/memphise/articles/6759043.html)
@@ -188,17 +190,35 @@
         * `if=ide,format=raw,file=/home/cmtest/image.raw`
     * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
     * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
-    * `-cdrom file`: 使用指定file作为`CD-ROM`镜像, 需要注意的是`-cdrom`和`-hdc`不能同时使用; 将file指定为`/dev/cdrom`可以直接使用物理光驱. 
+    * `-cdrom file`: 使用指定`file`作为`CD-ROM`镜像, 需要注意的是`-cdrom`和`-hdc`不能同时使用; 将`file`指定为`/dev/cdrom`可以直接使用物理光驱. 
 * 宿主机与虚拟机传文件
     * 方法1: 共享文件夹
         * 宿主机新建用于共享的目录(如`/mnt/shared`)
         * `-virtfs local,path=/mnt/shared,mount_tag=host0,security_model=passthrough,id=host0`
-            * `-virtfs`选项指定了共享文件夹的参数, `local`表示共享文件夹是本地文件夹, `path`指定了共享文件夹的路径, `mount_tag`指定了共享文件夹在虚拟机中的挂载点, `security_model`指定了安全模型, `id`是共享文件夹的标识符
+            * 通过使用9p网络协议, 使物理机中的目录可直接被虚拟机访问. 
+            * `-virtfs`是`-fsdev -device virtio-9p-pci`的简化.  
+            * `local`表示共享文件夹是本地文件夹, `path`指定了共享文件夹的路径, `mount_tag`指定了共享文件夹在虚拟机中的挂载点, `security_model`指定了安全模型, `id`是共享文件夹的标识符
         * 进入虚拟机后, 执行: 
             * `mkdir -p /mnt/shared`
             * `sudo mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/shared`
                 * `-t`选项指定了文件系统类型, `9p`是QEMU支持的文件系统类型, `trans`指定了传输协议, `version`指定了文件系统版本, `host0`是共享文件夹的标识符. 
-    * 方法2: 镜像
+    * 方法2: img镜像
+        * 创建img镜像: `dd if=/dev/zero of=/home/shared.img bs=4M count=1k`
+        * 格式化: `mkfs.ext4 /home/shared.img`
+        * 创建共享文件夹并挂载镜像: 
+            * `mkdir /home/shared`
+            * `mount -o loop /home/shared.img /home/shared`
+        * qemu仿真时加上参数以加载镜像: `-hdb shared.img`
+        * 在虚拟机中挂载磁盘: 
+            * `mkdir -p /mnt/shared`
+            * `mount -t ext4 /dev/sdb /mnt/shared`
+        * 问题: 修改无法同步. (宿主机对文件做的修改可在虚拟机中看到(需卸载后挂载), 反之则不行)
+    * 方法3: ISO镜像
+        * 生成一个与指定目录相关的ISO镜像: `genisoimage -o data.iso /home/data`
+        * qemu仿真时加上参数以加载iso: `-cdrom data.iso`
+        * 虚拟机内部挂载iso: 
+            * `mkdir -p /mnt/iso`
+            * `mount /dev/cdrom /mnt/iso`
 
 * 网络
     * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
@@ -209,18 +229,26 @@
         ``` 
     * nic, tap, user三种类型网络
         ```sh
-            -net nic[,vlan=n][,macaddr=mac][,model=type][,name=name][,addr=addr][,vectors=v] # 创建一个新的网卡设备并连接至vlan n中; PC架构上默认的NIC为e1000, macaddr用于为其指定MAC地址, name用于指定一个在监控时显示的网上设备名称; emu可以模拟多个类型的网卡设备, 如virtio、i82551、i82557b、i82559er、ne2k_isa、pcnet、rtl8139、e1000、smc91c111、lance及mcf_fec等; 不过, 不同平台架构上, 其支持的类型可能只包含前述列表的一部分, 可以使用“qemu-kvm -net nic,model=?”来获取当前平台支持的类型; 
+            -net nic[,vlan=n][,macaddr=mac][,model=type][,name=name][,addr=addr][,vectors=v] # 创建一个新的网卡设备并连接至vlan n中; PC架构上默认的NIC为e1000, macaddr用于为其指定MAC地址, name用于指定一个在监控时显示的网上设备名称; emu可以模拟多个类型的网卡设备, 如virtio, i82551, i82557b, i82559er, ne2k_isa, pcnet, rtl8139, e1000, smc91c111, lance及mcf_fec等; 不过, 不同平台架构上, 其支持的类型可能只包含前述列表的一部分, 可以使用"qemu-kvm -net nic,model=?"来获取当前平台支持的类型; 
             -net tap[,vlan=n][,name=name][,fd=h][,ifname=name][,script=file][,downscript=dfile] # 通过物理机的TAP网络接口连接至vlan n中, 使用script=file指定的脚本(默认为/etc/qemu-ifup)来配置当前网络接口, 并使用downscript=file指定的脚本(默认为/etc/qemu-ifdown)来撤消接口配置; 使用script=no和downscript=no可分别用来禁止执行脚本; 
-            -net user[,option][,option][,...] # 在用户模式配置网络栈, 其不依赖于管理权限; 有效选项有：
-                # vlan=n：连接至vlan n, 默认n=0; 
-                # name=name：指定接口的显示名称, 常用于监控模式中; 
-                # net=addr[/mask]：设定GuestOS可见的IP网络, 掩码可选, 默认为10.0.2.0/8; 
-                # host=addr：指定GuestOS中看到的物理机的IP地址, 默认为指定网络中的第二个, 即x.x.x.2; 
-                # dhcpstart=addr：指定DHCP服务地址池中16个地址的起始IP, 默认为第16个至第31个, 即x.x.x.16-x.x.x.31; 
-                # dns=addr：指定GuestOS可见的dns服务器地址; 默认为GuestOS网络中的第三个地址, 即x.x.x.3; 
-                # tftp=dir：激活内置的tftp服务器, 并使用指定的dir作为tftp服务器的默认根目录; 
-                # bootfile=file：BOOTP文件名称, 用于实现网络引导GuestOS; 如：qemu -hda linux.img -boot n -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
+            -net user[,option][,option][,...] # 在用户模式配置网络栈, 其不依赖于管理权限; 有效选项有: 
+                # vlan=n: 连接至vlan n, 默认n=0; 
+                # name=name: 指定接口的显示名称, 常用于监控模式中; 
+                # net=addr[/mask]: 设定GuestOS可见的IP网络, 掩码可选, 默认为10.0.2.0/8; 
+                # host=addr: 指定GuestOS中看到的物理机的IP地址, 默认为指定网络中的第二个, 即x.x.x.2; 
+                # dhcpstart=addr: 指定DHCP服务地址池中16个地址的起始IP, 默认为第16个至第31个, 即x.x.x.16-x.x.x.31; 
+                # dns=addr: 指定GuestOS可见的dns服务器地址; 默认为GuestOS网络中的第三个地址, 即x.x.x.3; 
+                # tftp=dir: 激活内置的tftp服务器, 并使用指定的dir作为tftp服务器的默认根目录; 
+                # bootfile=file: BOOTP文件名称, 用于实现网络引导GuestOS; 如: qemu -hda linux.img -boot n -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
         ```
+        * 注: 在较新的QEMU版本中`-net`已被`-netdev`取代. 
+        * 示例: 
+            ```sh
+                qemu-system-x86_64 -netdev user,id=n1,ipv6=off -device e1000,netdev=n1,mac=52:54:98:76:54:32
+
+                # 简化写法: 
+                qemu-system-x86_64 -nic user,ipv6=off,model=e1000,mac=52:54:98:76:54:32
+            ```
     * 端口转发
         * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
     * TAP桥接
@@ -230,8 +258,11 @@
     * `-smp <虚拟内核数>`
     * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
     * `-cpu`: 指定cpu架构, 比如`cortex-a9`
+        * `host`: 该cpu可使用宿主机CPU的所有特性
+        * `max`: 该cpu可使用宿主机加速器的所有特性
     * `-E`: (用户模式)指定环境变量 
         * `LD_PRELOAD='<custom_lib.so>'`
+    * `-enable-kvm`
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`
@@ -275,32 +306,32 @@
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
 
-* 原理
-    * 参考
-        * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
-        * https://binhack.readthedocs.io/zh/latest/virtual/qemu/index.html : 中文; 简洁易懂
-    * 二进制翻译
-        * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 
-    * 代码生成
-        * qemu从翻译块生成可执行代码, 存于代码缓存(`code cache`). 代码缓存本质上就是有可执行权限的内存页. 
-    * 缓冲表: 存放中间码和可执行代码. 之后在同一程序中运行代码时会先查询缓冲表. 
-    * 块链接
-        * 上述代码翻译和生成的基本单元都是基本块(ida反汇编的流程图中所见的代码块)
-        * 在翻译完连续块后, qemu会把它们链接起来组成一个迹(`trace`), 实现方式是在每个的结尾放一个跳转, 跳到下一个块. 一个trace可以运行到底, 而不会出现中途需要翻译而中断的情况. 
-    * 缓存无效化
-        * 生成的代码可能因无效化而停止执行. 
-        * 两个原因: 
-            * 代码缓存已满. 
-            * 代码发生修改, 因而之前生成代码不能重新运行. 
-    * `softMMU`
-        * 将` Guest Virtual Addresses (GVA)`转换为`Host Virtual Address (HVA)`
-        * 发生于客户机操作内存时. qemu为此生成了加载(load)和保存(store)中间码IR的操作: 
-            * `op_qemu_ld`: 将某内存地址中的数据加载到寄存器. 
-            * `op_qemu_st`: 将寄存器的内容保存到虚拟用户地址. 
-        * 转译后备缓冲器(`Translation Look-aside Buffer (TLB)`)
-            * 为CPU的一种缓存, 用于改进虚拟地址到物理地址的转译速度. 
-            * 在qemu的软TLB中, 实际是`GVA`到`HVA`的转换. qemu确保所有客户机虚拟地址都能转译到qemu进程空间的地址中. 
+## 原理
+* 参考
+    * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
+    * https://binhack.readthedocs.io/zh/latest/virtual/qemu/index.html : 中文; 简洁易懂
+* 二进制翻译
+    * qemu将程序代码翻译为中间码(`Intermediate Representation (IR)`), 名为`Tiny Code Generator (tcg)`. 结果储存于翻译块`Translation Block (TB)`. 
+* 代码生成
+    * qemu从翻译块生成可执行代码, 存于代码缓存(`code cache`). 代码缓存本质上就是有可执行权限的内存页. 
+* 缓冲表: 存放中间码和可执行代码. 之后在同一程序中运行代码时会先查询缓冲表. 
+* 块链接
+    * 上述代码翻译和生成的基本单元都是基本块(ida反汇编的流程图中所见的代码块)
+    * 在翻译完连续块后, qemu会把它们链接起来组成一个迹(`trace`), 实现方式是在每个的结尾放一个跳转, 跳到下一个块. 一个trace可以运行到底, 而不会出现中途需要翻译而中断的情况. 
+* 缓存无效化
+    * 生成的代码可能因无效化而停止执行. 
+    * 两个原因: 
+        * 代码缓存已满. 
+        * 代码发生修改, 因而之前生成代码不能重新运行. 
+* `softMMU`
+    * 将` Guest Virtual Addresses (GVA)`转换为`Host Virtual Address (HVA)`
+    * 发生于客户机操作内存时. qemu为此生成了加载(load)和保存(store)中间码IR的操作: 
+        * `op_qemu_ld`: 将某内存地址中的数据加载到寄存器. 
+        * `op_qemu_st`: 将寄存器的内容保存到虚拟用户地址. 
+    * 转译后备缓冲器(`Translation Look-aside Buffer (TLB)`)
+        * 为CPU的一种缓存, 用于改进虚拟地址到物理地址的转译速度. 
+        * 在qemu的软TLB中, 实际是`GVA`到`HVA`的转换. qemu确保所有客户机虚拟地址都能转译到qemu进程空间的地址中. 
 
-            <img alt="qemu_mem_trans" src="./pic/qemu_mem_trans.png" width="50%" height="50%">
-    * user mode
-        * 如果是多线程, 会在每次创建一个线程时, 创建一个vCPU, 然后把线程函数放到创建的vCPU上运行. 如果是多进程程序, qemu直接`fork`新进程. 
+        <img alt="qemu_mem_trans" src="./pic/qemu_mem_trans.png" width="50%" height="50%">
+* user mode
+    * 如果是多线程, 会在每次创建一个线程时, 创建一个vCPU, 然后把线程函数放到创建的vCPU上运行. 如果是多进程程序, qemu直接`fork`新进程. 

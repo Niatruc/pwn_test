@@ -22,17 +22,17 @@
 * 内核源代码
     * 内核头文件: `/usr/src/linux-headers-$(uname -r)`
     * 目录树
-        * init: 初始化
-        * arch: 架构
+        * `init`: 初始化
+        * `arch`: 架构
             * `<arch>/include/asm`
-        * drivers: 驱动程序
-        * fs: 文件系统
-        * net: 网络
-        * mm: 内存管理模块
-        * ipc: 通讯
-        * kernel: 内核运行时库(字符串操作等)
-        * include: 内核开发需要的头文件
-        * scripts: 
+        * `drivers`: 驱动程序
+        * `fs`: 文件系统
+        * `net`: 网络
+        * `mm`: 内存管理模块
+        * `ipc`: 通讯
+        * `kernel`: 内核运行时库(字符串操作等)
+        * `include`: 内核开发需要的头文件
+        * `scripts`: 
             * `extract-vmlinux`: 用来将vmlinuz等文件解析为vmlinux
 * 名词
     * LKM(Loadable Kernel Module): 可加载内核模块

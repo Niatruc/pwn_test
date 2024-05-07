@@ -760,9 +760,12 @@
 * 项目地址: [https://github.com/mirrorer/afl](https://github.com/mirrorer/afl)
 * 参考
     * 教程: [https://afl-1.readthedocs.io/en/latest/quick_start.html](https://afl-1.readthedocs.io/en/latest/quick_start.html)
-    * [AFL 漏洞挖掘技术漫谈(二）: Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
+    * [AFL 漏洞挖掘技术漫谈(二): Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
     * [AFL二三事——源码分析（下篇）](https://xz.aliyun.com/t/10316?time__1311=mq%2BxBDyDuGBAD%2FD0DoY%2BW4j2fR3D8eD&alichlgref=https%3A%2F%2Fxz.aliyun.com%2Ft%2F10315%3Ftime__1311%3Dmq%252BxBDyDuGBDRDBqDTmGIimgGzePx%26alichlgref%3Dhttps%253A%252F%252Fwww.google.com%252F)
     * [基于覆盖率的Fuzzer和AFL](https://mp.weixin.qq.com/s?__biz=MjM5NTc2MDYxMw==&mid=2458508973&idx=1&sn=ce081b2f0c86b34a10779cb6f1302ca1&chksm=b18eee2786f96731f910ee6079ae1561f23b1706568441ba3ce5cd16bd7ca0f456aac9932eab&scene=27)
+    * 统计数据
+        * [AFL中使用的环境变量 以及状态栏、fuzzer_stats文件、plot_data文件中各字段的含义](https://blog.csdn.net/weixin_50972562/article/details/125550494)
+        * [Understanding the status screen](https://aflplus.plus/docs/status_screen/)
 * 描述
     * 一款基于覆盖引导(Coverage-guided)的模糊测试工具. 通过记录输入样本的代码覆盖率, 从而调整输入样本以提高覆盖率, 增加发现漏洞的概率. 
     * 运行流程: 
