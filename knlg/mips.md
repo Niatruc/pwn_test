@@ -3,6 +3,8 @@
     * (MIPS 通用寄存器)[https://e-mailky.github.io/2017-02-14-mips-registers]
     * (MIPS32寄存器详解)[https://www.cnblogs.com/justin-y-lin/p/15010301.html]
     * https://binhack.readthedocs.io/zh/latest/assembly/mips.html
+    * (MIPS32 指令集)[https://elearning.ecnu.edu.cn/bbcswebdav/courses/COMS0031131014.02.2017-20182/MIPS%E6%8C%87%E4%BB%A4%E9%9B%86.pdf]
+    * (MIPS教程)[https://www.xiaoaimi.net/mips/teach.html]
     
 # 处理器
     

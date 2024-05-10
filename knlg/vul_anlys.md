@@ -27,7 +27,7 @@
         * 数字错误(CWE-189)(Numeric Errors)
         * 信息泄露(CWE-200)(Information Exposure)
         * 安全特征问题(CWE-254)(Security Features)
-            * 授权同题(CWE-287)(Authentication lssues, Improper Authentication)
+            * 授权问题(CWE-287)(Authentication lssues, Improper Authentication)
             * 未充分验证数据可靠性(CWE-345)(Insuffcient Verification of Data Authenticity)
                 * 跨站请求伪造(CWE-352)(Cross-Site Request Forgery)
             * 信任管理(CWE-255)(Credentials Management)
@@ -790,7 +790,7 @@
 
         mkdir input; cd input
         touch SEED.txt
-        echo aaa > SEED.txt	//将SEED作为初始种子写入in文件夹中的SEED文件中
+        echo aaa > SEED.txt	# 将SEED作为初始种子写入in文件夹中的SEED文件中
 
         # 以root执行以下操作(sudo -i)
         # /proc/sys/kernel/core_pattern 其中指定的文件名或管道用于在进程崩溃得到由系统捕获并传来的崩溃信息
@@ -924,7 +924,8 @@
                 // `cur_loc`是一个随机数
                 static inline void afl_maybe_log(abi_ulong cur_loc); 
 
-                // 当该函数被调用时, 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数写入`TSL_FD`管道)
+                // 每当qemu发现缺少某个特别的块的翻译并进行计算时调用该函数. 
+                // 将会通知父进程对操作进行镜像, 这样下次fork时才有缓存的拷贝(通知的方式是把这三个参数写入`TSL_FD`管道)
                 static void afl_request_tsl(target_ulong pc, target_ulong cb, uint64_t flags); 
 
                 // 循环: 
@@ -1211,6 +1212,46 @@
             docker run -ti -v /location/of/your/target:/src aflplusplus/aflplusplus
         ```
     * 手动编译: 参考`https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md`
+* 使用: 
+    * 环境变量: 
+        * `AFL_DEBUG`: 若为1, 则将打印出forkserver信息以及父子进程间的交互信息
+        * `AFL_DEBUG_CHILD`: 若为1, 则将打印出被fuzz进程的标准输出(否则目标的stdout和stderr会被afl++通过`dup2`关掉)
+        * `AFL_DEBUG_UNICORN`: 若为1, 则将打印更多子进程信息, 包括块翻译, 钩子, 以及出错信息(要求设置`AFL_DEBUG_CHILD`)
+    * unicorn模式: 
+        * 唯一导出函数`uc_afl_fuzz`: 
+            ```cpp
+                extern "C" UNICORNAFL_EXPORT uc_afl_ret uc_afl_fuzz(
+                    uc_engine* uc, // uc_open()的返回值
+                    char* input_file, // 命令行参数中的`input_file`的路径
+                    uc_afl_cb_place_input_t place_input_callback, // 这个回调函数在每次生成新的子进程时被调用. 如果接受input的数据, 就在该回调中返回true, 否则输入数据会被忽略
+                    uint64_t* exits, // 所有可能的出口点地址
+                    size_t exit_count, // exits数组成员的个数
+                    uc_afl_cb_validate_crash_t validate_crash_callback, // 这个回调函数在crash时被调用.
+                    bool always_validate, // 如果设置为False, 则`validate_crash_callback`只会在`uc_emu_start`返回error时调用(`uc_afl_fuzz`中调用)
+                    uint32_t persistent_iters, // 在fork一个新的子进程之前要fuzz的次数
+                    void* data // 用户提供的额外数据
+                );
+
+                typedef bool (*uc_afl_cb_place_input_t)(uc_engine* uc, char* input,
+                                        size_t input_len,
+                                        uint32_t persistent_round, void* data);
+
+                typedef bool (*uc_afl_cb_validate_crash_t)(uc_engine* uc, uc_err unicorn_result,
+                                                        char* input, int input_len,
+                                                        int persistent_round, void* data);
+
+                typedef uc_err (*uc_afl_fuzz_cb_t)(uc_engine *uc, void *data);
+            ```
+        * python: 
+            * 安装: 在`unicorn_mode/unicornafl/bindings/python`目录下执行`pip install .`
+            * fuzz: 
+                ```sh
+                    # 参考`unicorn_mode/samples/python_simple`下的代码
+                    afl-fuzz -U -m none -i ./sample_inputs -o ./output -- python simple_test_harness.py @@
+                ```
+            * 错误: 
+                * `afl-fuzz: error while loading shared libraries: libpython3.12.so.1.0`
+                    * `locate`找一下`libpython3.12.so.1.0`库, 然后将所在目录路径加入`LD_LIBRARY_PATH`
 
 ## 其他插桩和fuzz工具或框架
 * 参考

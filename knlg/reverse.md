@@ -197,10 +197,12 @@
         * `UC_HOOK_MEM_READ_UNMAPPED`
         * `UC_HOOK_MEM_WRITE_UNMAPPED`
         * `UC_HOOK_MEM_FETCH_UNMAPPED`
-
+* 其他
+    * 环境变量`LIBUNICORN_PATH`可指定`libunicorn.so`的搜索路径. 
 ## qiling
 * 参考
     * https://docs.qiling.io/en/latest/
+    * (2020 看雪SDC议题回顾 | 麒麟框架：现代化的逆向分析体验)[https://bbs.kanxue.com/article-14181.htm]
 * 基本信息
     * 基于unicorn的仿真框架
     * 相比unicorn, 多了如下功能: 
@@ -236,8 +238,20 @@
 * 劫持/挂钩
     * 
 * 调试
-    * `ql.debugger = True`
-    * 运行仿真后, 会出现一行`gdb> listening on 127.0.0.1:9999`, 这时可运行`gdb-multiarch`, 然后执行`set remotetimeout 100`, `target remote 127.0.0.1:9999`附加调试. 
+    * gdb远程调试
+        * `ql.debugger = True`
+        * 运行仿真后, 会出现一行`gdb> listening on 127.0.0.1:9999`, 这时可运行`gdb-multiarch`, 然后执行`set remotetimeout 100`, `target remote 127.0.0.1:9999`附加调试. 
+    * Qdb
+        * `ql.debugger = "qdb`
+        * `ql.debugger = "qdb:0x1030c"`: 在`0x1030c`处设置断点(即`init_hook`)
+        * `ql.debugger = "qdb:./my_qdb_script"`: 使用qdb脚本文件
+        * 命令
+            * `s`: 单步
+            * `p`: 单步往回(需要设置`ql.debugger = "qdb::rr"`)
+            * `c`: 继续
+            * `b <addr>`: 断点
+            * `x <addr> <len>`: 查看数据
+
 * 方法
     * 打印
         * `ql.log`
