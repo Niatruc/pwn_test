@@ -181,22 +181,34 @@
 * hook类型
     * 指令执行类
         * `UC_HOOK_INTR`: 中断, 系统调用
-        * `UC_HOOK_INSN`
-        * `UC_HOOK_CODE`
-        * `UC_HOOK_BLOCK`
+        * `UC_HOOK_INSN`: 指令(仅支持很少一部分)
+        * `UC_HOOK_CODE`: 一个范围内的代码
+        * `UC_HOOK_BLOCK`: 基本块
+        * `UC_HOOK_EDGE_GENERATED`: 产生了新的边(在程序分析中有用)
+            * 和`UC_HOOK_BLOCK`的差异: 
+                1. 在执行指令前调用. 
+                2. 仅在有产生新的边时调用. 
+        * `UC_HOOK_TCG_OPCODE`: 执行tcg op指令时. 
+        * `UC_HOOK_TLB_FILL`: tlb fill请求. 在tlb缓存中不包含地址时触发. 
     * 内存访问类
-        * `UC_HOOK_MEM_READ`
-        * `UC_HOOK_MEM_WRITE`
-        * `UC_HOOK_MEM_FETCH`
-        * `UC_HOOK_MEM_READ_AFTER`
-        * `UC_HOOK_MEM_PROT`
-        * `UC_HOOK_MEM_FETCH_INVALID`
-        * `UC_HOOK_MEM_INVALID`
-        * `UC_HOOK_MEM_VALID`
+        * `UC_HOOK_MEM_READ`: 内存读. 
+        * `UC_HOOK_MEM_WRITE`: 内存写. 
+        * `UC_HOOK_MEM_FETCH`: 在指令执行事件中获取内存数据(`memory fetch`, 指cpu周期中的取指令操作). 
+        * `UC_HOOK_MEM_READ_AFTER`: 成功读取内存后. 
     * 异常处理类
-        * `UC_HOOK_MEM_READ_UNMAPPED`
-        * `UC_HOOK_MEM_WRITE_UNMAPPED`
-        * `UC_HOOK_MEM_FETCH_UNMAPPED`
+        * `UC_HOOK_INSN_INVALID`: 执行非法指令产生的异常
+        * `UC_HOOK_MEM_READ_UNMAPPED`: 读取未映射的内存
+        * `UC_HOOK_MEM_WRITE_UNMAPPED`: 非法写内存
+        * `UC_HOOK_MEM_FETCH_UNMAPPED`: 在指令执行事件中, 非法获取内存数据(意即PC寄存器指向了未映射的内存). 
+        * `UC_HOOK_MEM_READ_PROT`: 读取有读保护的内存
+        * `UC_HOOK_MEM_WRITE_PROT`: 写入有写保护的内存
+        * `UC_HOOK_MEM_FETCH_PROT`: 从不具备可执行权限(non-executable)的内存中获取数据(意即PC寄存器指向了不可执行的区域)
+    * 对以上hook类型进行结合的有用的宏: 
+        * `UC_HOOK_MEM_FETCH_INVALID`: (`UC_HOOK_MEM_FETCH_PROT` + `UC_HOOK_MEM_FETCH_UNMAPPED`)(还有读和写相关的, 类推)
+        * `UC_HOOK_MEM_UNMAPPED`: 所有对未映射内存区域的非法操作(`UC_HOOK_MEM_READ_UNMAPPED` + `UC_HOOK_MEM_WRITE_UNMAPPED` + `UC_HOOK_MEM_FETCH_UNMAPPED`)
+        * `UC_HOOK_MEM_PROT`: 所有对保护性内存区域的非法操作(`UC_HOOK_MEM_READ_PROT` + `UC_HOOK_MEM_WRITE_PROT` + `UC_HOOK_MEM_FETCH_PROT`). 
+        * `UC_HOOK_MEM_INVALID`: (`UC_HOOK_MEM_UNMAPPED` + `UC_HOOK_MEM_PROT`)
+        * `UC_HOOK_MEM_VALID`: 
 * 其他
     * 环境变量`LIBUNICORN_PATH`可指定`libunicorn.so`的搜索路径. 
 ## qiling

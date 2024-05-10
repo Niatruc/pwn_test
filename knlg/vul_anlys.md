@@ -909,6 +909,7 @@
                     //  } 
                     //  afl_maybe_log(itb->pc); 
                 #define TSL_FD (FORKSRV_FD - 1) // 这个管道用来在子进程和fork服务器之间传递`需要翻译`的信息
+                // tsl是translate的意思, 代表qemu对基本块的翻译操作
 
                 // 设置SHM区域; 根据环境变量, 初始化一些全局变量
                 static void afl_setup(void); 
@@ -1214,6 +1215,7 @@
     * 手动编译: 参考`https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md`
 * 使用: 
     * 环境变量: 
+        * `AFL_AUTORESUME`: 可以延续使用上回fuzz的测试用例队列(而不是清空重来)
         * `AFL_DEBUG`: 若为1, 则将打印出forkserver信息以及父子进程间的交互信息
         * `AFL_DEBUG_CHILD`: 若为1, 则将打印出被fuzz进程的标准输出(否则目标的stdout和stderr会被afl++通过`dup2`关掉)
         * `AFL_DEBUG_UNICORN`: 若为1, 则将打印更多子进程信息, 包括块翻译, 钩子, 以及出错信息(要求设置`AFL_DEBUG_CHILD`)
