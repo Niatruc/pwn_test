@@ -336,6 +336,9 @@
         * `Set lvar type`: 指定变量类型为其它基本类型. 
         * `Convert to struct *`: 指定变量类型为某结构体指针类型. 
     * `Map to another variable...`: 可用于消除中间变量. 
+    * 折叠代码: 
+        1. 点击要折叠的代码块的关键字, 比如`if`, `while`
+        2. 输入数字键盘的`-`, 或在右键菜单中点击`Collapse item`
 * 用pycharm调试ida插件
     * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
     * 步骤
