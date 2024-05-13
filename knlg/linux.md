@@ -110,6 +110,265 @@
         }
 
         ```
+* 编译链接工具
+    * `gcc`
+        * `-c <源程序文件名>`: 编译成`.o`文件(不链接)
+        * `-o <输出文件名>`
+        * `-g`: 带上调试符号. 
+        * `-static`: 静态编译. 
+        * `-I<头文件目录>`
+        * `-L<库文件目录绝对路径>`
+        * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
+            * `-Map=<map文件路径>`: 生成map文件. 
+            * `-Bstatic -l<库名>`: 指定静态链接库. 
+            * `-Bdynamic -l<库名>`: 指定动态链接库. 
+            * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
+        * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
+        * `-T`: 指定链接器脚本. 
+        * `-shared`: 产生一个共享object, 这个对象后面可以跟其他对象链接以组成一个可执行文件. 
+        * 安全相关的编译选项
+            * `NX(DEP)`: 将数据所在内存页标识为不可执行. 
+                * `-z execstack`: 禁用NX保护
+                * `-z noexecstack`: 开启NX保护
+            * `RELRO`: read only relocation. GOT保护. 
+                * `-z norelro`: 关闭. 
+                * `-z lazy`: 部分开启. 此时对GOT表仍有写权限. 
+                * `-z now`: 全部开启. 
+            * `PIE(ASLR)`
+                * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
+                * `-fPIC`: 生成位置无关代码. 
+                * 下面选项仅能用于编译可执行程序, 不能用于编译库: 
+                    * `-fpie -pie`: 生成位置无关代码. (强度为1, 半随机, 包括code, data, stack, mmap, vdso的随机化)
+                    * `-fPIE -pie`: 生成位置无关代码. (强度为2, 随机, 在1的基础上加上对heap地址的随机化)
+            * `CANARY`: 使用cookie的栈保护. 
+                * `-fno-stack-protector`: 禁用
+                * `-fstack-protector`: 开启
+                * `-fstack-protector-all`: 完全开启
+            * `FORTIFY`: 生成了一些附加代码, 通过对数组大小的判断替换`strcpy`, `memcpy`, `memset`等函数名, 达到防止缓冲区溢出的作用. 
+                * `-D_FORTIFY_SOURCE=1`: 较弱的检查(只在编译时进行检查)
+                * `-D_FORTIFY_SOURCE=2`: 在1的基础上, 对栈变量进行检测, 且会在运行时进行检查. 
+                * `-D_FORTIFY_SOURCE=3`: 在2的基础上, 可以对`malloc`出来的内存进行检测(gcc 12以上)
+
+        * 链接器脚本(lds文件)
+            * 参考: 
+                * `https://www.codenong.com/cs109007373/`
+            * 示例
+            
+            ```
+            SECTIONS
+            {
+                . = 0×10000;
+                .text : { *(.text) }
+
+                .data : {
+                    tbl = .;
+                    *(.data.tbl)
+                    tbl_end = .;
+                }
+            }
+            ```
+
+            * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
+            * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
+            * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
+        * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
+            ```cpp
+            __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
+
+            __attribute__((stdcall)) void f2(); // 指定函数的调用约定
+
+            __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
+
+            // 给结构体变量s指定属性
+            struct my_struct
+            __attribute__((unused)) // 表示可能不会用到
+            __attribute__((aligned(1))) // 表示1字节对齐
+            __attribute__((section("my_sec"))) // 表示s被分配到my_sec节中
+            s = { ... };
+            ```
+        * `__builtin_expect`: 
+            * gcc 2.96以后支持, 其将分支转移的信息提供给编译器, 这样编译器可以对代码进行优化, 以减少指令跳转带来的性能下降. 
+            * 编译时, 可能性更大的代码紧接前面的代码. 
+            * `likely`和`unlikely`的判断作用一样, 只有编译结果上的区别. 
+                ```cpp
+                    #define likely(x)       __builtin_expect((x),1) // x为真的可能性更大时用这个
+                    #define unlikely(x)     __builtin_expect((x),0) // x为假的可能性更大时用这个
+                ```
+    * `make`
+        * 参考
+            * `https://www.zhaixue.cc/makefile/makefile-intro.html`
+        * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
+        * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
+        * Makefile
+            ```makefile
+                MAKE=make
+
+                include ../.config # 可使用其他.config文件中的配置
+
+                all: haha.text target1
+
+                # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
+                target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
+
+                # 目标: 依赖文件集
+                #   命令1
+                #   命令2
+                # 命令前加个@, 可以阻止终端打印这条命令. 
+                target1: 
+                    @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+                
+                # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
+                target2: 
+                ifdef DEBUG
+                    ...
+                else
+                    ...
+                endif
+
+                %.o:%.c
+                    gcc -o $@ $<
+                
+                # 可使用循环语句: 
+                fortest: 
+                    for arch in arm aarch64 mips powerpc ; do \
+                        echo $$arch ; \
+                    done
+                
+                # 自定义函数
+                define func
+                    @echo $(0), $(1)
+                endef
+                $(call func, 参数1, 参数2)
+
+                ########################################################################################################################
+                # 示例: 构建一个动态库
+                libmy.so: add.o sub.o
+                    gcc -shared -o $@ $^
+
+                %.o: %.c
+                    gcc -fPIC -c $<
+
+                # 示例: 构建一个静态库
+                libmy.so: add.o sub.o
+                    ar -rc $@ $^
+
+                %.o: %.c
+                    gcc -c $<
+                
+            ```
+
+            * 默认执行第一个目标(在上面的文件中, 指`all`). 
+            * `-C <目录>`: 指定跳转目录, 读取那里的`Makefile`. 
+            * `M=<工作目录绝对路径>`: 在读取上述`Makefile`后, 跳转到`工作目录`, 继续读入`Makefile`. `M`是内核头文件目录下的`Makefile`中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
+            * 注意上述选项后面接的路径都**必须是完整路径**. 
+            * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
+                * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
+            * 常量
+                * `BASH_SOURCE`: 当前文件路径. 
+                    * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
+                * `$@`: 表示目标文件. (也就是紧跟在`make`指令后面的字符串)
+                * `$^`: 表示所有依赖文件. 
+                * `$<`: 表示第一个依赖文件. 
+                * `$?`: 表示比目标还新的依赖文件列表. 
+            * 符号
+                * 赋值符号
+                    * `=`: 给变量赋值. 会在整个`Makefile`展开后, 再决定变量的值. 
+                    * `:=`: 表示变量的值取决于它在`Makefile`中的位置, 而不是整个`Makefile`展开后的最终值
+                    * `?=`: 如果没有被赋值过就赋予等号后面的值. 
+                    * `+=`: 添加等号后面的值. 
+                    * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
+            * 预定义函数: 
+                * `$(shell command)`: 执行`shell`命令函数, 执行`command`命令并返回其输出结果. 
+                * `$(wildcard pattern)`: 查找文件名函数, 返回匹配`pattern`模式的所有文件名. 
+                * `$(subst from,to,text)`: 字符串替换函数, 将`text`中所有的`from`替换为`to`. 
+                * `$(patsubst pattern,replacement,text)`: 模式字符串替换函数, 将`text`中所有匹配模式`pattern`的字符串替换为`replacement`. 
+                * `$(abspath path)`: 获取`path`的绝对路径. 
+    * `cmake`
+        * 用法: 
+            * 基本流程: 
+                1. 编辑`CMakeLists.txt`
+                2. 在源码目录下新建一个目标目录, 比如叫`build`. 
+                3. 进入`build`目录, 执行`cmake ..`, 将会在该目录下生成`Makefile`. 
+                4. 执行`make`
+            * 启用调试: 
+                * 在`CMakeLists.txt`添加: `add_definitions("-Wall -g")`
+                * 或者: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
+    * `ar`
+        * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
+        * `-x`: 从静态库文件中抽取文件 objfile
+            * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
+            * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
+        * `-t`: 打印静态库的成员文件列表
+        * `-d`: 从静态库中删除文件 objfile
+        * `-s`: 重置静态库文件索引
+        * `-v`: 创建文件冗余信息
+        * `-c`: 创建静态库文件
+* git
+    * 工作流: 
+        
+        <img alt="require_musl" src="./pic/git_workflow_diagram.jpg" width="30%" height="30%">
+
+    * 释义: 
+        * `origin`: 远程服务器. 
+        * `master`: 主分支. 
+    * 基本指令
+        * `git add .`: 将所有修改放入暂存区即index. 
+        * `git log`: 查看提交历史. 
+            * `--online`: 
+            * `--graph`: 
+            * `--reverse`: 
+            * `--author=<用户名>`: 
+            * `(--before|--since|--until|--after)=({1.weeks.ago}|{2022|11|22})`: 
+    * 提交
+        * `git log <某次提交操作对应的哈希值>`: 查看提交信息
+        * `git show <某次提交操作对应的哈希值> --name-only`: 只列出涉及的文件
+        * 去除某个文件的历史提交记录: 
+            1. `git filter-branch -f --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
+            2. `git push origin --force --all`
+        * 将一个分支的提交合并到另一个分支. 
+            1. 首先checkout到目标分支. 
+            2. `git cherry-pick <commit的哈希值>`
+        * 在拉取前先暂存代码, 之后再应用回自己的修改: 
+            1. `git stash`
+            2. `git pull`
+            3. `git stash pop`
+    * 放弃修改及回滚:
+        * `checkout`
+            * 会导致`HEAD detached`
+            * 放弃本地所有修改: `git checkout .`
+            * 放弃对某个文件的修改: `git checkout <file>`
+        * `reset --hard`
+        * `reset <某次提交的hash>`: 回退到某次提交. 
+            * `--mixed`: 默认选项, 重置暂存区到某次提交. 
+            * `--soft`: 用于回退至某个版本. 
+            * `--hard`: 重置暂存区和工作区到某次提交, 并删除之前所有提交. 
+                * `--hard origin/master`: 回退至和服务器保持一致. 
+        * `revert`: 放弃某些提交. 
+    * 分支
+        * `branch` 
+            * `<分支名>`: 创建新分支. 
+            * `-d <分支名>`: 删除分支. 
+            * `-D <分支名>`: 强制删除分支. 当开发者希望删除所有提交记录时可用该选项. 
+            * `<分支名> -m <新分支名>`: 重命名分支. 
+            * `-a`: 列出所有远程分支. 
+        * `checkout <分支>`: 切换到分支. 
+        * `push --set-upstream origin <新分支名>`: 将分支推送到服务器
+        * `pull origin <远程分支名>[:<本地分支名>]`: 拉取指定分支
+        * `clone -b <分支名> <git地址> <仓库新名称>`: 拉取指定分支
+* 库管理
+    * `dpkg`
+        * `-i`: 安装deb包. 
+        * `--instdir=<安装路径>`: 
+        * `dpkg-query -l`: 列出已安装包. 
+        * `-P`: 卸载包. 
+        * `--get-selections | grep linux-image`: 查看已安装内核. 
+    * `apt`
+        * ``
+    * 打印ansi彩色字体
+        * `echo -e "\033[33m彩色\033[0m"`
+    * 设置UTC时间
+        * `sudo cp /usr/share/zoneinfo/UTC /etc/localtime`, 之后执行`date`命令可看到效果. 
+
 
 # 调试
 ## GDB
@@ -1250,257 +1509,6 @@ typedef struct {
 * `nm xx.so`: 列出object文件的符号
     * `-c`: 查看导出函数表
     * `-D`: 查看动态库的符号
-
-* 编译链接工具
-    * `gcc`
-        * `-c <源程序文件名>`: 编译成`.o`文件(不链接)
-        * `-o <输出文件名>`
-        * `-g`: 带上调试符号. 
-        * `-static`: 静态编译. 
-        * `-I<头文件目录>`
-        * `-L<库文件目录绝对路径>`
-        * `-Wl,`: 其后紧接的参数是传给链接器ld的. 
-            * `-Map=<map文件路径>`: 生成map文件. 
-            * `-Bstatic -l<库名>`: 指定静态链接库. 
-            * `-Bdynamic -l<库名>`: 指定动态链接库. 
-            * `--as-needed`: 可忽略不被依赖的库, 进而加快程序的启动. 
-        * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
-        * `-T`: 指定链接器脚本. 
-        * `-shared`: 产生一个共享object, 这个对象后面可以跟其他对象链接以组成一个可执行文件. 
-        * 安全相关的编译选项
-            * `NX(DEP)`: 将数据所在内存页标识为不可执行. 
-                * `-z execstack`: 禁用NX保护
-                * `-z noexecstack`: 开启NX保护
-            * `RELRO`: read only relocation. GOT保护. 
-                * `-z norelro`: 关闭. 
-                * `-z lazy`: 部分开启. 此时对GOT表仍有写权限. 
-                * `-z now`: 全部开启. 
-            * `PIE(ASLR)`
-                * `-fpic`: 生成位置无关代码(适用于共享库). 动态加载器会在程序开始时解析GOT表. 
-                * `-fPIC`: 生成位置无关代码. 
-                * 下面选项仅能用于编译可执行程序, 不能用于编译库: 
-                    * `-fpie -pie`: 生成位置无关代码. (强度为1, 半随机, 包括code, data, stack, mmap, vdso的随机化)
-                    * `-fPIE -pie`: 生成位置无关代码. (强度为2, 随机, 在1的基础上加上对heap地址的随机化)
-            * `CANARY`: 使用cookie的栈保护. 
-                * `-fno-stack-protector`: 禁用
-                * `-fstack-protector`: 开启
-                * `-fstack-protector-all`: 完全开启
-            * `FORTIFY`: 生成了一些附加代码, 通过对数组大小的判断替换`strcpy`, `memcpy`, `memset`等函数名, 达到防止缓冲区溢出的作用. 
-                * `-D_FORTIFY_SOURCE=1`: 较弱的检查(只在编译时进行检查)
-                * `-D_FORTIFY_SOURCE=2`: 在1的基础上, 对栈变量进行检测, 且会在运行时进行检查. 
-                * `-D_FORTIFY_SOURCE=3`: 在2的基础上, 可以对`malloc`出来的内存进行检测(gcc 12以上)
-
-        * 链接器脚本(lds文件)
-            * 参考: 
-                * `https://www.codenong.com/cs109007373/`
-            * 示例
-            
-            ```
-            SECTIONS
-            {
-                . = 0×10000;
-                .text : { *(.text) }
-
-                .data : {
-                    tbl = .;
-                    *(.data.tbl)
-                    tbl_end = .;
-                }
-            }
-            ```
-
-            * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
-            * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
-            * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
-        * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
-            ```cpp
-            __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
-
-            __attribute__((stdcall)) void f2(); // 指定函数的调用约定
-
-            __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
-
-            // 给结构体变量s指定属性
-            struct my_struct
-            __attribute__((unused)) // 表示可能不会用到
-            __attribute__((aligned(1))) // 表示1字节对齐
-            __attribute__((section("my_sec"))) // 表示s被分配到my_sec节中
-            s = { ... };
-            ```
-    * `make`
-        * 参考
-            * `https://www.zhaixue.cc/makefile/makefile-intro.html`
-        * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
-        * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
-        * Makefile
-            ```makefile
-                MAKE=make
-
-                include ../.config # 可使用其他.config文件中的配置
-
-                all: haha.text target1
-
-                # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
-                target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
-
-                # 目标: 依赖文件集
-                #   命令1
-                #   命令2
-                # 命令前加个@, 可以阻止终端打印这条命令. 
-                target1: 
-                    @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
-                
-                # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
-                target2: 
-                ifdef DEBUG
-                    ...
-                else
-                    ...
-                endif
-
-                %.o:%.c
-                    gcc -o $@ $<
-                
-                # 可使用循环语句: 
-                fortest: 
-                    for arch in arm aarch64 mips powerpc ; do \
-                        echo $$arch ; \
-                    done
-                
-                # 自定义函数
-                define func
-                    @echo $(0), $(1)
-                endef
-                $(call func, 参数1, 参数2)
-
-                ########################################################################################################################
-                # 示例: 构建一个动态库
-                libmy.so: add.o sub.o
-                    gcc -shared -o $@ $^
-
-                %.o: %.c
-                    gcc -fPIC -c $<
-
-                # 示例: 构建一个静态库
-                libmy.so: add.o sub.o
-                    ar -rc $@ $^
-
-                %.o: %.c
-                    gcc -c $<
-                
-            ```
-
-            * 默认执行第一个目标(在上面的文件中, 指`all`). 
-            * `-C <目录>`: 指定跳转目录, 读取那里的`Makefile`. 
-            * `M=<工作目录绝对路径>`: 在读取上述`Makefile`后, 跳转到`工作目录`, 继续读入`Makefile`. `M`是内核头文件目录下的`Makefile`中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
-            * 注意上述选项后面接的路径都**必须是完整路径**. 
-            * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
-                * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
-            * 常量
-                * `BASH_SOURCE`: 当前文件路径. 
-                    * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
-                * `$@`: 表示目标文件. (也就是紧跟在`make`指令后面的字符串)
-                * `$^`: 表示所有依赖文件. 
-                * `$<`: 表示第一个依赖文件. 
-                * `$?`: 表示比目标还新的依赖文件列表. 
-            * 符号
-                * 赋值符号
-                    * `=`: 给变量赋值. 会在整个`Makefile`展开后, 再决定变量的值. 
-                    * `:=`: 表示变量的值取决于它在`Makefile`中的位置, 而不是整个`Makefile`展开后的最终值
-                    * `?=`: 如果没有被赋值过就赋予等号后面的值. 
-                    * `+=`: 添加等号后面的值. 
-                    * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
-            * 预定义函数: 
-                * `$(shell command)`: 执行`shell`命令函数, 执行`command`命令并返回其输出结果. 
-                * `$(wildcard pattern)`: 查找文件名函数, 返回匹配`pattern`模式的所有文件名. 
-                * `$(subst from,to,text)`: 字符串替换函数, 将`text`中所有的`from`替换为`to`. 
-                * `$(patsubst pattern,replacement,text)`: 模式字符串替换函数, 将`text`中所有匹配模式`pattern`的字符串替换为`replacement`. 
-                * `$(abspath path)`: 获取`path`的绝对路径. 
-    * `cmake`
-        * 用法: 
-            * 基本流程: 
-                1. 编辑`CMakeLists.txt`
-                2. 在源码目录下新建一个目标目录, 比如叫`build`. 
-                3. 进入`build`目录, 执行`cmake ..`, 将会在该目录下生成`Makefile`. 
-                4. 执行`make`
-            * 启用调试: 
-                * 在`CMakeLists.txt`添加: `add_definitions("-Wall -g")`
-                * 或者: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
-    * `ar`
-        * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
-        * `-x`: 从静态库文件中抽取文件 objfile
-            * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
-            * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
-        * `-t`: 打印静态库的成员文件列表
-        * `-d`: 从静态库中删除文件 objfile
-        * `-s`: 重置静态库文件索引
-        * `-v`: 创建文件冗余信息
-        * `-c`: 创建静态库文件
-* git
-    * 工作流: 
-        
-        <img alt="require_musl" src="./pic/git_workflow_diagram.jpg" width="30%" height="30%">
-
-    * 释义: 
-        * `origin`: 远程服务器. 
-        * `master`: 主分支. 
-    * 基本指令
-        * `git add .`: 将所有修改放入暂存区即index. 
-        * `git log`: 查看提交历史. 
-            * `--online`: 
-            * `--graph`: 
-            * `--reverse`: 
-            * `--author=<用户名>`: 
-            * `(--before|--since|--until|--after)=({1.weeks.ago}|{2022|11|22})`: 
-    * 提交
-        * `git log <某次提交操作对应的哈希值>`: 查看提交信息
-        * `git show <某次提交操作对应的哈希值> --name-only`: 只列出涉及的文件
-        * 去除某个文件的历史提交记录: 
-            1. `git filter-branch -f --index-filter 'git rm -rf --cached --ignore-unmatch <目标文件相对项目根目录的路径>' HEAD`
-            2. `git push origin --force --all`
-        * 将一个分支的提交合并到另一个分支. 
-            1. 首先checkout到目标分支. 
-            2. `git cherry-pick <commit的哈希值>`
-        * 在拉取前先暂存代码, 之后再应用回自己的修改: 
-            1. `git stash`
-            2. `git pull`
-            3. `git stash pop`
-    * 放弃修改及回滚:
-        * `checkout`
-            * 会导致`HEAD detached`
-            * 放弃本地所有修改: `git checkout .`
-            * 放弃对某个文件的修改: `git checkout <file>`
-        * `reset --hard`
-        * `reset <某次提交的hash>`: 回退到某次提交. 
-            * `--mixed`: 默认选项, 重置暂存区到某次提交. 
-            * `--soft`: 用于回退至某个版本. 
-            * `--hard`: 重置暂存区和工作区到某次提交, 并删除之前所有提交. 
-                * `--hard origin/master`: 回退至和服务器保持一致. 
-        * `revert`: 放弃某些提交. 
-    * 分支
-        * `branch` 
-            * `<分支名>`: 创建新分支. 
-            * `-d <分支名>`: 删除分支. 
-            * `-D <分支名>`: 强制删除分支. 当开发者希望删除所有提交记录时可用该选项. 
-            * `<分支名> -m <新分支名>`: 重命名分支. 
-            * `-a`: 列出所有远程分支. 
-        * `checkout <分支>`: 切换到分支. 
-        * `push --set-upstream origin <新分支名>`: 将分支推送到服务器
-        * `pull origin <远程分支名>[:<本地分支名>]`: 拉取指定分支
-        * `clone -b <分支名> <git地址> <仓库新名称>`: 拉取指定分支
-* 库管理
-    * `dpkg`
-        * `-i`: 安装deb包. 
-        * `--instdir=<安装路径>`: 
-        * `dpkg-query -l`: 列出已安装包. 
-        * `-P`: 卸载包. 
-        * `--get-selections | grep linux-image`: 查看已安装内核. 
-    * `apt`
-        * ``
-    * 打印ansi彩色字体
-        * `echo -e "\033[33m彩色\033[0m"`
-    * 设置UTC时间
-        * `sudo cp /usr/share/zoneinfo/UTC /etc/localtime`, 之后执行`date`命令可看到效果. 
 
 
 # 软件
