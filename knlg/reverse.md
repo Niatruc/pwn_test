@@ -231,6 +231,28 @@
         * 收集windows系统的必要文件: 在windows中以管理员运行`examples/scripts/dllscollector.bat`. 
 * 初始化及运行: 
     ```py
+        Qiling(
+            argv: Sequence[str] = [], # 目标程序
+            rootfs: str = r'.', # 目标文件系统目录
+            env: MutableMapping[AnyStr, AnyStr] = {}, # 目标系统中的环境变量
+            code: Optional[bytes] = None, # 要运行的代码
+            ostype: Optional[QL_OS] = None,
+            archtype: Optional[QL_ARCH] = None,
+            verbose: QL_VERBOSE = QL_VERBOSE.DEFAULT,
+            profile: Optional[Union[str, Mapping]] = None, # 指定profile文件, 做一些系统层面的配置. 参考`profiles`目录下的ql文件. 
+            console: bool = True,
+            log_file: Optional[str] = None, # 日志文件目录, 不设置的话会直接在stdout打印出来 
+            log_override: Optional['Logger'] = None,
+            log_plain: bool = False,
+            multithread: bool = False,
+            filter: Optional[str] = None,
+            stop: QL_STOP = QL_STOP.NONE, # 值可为`QL_STOP.STACK_POINTER`(栈指针为负数时结束), `QL_STOP.EXIT_TRAP`(运行到exit陷阱时)或它们的或值
+            *,
+            endian: Optional[QL_ENDIAN] = None,
+            thumb: bool = False,
+            libcache: bool = False
+        )
+
         # 例一
         ql = Qiling(
             [r'examples/rootfs/x86_windows/bin/wannacry.bin'],

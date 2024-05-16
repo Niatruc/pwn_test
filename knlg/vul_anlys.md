@@ -1215,10 +1215,67 @@
     * 手动编译: 参考`https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md`
 * 使用: 
     * 环境变量: 
-        * `AFL_AUTORESUME`: 可以延续使用上回fuzz的测试用例队列(而不是清空重来)
-        * `AFL_DEBUG`: 若为1, 则将打印出forkserver信息以及父子进程间的交互信息
-        * `AFL_DEBUG_CHILD`: 若为1, 则将打印出被fuzz进程的标准输出(否则目标的stdout和stderr会被afl++通过`dup2`关掉)
-        * `AFL_DEBUG_UNICORN`: 若为1, 则将打印更多子进程信息, 包括块翻译, 钩子, 以及出错信息(要求设置`AFL_DEBUG_CHILD`)
+        * fuzz相关: 
+            * `AFL_AUTORESUME`: 可以延续使用上回fuzz的测试用例队列(而不是清空重来)
+            * `AFL_DEBUG`: 若为1, 则将打印出forkserver信息以及父子进程间的交互信息
+            * `AFL_DEBUG_CHILD`: 若为1, 则将打印出被fuzz进程的标准输出(否则目标的stdout和stderr会被afl++通过`dup2`关掉)
+            * `AFL_DEBUG_UNICORN`: 若为1, 则将打印更多子进程信息, 包括块翻译, 钩子, 以及出错信息(要求设置`AFL_DEBUG_CHILD`)
+            * `AFL_CUSTOM_MUTATOR_LIBRARY`: 设置自定义变异器路径(`.so`文件)
+            * `AFL_PYTHON_MODULE`: 设置自定义变异器路径(py文件)
+            * `AFL_CUSTOM_MUTATOR_ONLY`: 仅使用自定义变异器
+            * `AFL_IGNORE_SEED_PROBLEMS`: 跳过崩溃和超时, 而不是退出
+            * `AFL_CYCLE_SCHEDULES`: 每次循环使用不同的计划
+            * `AFL_DISABLE_TRIM`: 不裁剪测试用例. (如果不设置此值, 则测试用例长度会被限制在200以内)
+            * `AFL_KEEP_TIMEOUTS`: 当达到新覆盖时, 会延长当前输入数据的使用时间. 
+            * `AFL_IGNORE_TIMEOUTS`: 忽略timeout, 可提高速度. 
+            * `AFL_CRASHING_SEEDS_AS_NEW_CRASH`: 将导致崩溃的种子视为新的崩溃. `op:dry_run`, `orig:<seed_file_name>`写到`crashes`目录. 
+            * `AFL_EXIT_ON_TIME`: 若在指定时间(秒)内未找到新路径, 则结束fuzz, 可提高速度. 在自动化任务中有用. 
+            * `AFL_EXIT_WHEN_DONE`: 当所有路径已经被fuzz过, 且一段时间内再无新路径时,结束fuzz. 在自动化任务中有用. 
+            * `AFL_EXPAND_HAVOC_NOW`: 
+            * `AFL_FAST_CAL`: 
+            * `AFL_FORCE_UI`: 
+            * `AFL_FORKSRV_INIT_TMOUT`: 
+            * `AFL_HANG_TMOUT`: 
+            * `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`: 
+            * `AFL_IGNORE_PROBLEMS`: 
+            * `AFL_IGNORE_PROBLEMS_COVERAGE`: 
+            * `AFL_IMPORT_FIRST`: 
+            * `AFL_INPUT_LEN_MIN`, `AFL_INPUT_LEN_MAX`: 测试用例的最小和最大长度. 
+            * `AFL_KILL_SIGNAL`: 
+            * `AFL_FORK_SERVER_KILL_SIGNAL`: 
+            * `AFL_MAP_SIZE`: 
+            * `AFL_MAX_DET_EXTRAS`
+                * 该值指定字典中单词长度阈值, 达到该阈值时开启可能性模式. 
+                * 在可能性模式, 为避免降低fuzz速度, 并非所有字典条目都会始终用于模糊测试突变. 
+                * 默认值为200
+            * `AFL_NO_AFFINITY`: 
+            * `AFL_NO_ARITH`: 
+            * `AFL_NO_AUTODICT`: 
+            * `AFL_NO_COLOR`: 
+            * `AFL_NO_CPU_RED`: 
+            * `AFL_NO_FORKSRV`: 
+            * `AFL_NO_SNAPSHOT`: 
+            * `AFL_NO_UI`: 
+            * `AFL_NO_STARTUP_CALIBRATION`: 
+            * `AFL_NO_WARN_INSTABILITY`: 
+            * `AFL_PATH`: 
+            * `AFL_POST_LIBRARY`: 
+            * `AFL_PRELOAD`: 
+            * `AFL_QEMU_CUSTOM_BIN`: 
+            * `AFL_SHUFFLE_QUEUE`: 
+            * `AFL_SKIP_CPUFREQ`: 
+            * `AFL_STATSD`: 
+            * `AFL_STATSD_TAGS_FLAVOR`: 
+            * `AFL_SYNC_TIME`: 
+            * `AFL_TARGET_ENV`: 
+            * `AFL_TESTCACHE_SIZE`: 
+            * `AFL_TMPDIR`: 
+            * `AFL_TRY_AFFINITY`: 
+            * 当实现了自己的forkserver或持久模式时才会用到的: 
+                * `AFL_DEFER_FORKSRV`: 
+                * `AFL_PERSISTENT`: 
+            * `AFL_PIZZA_MODE`: 
+            * `AFL_FUZZER_STATS_UPDATE_INTERVAL`: 
     * unicorn模式: 
         * 唯一导出函数`uc_afl_fuzz`: 
             ```cpp
@@ -1254,7 +1311,63 @@
             * 错误: 
                 * `afl-fuzz: error while loading shared libraries: libpython3.12.so.1.0`
                     * `locate`找一下`libpython3.12.so.1.0`库, 然后将所在目录路径加入`LD_LIBRARY_PATH`
+    * 自定义变异器
+        * 参考: https://aflplus.plus/docs/custom_mutators/
+        * 编码: 
+            ```py
+                def init(seed): # AFL启动时调用, 设置RNG种子, 缓冲区, 状态
+                    pass
 
+                def fuzz_count(buf):
+                    return cnt
+
+                def splice_optout(): # 只要定义了这个函数, 则拼接的数据不会传给fuzz函数. (这个函数永远不会被调用)
+                    pass
+
+                def fuzz(buf, add_buf, max_size): 
+                    """
+                        buf: 测试用例(从队列中取出, 已经经过一系列变异)(bytearray)
+                        add_buf: 从队列中随机取的另一个输入值, 用于拼接(bytearray)
+                        返回: 新的测试用例(bytearray)
+                    """
+                    return mutated_out
+
+                def describe(max_description_length): # 
+                    return "description_of_current_mutation"
+
+                def post_process(buf): # 在测试用例变异之后, 传给目标之前, 进行最后的处理
+                    return out_buf
+
+                def init_trim(buf): # 在每次开始剪枝前会调用. 
+                    return cnt # 返回后续对buf的迭代操作次数(`afl->stage_max`)
+
+                def trim():
+                    return out_buf # 返回剪枝后的测试用例
+
+                def post_trim(success):
+                    return next_index # 这个返回值(`afl->stage_cur`)会和`init_trim`的返回值进行比较, 若小于, 则继续迭代
+
+                def havoc_mutation(buf, max_size): # 对buf数据进行自定义的变异
+                    return mutated_out
+
+                def havoc_mutation_probability(): # 返回一个概率值, 代表`havoc_mutation`中生成的数据被`havoc`使用的概率. 默认是6%
+                    return probability # int in [0, 100]
+
+                def queue_get(filename):
+                    return True
+
+                def fuzz_send(buf): # 可用该方法将数据发送给目标
+                    pass
+
+                def queue_new_entry(filename_new_queue, filename_orig_queue): # 该方法在新的测试用例被添加到队列之后调用
+                    return False
+
+                def introspection(): # 若变异afl时指定了`INTROSPECTION`, 则该方法在队列出现新的条目, 崩溃, 超时之后调用. 
+                    return string
+
+                def deinit():  # optional for Python
+                    pass
+            ```
 ## 其他插桩和fuzz工具或框架
 * 参考
     * [Are there any static binary rewriting tools？](https://reverseengineering.stackexchange.com/questions/14841/are-there-any-static-binary-rewriting-tools)
