@@ -464,16 +464,16 @@
     * 检测到崩溃或异常
     * 审核崩溃日志, 进行深度解析
 * 各种fuzz工具
-    * active x fuzz: COMRaider
-    * fuzz网络协议: spike
+    * active x fuzz: `COMRaider`
+    * fuzz网络协议: `spike`
     * 文件类型漏洞
-        * smart fuzz: peach
-        * blind fuzz: filefuzz
+        * smart fuzz: `peach`
+        * blind fuzz: `filefuzz`
     * ftpfuzz
     * 内核漏洞: ioctl_fuzzer
     * 基于硬件虚拟化 
-        * digtool(冰刃实验室)
-        * bochspwn(google p0团队)
+        * `digtool`(冰刃实验室)
+        * `bochspwn`(google p0团队)
             * 在vt层监听内存变化
 
 ## 二进制插桩和污点分析
@@ -1318,10 +1318,25 @@
                 def init(seed): # AFL启动时调用, 设置RNG种子, 缓冲区, 状态
                     pass
 
-                def fuzz_count(buf):
-                    return cnt
+                def queue_get(filename): # 这个函数在`fuzz_one_original`函数最开始的地方调用. 若返回False, 则`fuzz_one_original`函数直接返回1, 不会有后续的变异操作. 
+                    """
+                        filename: (队列中的)测试样例的文件名
+                    """
+                    return True
 
-                def splice_optout(): # 只要定义了这个函数, 则拼接的数据不会传给fuzz函数. (这个函数永远不会被调用)
+                def fuzz_count(buf):
+                    return cnt # 此值赋予`afl->stage_max`, 表示一个自定义变异器对一个测试用例的最大变异次数
+
+                def init_trim(buf): # 在每次开始剪枝前会调用. 
+                    return cnt # 返回后续对buf的迭代操作次数(`afl->stage_max`)
+
+                def trim():
+                    return out_buf # 返回剪枝后的测试用例
+
+                def post_trim(success):
+                    return next_index # 这个返回值(`afl->stage_cur`)会和`init_trim`的返回值进行比较, 若小于, 则继续迭代
+
+                def splice_optout(): # 只要定义了这个函数, 则拼接的数据不会传给fuzz函数(也就是fuzz函数的`add_buf`是空串). (这个函数永远不会被调用)
                     pass
 
                 def fuzz(buf, add_buf, max_size): 
@@ -1333,41 +1348,36 @@
                     return mutated_out
 
                 def describe(max_description_length): # 
-                    return "description_of_current_mutation"
+                    return b"description_of_current_mutation" # 注意必须返回bytes类型数据
 
-                def post_process(buf): # 在测试用例变异之后, 传给目标之前, 进行最后的处理
+                def post_process(buf): # 在测试用例变异之后, 传给目标之前, 进行最后的处理(由`write_to_testcase`和`write_with_gap`调用)
                     return out_buf
 
-                def init_trim(buf): # 在每次开始剪枝前会调用. 
-                    return cnt # 返回后续对buf的迭代操作次数(`afl->stage_max`)
-
-                def trim():
-                    return out_buf # 返回剪枝后的测试用例
-
-                def post_trim(success):
-                    return next_index # 这个返回值(`afl->stage_cur`)会和`init_trim`的返回值进行比较, 若小于, 则继续迭代
+                def fuzz_send(buf): # 可用该方法将数据发送给目标(该函数由`write_to_testcase`函数调用)
+                    pass
 
                 def havoc_mutation(buf, max_size): # 对buf数据进行自定义的变异
-                    return mutated_out
+                    return mutated_out # 返回新测试用例的长度
 
                 def havoc_mutation_probability(): # 返回一个概率值, 代表`havoc_mutation`中生成的数据被`havoc`使用的概率. 默认是6%
                     return probability # int in [0, 100]
-
-                def queue_get(filename):
-                    return True
-
-                def fuzz_send(buf): # 可用该方法将数据发送给目标
-                    pass
 
                 def queue_new_entry(filename_new_queue, filename_orig_queue): # 该方法在新的测试用例被添加到队列之后调用
                     return False
 
                 def introspection(): # 若变异afl时指定了`INTROSPECTION`, 则该方法在队列出现新的条目, 崩溃, 超时之后调用. 
-                    return string
+                    return string # 返回一个字符串, 描述当前使用的测试用例(会被记录到`afl->introspection_file`文件中)
+                
+                def post_run(): # 每次afl跑完一次目标程序后调用
+                    pass
 
                 def deinit():  # optional for Python
                     pass
             ```
+        * 使用: 设置环境变量: 
+            * python: 
+                * `PYTHONPATH`: 设置为指向编译器模块所在目录路径
+                * `AFL_PYTHON_MODULE`: 设置变异器模块名称(**注意不要加`.py`**)
 ## 其他插桩和fuzz工具或框架
 * 参考
     * [Are there any static binary rewriting tools？](https://reverseengineering.stackexchange.com/questions/14841/are-there-any-static-binary-rewriting-tools)
