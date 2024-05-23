@@ -763,6 +763,8 @@
     * [AFL 漏洞挖掘技术漫谈(二): Fuzz 结果分析和代码覆盖率](https://paper.seebug.org/842)
     * [AFL二三事——源码分析（下篇）](https://xz.aliyun.com/t/10316?time__1311=mq%2BxBDyDuGBAD%2FD0DoY%2BW4j2fR3D8eD&alichlgref=https%3A%2F%2Fxz.aliyun.com%2Ft%2F10315%3Ftime__1311%3Dmq%252BxBDyDuGBDRDBqDTmGIimgGzePx%26alichlgref%3Dhttps%253A%252F%252Fwww.google.com%252F)
     * [基于覆盖率的Fuzzer和AFL](https://mp.weixin.qq.com/s?__biz=MjM5NTc2MDYxMw==&mid=2458508973&idx=1&sn=ce081b2f0c86b34a10779cb6f1302ca1&chksm=b18eee2786f96731f910ee6079ae1561f23b1706568441ba3ce5cd16bd7ca0f456aac9932eab&scene=27)
+    * 优化
+        * [AFL-FUZZ暴力效率流实践](https://dwfault.github.io/2019/12/20/afl-fuzz%E6%9A%B4%E5%8A%9B%E6%95%88%E7%8E%87%E6%B5%81%E5%AE%9E%E8%B7%B5/)
     * 统计数据
         * [AFL中使用的环境变量 以及状态栏、fuzzer_stats文件、plot_data文件中各字段的含义](https://blog.csdn.net/weixin_50972562/article/details/125550494)
         * [Understanding the status screen](https://aflplus.plus/docs/status_screen/)
@@ -1378,9 +1380,11 @@
             * python: 
                 * `PYTHONPATH`: 设置为指向编译器模块所在目录路径
                 * `AFL_PYTHON_MODULE`: 设置变异器模块名称(**注意不要加`.py`**)
+
 ## 其他插桩和fuzz工具或框架
 * 参考
     * [Are there any static binary rewriting tools？](https://reverseengineering.stackexchange.com/questions/14841/are-there-any-static-binary-rewriting-tools)
+    * [Fuzzing技术总结（Brief Surveys on Fuzz Testing）](https://zhuanlan.zhihu.com/p/43432370)
 * peafl64
     * https://github.com/Sentinel-One/peafl64
     * 要点: 
@@ -1393,7 +1397,7 @@
 * afl-dyninst
     * https://github.com/Cisco-Talos/moflow/tree/master/afl-dyninst
     * 要点: 
-        * AFL + Dyninst, 需要先安装`Dyninst`
+        * `AFL` + `Dyninst`, 需要先安装`Dyninst`
         * 二进制静态插桩, 为每个基本块插入一个回调函数, 并在`_init`函数或指定入口点插入初始化的回调函数. 
     * 用法
         ```sh

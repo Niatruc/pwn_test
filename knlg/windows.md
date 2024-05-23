@@ -352,52 +352,52 @@
 
 ## 文件操作
 ```cpp
-// 打开或创建文件或io设备
-// 如果是文件的话, 必须提供完整路径
-HANDLE CreateFile(
-    LPCTSTR lpFileName, //普通文件名或者设备文件名
-    DWORD dwDesiredAccess, //访问模式（写GENERIC_WRITE/读GENERIC_READ/执行GENERIC_EXECUTE/所有GENERIC_ALL, 0则只允许获取设备信息）
-    DWORD dwShareMode, //共享模式, 如FILE_SHARE_READ; 0则不共享
-    LPSECURITY_ATTRIBUTES lpSecurityAttributes, //指向安全属性SECURITY_ATTRIBUTES结构的指针, 确定如何在子进程中继承这个句柄. 若为NULL, 则文件或设备得到默认安全描述符, 且子进程不能继承此文件句柄. 
-    
-    // 如何创建.
-    // CREATE_NEW: 不存在时新建
-    // CREATE_ALWAYS: 覆盖式新建
-    // OPEN_ALWAYS: 文件存在则打开文件并返回成功(GetLastError得到ERROR_ALREADY_EXISTS(183)); 不存在则新建文件(错误码为0)
-    // OPEN_EXISTING: 如果是设备而非文件, 通常设为该值. 
-    // TRUNCATE_EXISTING: 若文件存在, 打开文件, 截断之使之大小为0. 前提是设置了GENERIC_WRITE
-    // 
-    DWORD dwCreationDisposition, 
+    // 打开或创建文件或io设备
+    // 如果是文件的话, 必须提供完整路径
+    HANDLE CreateFile(
+        LPCTSTR lpFileName, //普通文件名或者设备文件名
+        DWORD dwDesiredAccess, //访问模式（写GENERIC_WRITE/读GENERIC_READ/执行GENERIC_EXECUTE/所有GENERIC_ALL, 0则只允许获取设备信息）
+        DWORD dwShareMode, //共享模式, 如FILE_SHARE_READ; 0则不共享
+        LPSECURITY_ATTRIBUTES lpSecurityAttributes, //指向安全属性SECURITY_ATTRIBUTES结构的指针, 确定如何在子进程中继承这个句柄. 若为NULL, 则文件或设备得到默认安全描述符, 且子进程不能继承此文件句柄. 
+        
+        // 如何创建.
+        // CREATE_NEW: 不存在时新建
+        // CREATE_ALWAYS: 覆盖式新建
+        // OPEN_ALWAYS: 文件存在则打开文件并返回成功(GetLastError得到ERROR_ALREADY_EXISTS(183)); 不存在则新建文件(错误码为0)
+        // OPEN_EXISTING: 如果是设备而非文件, 通常设为该值. 
+        // TRUNCATE_EXISTING: 若文件存在, 打开文件, 截断之使之大小为0. 前提是设置了GENERIC_WRITE
+        // 
+        DWORD dwCreationDisposition, 
 
-    DWORD dwFlagsAndAttributes, // 文件属性. 最常用的是FILE_ATTRIBUTE_NORMAL
-    HANDLE hTemplateFile // 模板文件的句柄, 可为NULL. 用于复制文件句柄
-);
+        DWORD dwFlagsAndAttributes, // 文件属性. 最常用的是FILE_ATTRIBUTE_NORMAL
+        HANDLE hTemplateFile // 模板文件的句柄, 可为NULL. 用于复制文件句柄
+    );
 
-BOOL ReadFile(
-    HANDLE hFile,            //文件的句柄
-    LPVOID lpBuffer,          //用于保存读入数据的一个缓冲区
-    DWORD nNumberOfBytesToRead,    //要读入的字节数
-    LPDWORD lpNumberOfBytesRead,    //指向实际读取字节数的指针
-    LPOVERLAPPED lpOverlapped
-    //如文件打开时指定了FILE_FLAG_OVERLAPPED, 那么必须, 用这个参数引用一个特殊的结构。
-    //该结构定义了一次异步读取操作。否则, 应将这个参数设为NULL
-);
+    BOOL ReadFile(
+        HANDLE hFile,            //文件的句柄
+        LPVOID lpBuffer,          //用于保存读入数据的一个缓冲区
+        DWORD nNumberOfBytesToRead,    //要读入的字节数
+        LPDWORD lpNumberOfBytesRead,    //指向实际读取字节数的指针
+        LPOVERLAPPED lpOverlapped
+        //如文件打开时指定了FILE_FLAG_OVERLAPPED, 那么必须, 用这个参数引用一个特殊的结构。
+        //该结构定义了一次异步读取操作。否则, 应将这个参数设为NULL
+    );
 
-BOOL WriteFile(
-    HANDLE  hFile,//文件句柄
-    LPCVOID lpBuffer,//数据缓存区指针
-    DWORD   nNumberOfBytesToWrite,//要写的字节数
-    LPDWORD lpNumberOfBytesWritten,//用于保存实际写入字节数的存储区域的指针
-    LPOVERLAPPED lpOverlapped//OVERLAPPED结构体指针
-);
+    BOOL WriteFile(
+        HANDLE  hFile,//文件句柄
+        LPCVOID lpBuffer,//数据缓存区指针
+        DWORD   nNumberOfBytesToWrite,//要写的字节数
+        LPDWORD lpNumberOfBytesWritten,//用于保存实际写入字节数的存储区域的指针
+        LPOVERLAPPED lpOverlapped//OVERLAPPED结构体指针
+    );
 
-// 新建目录
-BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes); // 一参为目录的完整路径
+    // 新建目录
+    BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes); // 一参为目录的完整路径
 ```
 ### shlwapi库
 ```cpp
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi")
+    #include <shlwapi.h>
+    #pragma comment(lib, "shlwapi")
 ```
 ## 注册表操作
 ```cpp
@@ -405,53 +405,52 @@ BOOL CreateDirectory(LPCTSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttribu
 
 ## 进程操作
 ```cpp
+    // 枚举所有进程
+    BOOL EnumProcesses(
+        _Out_ DWORD * pProcessIds, // 一个数组, 接收所有进程id
+        _In_ DWORD CB, // 数组长度
+        _Out_ DWORD * pBytesReturned // 用于接收返回数据的长度
+    );
 
-// 枚举所有进程
-BOOL EnumProcesses(
-    _Out_ DWORD * pProcessIds, // 一个数组, 接收所有进程id
-    _In_ DWORD CB, // 数组长度
-    _Out_ DWORD * pBytesReturned // 用于接收返回数据的长度
-);
+    // 枚举进程中的模块
+    BOOL EnumProcessModules(
+    IN  HANDLE  hProcess, // 进程句柄
+    OUT HMODULE *lphModule, // 这个列表用于保存模块列表
+    IN  DWORD   cb, // 数组长度
+    OUT LPDWORD lpcbNeeded // 可理解为模块总数
+    );
 
-// 枚举进程中的模块
-BOOL EnumProcessModules(
-  IN  HANDLE  hProcess, // 进程句柄
-  OUT HMODULE *lphModule, // 这个列表用于保存模块列表
-  IN  DWORD   cb, // 数组长度
-  OUT LPDWORD lpcbNeeded // 可理解为模块总数
-);
+    // 根据模块的内存基址, 获取模块文件名称
+    GetModuleBaseName
 
-// 根据模块的内存基址, 获取模块文件名称
-GetModuleBaseName
-
-// 根据模块的内存基址, 获取模块文件完整路径
-DWORD GetModuleFileNameExW(
-    HANDLE  hProcess,
-    HMODULE hModule,
-    LPWSTR  lpFilename,
-    DWORD   nSize // 缓冲区lpFilename的大小(字符数而非字节数!)
-);
+    // 根据模块的内存基址, 获取模块文件完整路径
+    DWORD GetModuleFileNameExW(
+        HANDLE  hProcess,
+        HMODULE hModule,
+        LPWSTR  lpFilename,
+        DWORD   nSize // 缓冲区lpFilename的大小(字符数而非字节数!)
+    );
 ```
 
 ## 线程操作
 ```cpp
-#include <processthreadsapi.h>
+    #include <processthreadsapi.h>
 
-HANDLE CreateThread(
-    IN OPTIONAL  LPSECURITY_ATTRIBUTES   lpThreadAttributes,
-    IN            SIZE_T                  dwStackSize,
-    IN            LPTHREAD_START_ROUTINE  lpStartAddress, // 线程入口函数
-    IN OPTIONAL  __drv_aliasesMem LPVOID lpParameter, // 传给线程的参数
-    IN            DWORD                   dwCreationFlags,
-    OUT OPTIONAL LPDWORD                 lpThreadId
-); // 若失败, 返回NULL
-// 例
-HANDLE hThrd = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) MyFunc, (LPVOID) paramx, 0, &tid);
+    HANDLE CreateThread(
+        IN OPTIONAL  LPSECURITY_ATTRIBUTES   lpThreadAttributes,
+        IN            SIZE_T                  dwStackSize,
+        IN            LPTHREAD_START_ROUTINE  lpStartAddress, // 线程入口函数
+        IN OPTIONAL  __drv_aliasesMem LPVOID lpParameter, // 传给线程的参数
+        IN            DWORD                   dwCreationFlags,
+        OUT OPTIONAL LPDWORD                 lpThreadId
+    ); // 若失败, 返回NULL
+    // 例
+    HANDLE hThrd = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) MyFunc, (LPVOID) paramx, 0, &tid);
 
-HANDLE hThrd = OpenThread(SYNCHRONIZE, FALSE, tid); // 成功则返回线程句柄
-WaitForSingleObject(hThrd, INFINITE); // 阻塞, 等待线程退出
+    HANDLE hThrd = OpenThread(SYNCHRONIZE, FALSE, tid); // 成功则返回线程句柄
+    WaitForSingleObject(hThrd, INFINITE); // 阻塞, 等待线程退出
 
-ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数以退出线程
+    ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数以退出线程
 ```
 
 ## 加解密API
@@ -459,6 +458,24 @@ ExitThread(<线程退出代码>); // 在线程回调函数内部调用此函数�
 
 ```cpp
 ```
+
+## 其他
+* 实现类似于unix的`perror`功能: 
+    ```cpp
+        void PrintCodeMsg(DWORD code) {
+            LPSTR errorMsg;
+            if (code == 0) {
+                return; //No error message has been recorded
+            }
+
+            //Ask Win32 to give us the string version of that message ID.
+            //The parameters we pass in, tell Win32 to create the buffer that holds the message for us (because we don't yet know how long the message string will be).
+            size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&errorMsg, 0, NULL);
+            printf("0x%x: %s\n", code, errorMsg);
+            LocalFree(errorMsg);
+            return;
+        }
+    ```
 
 # cmd
 * 进程

@@ -269,6 +269,14 @@
         )
         ql.run()
     ```
+* 信息: 
+    * `ql.os.entry_point`: 实际为ld库的入口地址
+    * `ql.loader.elf_entry`: 程序的主入口地址
+* 内存操作
+    * `ql.mem`: 
+        * `.read(addr, size)`: 读内存地址数据
+        * `.read(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
+    * `ql.patch()`
 * 劫持/挂钩
     * 
 * 调试
@@ -667,6 +675,16 @@
         * 用法同jupyter, 比如可用`%matplotlib inline`(需安装`matplotlib`)
 
             <img alt="ipyida.jpg" src="./pic/ipyida.jpg" width="50%" height="50%">
+
+    * keypatch
+        * 安装: 
+            * `pip install keystone`, `pip install six`
+            * 找到这个项目`https://github.com/keystone-engine/keypatch`, 下载其中的`keypatch.py`文件, 放到ida的`plugins`目录下. 
+        * 使用: 
+            * 在汇编窗口中, 右键要修改的指令, 选`keypatch`, 在弹窗中修改指令, 确定后此插件将对指令进行反汇编并打补丁. 
+
+    * idaref
+        * https://github.com/nologic/idaref
 
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`
