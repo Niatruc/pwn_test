@@ -232,7 +232,7 @@
 * 初始化及运行: 
     ```py
         Qiling(
-            argv: Sequence[str] = [], # 目标程序
+            argv: Sequence[str] = [], # 目标程序以及其命令行参数(字符串)
             rootfs: str = r'.', # 目标文件系统目录
             env: MutableMapping[AnyStr, AnyStr] = {}, # 目标系统中的环境变量
             code: Optional[bytes] = None, # 要运行的代码
@@ -244,7 +244,7 @@
             log_file: Optional[str] = None, # 日志文件目录, 不设置的话会直接在stdout打印出来 
             log_override: Optional['Logger'] = None,
             log_plain: bool = False,
-            multithread: bool = False,
+            multithread: bool = False, # 开启多线程支持
             filter: Optional[str] = None,
             stop: QL_STOP = QL_STOP.NONE, # 值可为`QL_STOP.STACK_POINTER`(栈指针为负数时结束), `QL_STOP.EXIT_TRAP`(运行到exit陷阱时)或它们的或值
             *,
@@ -273,16 +273,63 @@
     * `ql.os.entry_point`: 实际为ld库的入口地址
     * `ql.loader.elf_entry`: 程序的主入口地址
 * 内存操作
+    * 栈: 
+        * `ql.arch.stack_pop()`: 弹栈
+        * `ql.arch.stack_push(<val>)`: 压栈
+        * `ql.arch.stack_read(<offset>)`: 读栈(`<offset>`相对于栈顶)
+        * `ql.arch.stack_write(<offset>, <val>)`: 写栈
     * `ql.mem`: 
         * `.read(addr, size)`: 读内存地址数据
         * `.read(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
-    * `ql.patch()`
+    * `ql.patch(addr, buf)`: 在内存打补丁. 实际会在`ql.run()`之后才改内存. 
+* 寄存器
+    * `ql.arch.regs`
+        * `.<寄存器>`: 得到寄存器值
+        * `.register_mapping`: 这个字典存放所有寄存器值
+        * `.arch_pc`: 通用, 计数器
+        * `.arch_sp`: 通用, 栈指针
 * 劫持/挂钩
-    * 
+    * `ql.hook_address(callback, address, user_data=None)`: 执行到`address`时会调用`callback`函数. 
+        * `callback`的参数是ql实例. 
+    * `ql.hook_block(ql_hook_block_disasm)`: 每次执行到基本块前会调用回调函数. 
+        * 回调函数: `ql_hook_block_disasm(ql, address, size)`
+    * 系统api钩子:
+        ```sh
+            def my_puts(ql: Qiling):
+                params = ql.os.resolve_fcall_params({'s': STRING})
+
+                s = params['s']
+                ql.log.info(f'my_puts: got "{s}" as an argument')
+
+                # emulate puts functionality
+                print(s)
+
+                return len(s)
+                
+            ql.os.set_api('puts', my_puts, QL_INTERCEPT.CALL) 
+                # QL_INTERCEPT.CALL: 直接用钩子函数覆盖原函数
+                # QL_INTERCEPT.ENTER: 进入原函数前执行钩子. 不会覆盖原函数
+                # QL_INTERCEPT.EXIT: 退出原函数前执行钩子. 不会覆盖原函数
+        ```
+* 快照
+    ```py
+        # save(self, reg=True, mem=True, hw=False, fd=False, cpu_context=False, os=False, loader=False, *, snapshot: Optional[str] = None)
+            # 参数: 
+                # snapshot: 指定快照文件的路径
+        
+        ql.save(snapshot="snapshot.bin") # 保存快照
+        ql.restore(snapshot="snapshot.bin") # 恢复快照
+    ```
+    * 坑点: 
+        * 恢复快照不会重新打开原先的fd. 这会导致后续`select`等函数调用的错误(`Bad file descriptor`)
 * 调试
     * gdb远程调试
         * `ql.debugger = True`
         * 运行仿真后, 会出现一行`gdb> listening on 127.0.0.1:9999`, 这时可运行`gdb-multiarch`, 然后执行`set remotetimeout 100`, `target remote 127.0.0.1:9999`附加调试. 
+        * 其他写法: 
+            * `ql.debugger = "gdb::9999"`: GDB server
+            * `ql.debugger = "gdb:127.0.0.1:9999"`: GDB server
+            * `ql.debugger = "idapro:127.0.0.1:9999"`: IDA pro server
     * Qdb
         * `ql.debugger = "qdb`
         * `ql.debugger = "qdb:0x1030c"`: 在`0x1030c`处设置断点(即`init_hook`)
@@ -293,11 +340,14 @@
             * `c`: 继续
             * `b <addr>`: 断点
             * `x <addr> <len>`: 查看数据
+* 打印
+    * `ql.log`
+        * `.print`
+    * 过滤器
+        * `ql.filter = '^open'`: 表示仅显示以"open"为开头的信息. 
+* 踩坑
+    * 若仿真程序监听了小于1024的端口时, qiling会将端口值加上8000. 见`os/posix/syscall/socket.py:ql_syscall_bind`函数. 
 
-* 方法
-    * 打印
-        * `ql.log`
-            * `.print`
 ## binwalk
 * `binwalk <bin文件>`
 * 参数

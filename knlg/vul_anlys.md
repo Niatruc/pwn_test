@@ -864,6 +864,32 @@
                 ```
                 * `util/memfd.c`这个文件中定义的`memfd_create`函数和其他文件(`/usr/include/x86_64-linux-gnu/bits/mman-shared.h`)的定义冲突了. 需去掉函数声明中的`static`关键字. (按[AFL-qemu安装问题](https://blog.csdn.net/liyihao17/article/details/109981662)解决问题).
         * 指定`AFL_PATH`: `export AFL_PATH=/home/bohan/res/afl/`. 
+    * fuzz结果
+        * crash文件: 
+            * 例: `id:000102,sig:06,src:000387,op:havoc,rep:4`
+                * id: 唯一标识符
+                * sig: 程序退出时的信号(比如`SIGABRT`, `SIGSEGV`)
+                * src: 此用例的源用例的id. 源用例是`queue`目录下的用例, 此用例由对应的源用例变异而来. 
+                * op: 应用在此用例上的变异操作(如`havoc`)
+                * rep: op操作的重复次数
+        * queue目录下文件多的属性: 
+            * `pos:11`: 表示该文件在源用例文件的基础上改变了第11个字节. 
+            * `+cov`: 表示该文件相对于源用例文件, 在执行后产生了新的边覆盖. (也就是说此文件让目标程序产生了新的动作)
+
+id:000102 - sequential number of a unique-looking crash
+
+sig:06 - the crashing signal (SIGABRT in this case; another common
+signal is 11, SIGSEGV)
+
+src:000387 - the "source" for this crashing case is the non-crashing
+test case in ../queue/id:000387*. You can compare the two to hopefully
+narrow down the exact spot causes the crash
+
+op:havoc,rep:4 - the operation that transformed the source file into
+this crashing case. Unfortunately, here, it's just stacked random
+tweaks, so the diff to the parent file may be relatively big, and it's
+not just a single bit flip or so. But in other cases, you may be more
+lucky.
 
 * 其他工具
     * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态. 
@@ -1380,6 +1406,10 @@
             * python: 
                 * `PYTHONPATH`: 设置为指向编译器模块所在目录路径
                 * `AFL_PYTHON_MODULE`: 设置变异器模块名称(**注意不要加`.py`**)
+
+## libafl
+* 参考
+    * [Fuzz Everything, Everywhere, All at Once](https://aflplus.plus/37C3_talk_2023.pdf)
 
 ## 其他插桩和fuzz工具或框架
 * 参考

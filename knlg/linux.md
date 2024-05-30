@@ -15,6 +15,8 @@
             * `/random`
                 * `uuid`: 用`cat`打印这个文件, 将生成一个随机的uuid
             * `/randomize_va_space`: 设为0, 可关闭地址随机化
+        * `/net`
+            * `/ipv4`: 这下面有tcp, ip等协议的选项. 
 * `/boot`:
     * `/grub`
         * `/grub.cfg`

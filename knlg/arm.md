@@ -16,6 +16,7 @@
     * r9: 保留
     * r10(SL): `callee-save`寄存器, Stack Limit(sl). 
     * r11(FP): `callee-save`寄存器,  帧指针fp(Flame Pointer)
+    * r12(IP(`intra-procedure scratch`)): `callee-save`寄存器,  帧指针fp(Flame Pointer)
     * r13: 堆栈指针sp, 指向栈顶
     * r14: LR寄存器(linked register), 存返回地址
     * r15: 程序计数器PC
