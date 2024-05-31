@@ -4,7 +4,7 @@
     * https://developer.arm.com/documentation/dui0802/b/A32-and-T32-Instructions/
 # 寄存器
 * 未备份寄存器(r0 ~ r7)
-    * r0 ~ r3: 传参
+    * r0 ~ r3: 传参. r0常用于存结果. 
     * r4 ~ r6: 
         * 是`callee-save`寄存器(即被使用前要先保存值)
         * 常用于保存局部变量

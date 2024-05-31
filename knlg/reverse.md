@@ -174,6 +174,7 @@
 
         # 注册hook函数
         mu.hook_add(UC_HOOK_CODE, hook_code)
+            # 定义: def hook_add(self, htype: int, callback: UC_HOOK_CALLBACK_TYPE , user_data: Any=None, begin: int=1, end: int=0, arg1: int=0, arg2: int=0)
 
         # 开始模拟执行
         mu.emu_start(0x0000000000401149, 0x0000000000401169)
@@ -294,7 +295,10 @@
     * `ql.hook_block(ql_hook_block_disasm)`: 每次执行到基本块前会调用回调函数. 
         * 回调函数: `ql_hook_block_disasm(ql, address, size)`
     * 系统api钩子:
-        ```sh
+        ```py
+            from qiling.const import *
+            from qiling.os.const import *
+
             def my_puts(ql: Qiling):
                 params = ql.os.resolve_fcall_params({'s': STRING})
 
@@ -345,6 +349,14 @@
         * `.print`
     * 过滤器
         * `ql.filter = '^open'`: 表示仅显示以"open"为开头的信息. 
+* 工具
+    ```py
+        from qiling.utils import ql_get_module, ql_get_module_function
+
+        os_syscalls = ql_get_module(f'.os.{ql.os.type.name.lower()}.syscall')
+        posix_syscalls = ql_get_module(f'.os.posix.syscall')
+        syscall_hook = getattr(os_syscalls, 'ql_syscall_recv', None) or getattr(posix_syscalls, 'ql_syscall_recv', None)
+    ```
 * 踩坑
     * 若仿真程序监听了小于1024的端口时, qiling会将端口值加上8000. 见`os/posix/syscall/socket.py:ql_syscall_bind`函数. 
 
