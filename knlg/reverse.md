@@ -294,26 +294,33 @@
         * `callback`的参数是ql实例. 
     * `ql.hook_block(ql_hook_block_disasm)`: 每次执行到基本块前会调用回调函数. 
         * 回调函数: `ql_hook_block_disasm(ql, address, size)`
-    * 系统api钩子:
+    * posix libc函数钩子和系统api钩子:
         ```py
             from qiling.const import *
             from qiling.os.const import *
 
+            # 设置libc函数钩子
             def my_puts(ql: Qiling):
                 params = ql.os.resolve_fcall_params({'s': STRING})
-
                 s = params['s']
                 ql.log.info(f'my_puts: got "{s}" as an argument')
-
-                # emulate puts functionality
                 print(s)
-
                 return len(s)
-                
-            ql.os.set_api('puts', my_puts, QL_INTERCEPT.CALL) 
+            ql.os.set_api('puts', my_puts, QL_INTERCEPT.CALL) # libc函数钩子
                 # QL_INTERCEPT.CALL: 直接用钩子函数覆盖原函数
                 # QL_INTERCEPT.ENTER: 进入原函数前执行钩子. 不会覆盖原函数
                 # QL_INTERCEPT.EXIT: 退出原函数前执行钩子. 不会覆盖原函数
+
+            # 设置系统api钩子
+            def my_recv(ql: Qiling, sockfd: int, buf: int, length: int, flags: int):
+                os_syscalls = ql_get_module(f'.os.{ql.os.type.name.lower()}.syscall')
+                posix_syscalls = ql_get_module(f'.os.posix.syscall')
+                syscall_hook = getattr(os_syscalls, 'ql_syscall_recv', None) or getattr(posix_syscalls, 'ql_syscall_recv', None) # 获取`os/posix/socket.py`中定义的`ql_syscall_recv`函数. 
+                try: 
+                    return syscall_hook(ql, sockfd, buf, length, flags) # 调用原始的`ql_syscall_recv`函数
+                except:
+                    pass
+            ql.os.set_syscall('recv', my_recv_write, QL_INTERCEPT.CALL) # 系统api钩子
         ```
 * 快照
     ```py
@@ -350,16 +357,31 @@
     * 过滤器
         * `ql.filter = '^open'`: 表示仅显示以"open"为开头的信息. 
 * 工具
-    ```py
-        from qiling.utils import ql_get_module, ql_get_module_function
+    * `qiling.utils`
+        ```py
+            from qiling.utils import ql_get_module, ql_get_module_function
 
-        os_syscalls = ql_get_module(f'.os.{ql.os.type.name.lower()}.syscall')
-        posix_syscalls = ql_get_module(f'.os.posix.syscall')
-        syscall_hook = getattr(os_syscalls, 'ql_syscall_recv', None) or getattr(posix_syscalls, 'ql_syscall_recv', None)
-    ```
+            os_syscalls = ql_get_module(f'.os.{ql.os.type.name.lower()}.syscall')
+            posix_syscalls = ql_get_module(f'.os.posix.syscall')
+            syscall_hook = getattr(os_syscalls, 'ql_syscall_recv', None) or getattr(posix_syscalls, 'ql_syscall_recv', None)
+        ```
+    * `qiling.os.utils`
+        ```py
+        ql.os.utils.read_string(addr, 'ascii') # 读取仿真内存中的字符串
+        ```
 * 踩坑
     * 若仿真程序监听了小于1024的端口时, qiling会将端口值加上8000. 见`os/posix/syscall/socket.py:ql_syscall_bind`函数. 
-
+    * 在posix系统, 要区分**针对系统api的钩子(用`ql.os.set_syscall`)和针对libc函数的钩子(用`ql.os.set_api`)**. 比如对`recv`函数, 要用`set_syscall`设置钩子. 
+    * 使用`afl-fuzz`时的问题: 
+        * `ValueError: not allowed to raise maximum limit`: 
+            * 仿真程序中调用了`setrlimit`系统调用. 
+            * 以root运行`afl-fuzz`则无此问题. 以普通用户单纯运行python程序亦则无此问题. 
+* 源码分析
+    * syscall钩子
+        * `os/posix/syscall`目录下多个py模块, 实现了各类syscall. 
+        * `QlOsPosix#__get_syscall_mapper`
+            * `QlOsPosix`实例初始化时有: `self.syscall_mapper = self.__get_syscall_mapper(self.ql.arch.type)`, 这个`syscall_mapper`字典指明了所有syscall的处理函数. 
+        * uc在程序使用int之类的中断指令后, 命中`UC_HOOK_INTR`类钩子. 逐步来到`QlOsPosix#load_syscall`函数. 这个函数先尝试从`posix_syscall_hooks`字典中获取enter, call, exit三类钩子. 若没有设置钩子, 则会直接调用`os/posix/syscall`目录下实现的syscall, 否则一次调用各钩子. 
 ## binwalk
 * `binwalk <bin文件>`
 * 参数
