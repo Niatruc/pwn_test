@@ -872,24 +872,9 @@
                 * src: 此用例的源用例的id. 源用例是`queue`目录下的用例, 此用例由对应的源用例变异而来. 
                 * op: 应用在此用例上的变异操作(如`havoc`)
                 * rep: op操作的重复次数
-        * queue目录下文件多的属性: 
+        * queue目录下文件名称中更多的属性: 
             * `pos:11`: 表示该文件在源用例文件的基础上改变了第11个字节. 
             * `+cov`: 表示该文件相对于源用例文件, 在执行后产生了新的边覆盖. (也就是说此文件让目标程序产生了新的动作)
-
-id:000102 - sequential number of a unique-looking crash
-
-sig:06 - the crashing signal (SIGABRT in this case; another common
-signal is 11, SIGSEGV)
-
-src:000387 - the "source" for this crashing case is the non-crashing
-test case in ../queue/id:000387*. You can compare the two to hopefully
-narrow down the exact spot causes the crash
-
-op:havoc,rep:4 - the operation that transformed the source file into
-this crashing case. Unfortunately, here, it's just stacked random
-tweaks, so the diff to the parent file may be relatively big, and it's
-not just a single bit flip or so. But in other cases, you may be more
-lucky.
 
 * 其他工具
     * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态. 
@@ -1242,6 +1227,13 @@ lucky.
         ```
     * 手动编译: 参考`https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md`
 * 使用: 
+    * 参数
+        ```sh
+            afl-fuzz
+                # 运行参数
+                # fuzz行为参数
+                # 其他
+        ```
     * 环境变量: 
         * fuzz相关: 
             * `AFL_AUTORESUME`: 可以延续使用上回fuzz的测试用例队列(而不是清空重来)
@@ -1262,8 +1254,8 @@ lucky.
             * `AFL_EXPAND_HAVOC_NOW`: 
             * `AFL_FAST_CAL`: 
             * `AFL_FORCE_UI`: 
-            * `AFL_FORKSRV_INIT_TMOUT`: 
-            * `AFL_HANG_TMOUT`: 
+            * `AFL_FORKSRV_INIT_TMOUT`: fork server 启动超时时间. 
+            * `AFL_HANG_TMOUT`: 相当于`-t`参数. 
             * `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`: 
             * `AFL_IGNORE_PROBLEMS`: 
             * `AFL_IGNORE_PROBLEMS_COVERAGE`: 
@@ -1303,7 +1295,7 @@ lucky.
                 * `AFL_DEFER_FORKSRV`: 
                 * `AFL_PERSISTENT`: 
             * `AFL_PIZZA_MODE`: 
-            * `AFL_FUZZER_STATS_UPDATE_INTERVAL`: 
+            * `AFL_FUZZER_STATS_UPDATE_INTERVAL`: `fuzzer_stats`文件的更新间隔(秒). 默认是1分钟更新一次. 
     * unicorn模式: 
         * 唯一导出函数`uc_afl_fuzz`: 
             ```cpp

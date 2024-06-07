@@ -282,6 +282,7 @@
     * `ql.mem`: 
         * `.read(addr, size)`: 读内存地址数据
         * `.read(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
+        * `.get_formatted_mapinfo()`: 获取仿真程序的内存分段信息.
     * `ql.patch(addr, buf)`: 在内存打补丁. 实际会在`ql.run()`之后才改内存. 
 * 寄存器
     * `ql.arch.regs`
@@ -369,6 +370,28 @@
         ```py
         ql.os.utils.read_string(addr, 'ascii') # 读取仿真内存中的字符串
         ```
+    * unicornafl
+        ```py
+            ql_afl_fuzz(ql: Qiling,
+                    input_file: str,
+                    place_input_callback: Callable[["Qiling", bytes, int], bool],
+                    exits: List[int],
+                    validate_crash_callback: Callable[["Qiling", int, bytes, int], bool] = None,
+                    always_validate: bool = False,
+                    persistent_iters: int = 1)
+
+            ql_afl_fuzz_custom(ql: Qiling,
+                        input_file: str,
+                        place_input_callback: Callable[["Qiling", bytes, int], bool],
+                        fuzzing_callback: Callable[["Qiling"], int],
+                        exits: List[int] = [],
+                        validate_crash_callback: Callable[["Qiling", bytes, int], bool] = None,
+                        always_validate: bool = False,
+                        persistent_iters: int = 1)                
+        ```
+
+        * `ql_afl_fuzz_custom`多了一个`fuzzing_callback`参数. `ql_afl_fuzz`调用了`ql_afl_fuzz_custom`, 其`fuzzing_callback`会调用`ql.uc.emu_start(pc, 0, 0, 0)`继续从当前的pc运行虚拟机. 
+        * 这两个函数在`afl-fuzz`运行的过程中返回就意味着子进程结束, 所以**在它们后面的python代码不会执行**. 
 * 踩坑
     * 若仿真程序监听了小于1024的端口时, qiling会将端口值加上8000. 见`os/posix/syscall/socket.py:ql_syscall_bind`函数. 
     * 在posix系统, 要区分**针对系统api的钩子(用`ql.os.set_syscall`)和针对libc函数的钩子(用`ql.os.set_api`)**. 比如对`recv`函数, 要用`set_syscall`设置钩子. 
