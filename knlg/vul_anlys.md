@@ -1085,15 +1085,25 @@
             static void show_stats(void); { }
 
             // 校准一个新的测试用例. 运行时机: 1. 每当对input目录进行处理, 提示之前产生了有问题的测试用例时; 2. 每次发现新的执行路径时. 
+                // 会先将`stage_cur`和`stage_max`暂存, 最后返回前才恢复. 
+                // 启动fork server
+                // 运行3次或7次目标程序
             static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem, u32 handicap, u8 from_queue) { }
+
             static void check_map_coverage(void) { }
+
+            // 只运行一次, 使用初始的每个测试用例运行一次目标程序, 确保能正常运行. 
             static void perform_dry_run(char** argv) { }
+
             static void link_or_copy(u8* old_path, u8* new_path) { }
             static void nuke_resume_dir(void); { }
             static void pivot_inputs(void) { }
             static u8* describe_op(u8 hnb) { }
             static void write_crash_readme(void) { }
+
+            // 检查一次execve的执行结果是不是感兴趣的, 是则保存或者放入输入测试用例队列. 返回1表示测试用例被保存. 
             static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) { }
+
             static u32 find_start_position(void) { }
             static void find_timeout(void) { }
             static void write_stats_file(double bitmap_cvg, double stability, double eps) { }
@@ -1252,7 +1262,7 @@
             * `AFL_EXIT_ON_TIME`: 若在指定时间(秒)内未找到新路径, 则结束fuzz, 可提高速度. 在自动化任务中有用. 
             * `AFL_EXIT_WHEN_DONE`: 当所有路径已经被fuzz过, 且一段时间内再无新路径时,结束fuzz. 在自动化任务中有用. 
             * `AFL_EXPAND_HAVOC_NOW`: 
-            * `AFL_FAST_CAL`: 
+            * `AFL_FAST_CAL`: 若指定, 则`calibrate_case`中只运行目标程序3次, 否则为7次. 
             * `AFL_FORCE_UI`: 
             * `AFL_FORKSRV_INIT_TMOUT`: fork server 启动超时时间. 
             * `AFL_HANG_TMOUT`: 相当于`-t`参数. 
@@ -1334,66 +1344,68 @@
     * 自定义变异器
         * 参考: https://aflplus.plus/docs/custom_mutators/
         * 编码: 
-            ```py
-                def init(seed): # AFL启动时调用, 设置RNG种子, 缓冲区, 状态
-                    pass
+            * python
+                * 对应函数定义在`afl-fuzz-python.c`中. 
+                    ```py
+                        def init(seed): # AFL启动时调用, 设置RNG种子, 缓冲区, 状态
+                            pass
 
-                def queue_get(filename): # 这个函数在`fuzz_one_original`函数最开始的地方调用. 若返回False, 则`fuzz_one_original`函数直接返回1, 不会有后续的变异操作. 
-                    """
-                        filename: (队列中的)测试样例的文件名
-                    """
-                    return True
+                        def queue_get(filename): # 这个函数在`fuzz_one_original`函数最开始的地方调用. 若返回False, 则`fuzz_one_original`函数直接返回1, 不会有后续的变异操作. 
+                            """
+                                filename: (队列中的)测试样例的文件名
+                            """
+                            return True
 
-                def fuzz_count(buf):
-                    return cnt # 此值赋予`afl->stage_max`, 表示一个自定义变异器对一个测试用例的最大变异次数
+                        def fuzz_count(buf):
+                            return cnt # 此值赋予`afl->stage_max`, 表示一个自定义变异器对一个测试用例的最大变异次数
 
-                def init_trim(buf): # 在每次开始剪枝前会调用. 
-                    return cnt # 返回后续对buf的迭代操作次数(`afl->stage_max`)
+                        def init_trim(buf): # 在每次开始剪枝前会调用. 
+                            return cnt # 返回后续对buf的迭代操作次数(`afl->stage_max`)
 
-                def trim():
-                    return out_buf # 返回剪枝后的测试用例
+                        def trim():
+                            return out_buf # 返回剪枝后的测试用例
 
-                def post_trim(success):
-                    return next_index # 这个返回值(`afl->stage_cur`)会和`init_trim`的返回值进行比较, 若小于, 则继续迭代
+                        def post_trim(success):
+                            return next_index # 这个返回值(`afl->stage_cur`)会和`init_trim`的返回值进行比较, 若小于, 则继续迭代
 
-                def splice_optout(): # 只要定义了这个函数, 则拼接的数据不会传给fuzz函数(也就是fuzz函数的`add_buf`是空串). (这个函数永远不会被调用)
-                    pass
+                        def splice_optout(): # 只要定义了这个函数, 则拼接的数据不会传给fuzz函数(也就是fuzz函数的`add_buf`是空串). (这个函数永远不会被调用)
+                            pass
 
-                def fuzz(buf, add_buf, max_size): 
-                    """
-                        buf: 测试用例(从队列中取出, 已经经过一系列变异)(bytearray)
-                        add_buf: 从队列中随机取的另一个输入值, 用于拼接(bytearray)
-                        返回: 新的测试用例(bytearray)
-                    """
-                    return mutated_out
+                        def fuzz(buf, add_buf, max_size): 
+                            """
+                                buf: 测试用例(从队列中取出, 已经经过一系列变异)(bytearray)
+                                add_buf: 从队列中随机取的另一个输入值, 用于拼接(bytearray)
+                                返回: 新的测试用例(bytearray)
+                            """
+                            return mutated_out
 
-                def describe(max_description_length): # 
-                    return b"description_of_current_mutation" # 注意必须返回bytes类型数据
+                        def describe(max_description_length): # 
+                            return b"description_of_current_mutation" # 注意必须返回bytes类型数据
 
-                def post_process(buf): # 在测试用例变异之后, 传给目标之前, 进行最后的处理(由`write_to_testcase`和`write_with_gap`调用)
-                    return out_buf
+                        def post_process(buf): # 在测试用例变异之后, 传给目标之前, 进行最后的处理(由`write_to_testcase`和`write_with_gap`调用)
+                            return out_buf
 
-                def fuzz_send(buf): # 可用该方法将数据发送给目标(该函数由`write_to_testcase`函数调用)
-                    pass
+                        def fuzz_send(buf): # 可用该方法将数据发送给目标(该函数由`write_to_testcase`函数调用)
+                            pass
 
-                def havoc_mutation(buf, max_size): # 对buf数据进行自定义的变异
-                    return mutated_out # 返回新测试用例的长度
+                        def havoc_mutation(buf, max_size): # 对buf数据进行自定义的变异
+                            return mutated_out # 返回新测试用例的长度
 
-                def havoc_mutation_probability(): # 返回一个概率值, 代表`havoc_mutation`中生成的数据被`havoc`使用的概率. 默认是6%
-                    return probability # int in [0, 100]
+                        def havoc_mutation_probability(): # 返回一个概率值, 代表`havoc_mutation`中生成的数据被`havoc`使用的概率. 默认是6%
+                            return probability # int in [0, 100]
 
-                def queue_new_entry(filename_new_queue, filename_orig_queue): # 该方法在新的测试用例被添加到队列之后调用
-                    return False
+                        def queue_new_entry(filename_new_queue, filename_orig_queue): # 该方法在新的测试用例被添加到队列之后调用
+                            return False
 
-                def introspection(): # 若变异afl时指定了`INTROSPECTION`, 则该方法在队列出现新的条目, 崩溃, 超时之后调用. 
-                    return string # 返回一个字符串, 描述当前使用的测试用例(会被记录到`afl->introspection_file`文件中)
-                
-                def post_run(): # 每次afl跑完一次目标程序后调用
-                    pass
+                        def introspection(): # 若变异afl时指定了`INTROSPECTION`, 则该方法在队列出现新的条目, 崩溃, 超时之后调用. 
+                            return string # 返回一个字符串, 描述当前使用的测试用例(会被记录到`afl->introspection_file`文件中)
+                        
+                        def post_run(): # 每次afl跑完一次目标程序后调用
+                            pass
 
-                def deinit():  # optional for Python
-                    pass
-            ```
+                        def deinit():  # optional for Python
+                            pass
+                    ```
         * 使用: 设置环境变量: 
             * python: 
                 * `PYTHONPATH`: 设置为指向编译器模块所在目录路径

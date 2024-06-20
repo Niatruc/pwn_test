@@ -1158,6 +1158,11 @@ typedef struct {
             echo $var
         done
 
+        # 遍历目录
+        for f in ${MY_DIR}/*; do
+            echo $f
+        done
+
         # for循环
         for ((i=0; i<5; i=i+1)); do
             echo $i

@@ -122,6 +122,11 @@
             ui->mySplitter->setStretchFactor(1, 2); // 1表示第1个格子. 占比为2
             ```
         * `QHBoxLayout`
+        * 踩坑
+            * 在designer中, 需要先往一个widget中添加组件, 然后才能设置layout. 
+    * 容器
+        * `QScrollArea`
+            * 在容器中内容长于容器时(比如设置了里面组件的最小高度大于容器高度时), 将显示滚动条. 
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * QT Creator生成的MainWindow主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
@@ -161,64 +166,77 @@
                 tabMenu->exec(QCursor::pos());
             }
         ``` 
-    * `QButton`: 
-        * 示例: 
-            ```cpp
-                QWidget widget; // 添加窗口
-                QPushButton But("按钮控件",&widget); // 定义一个按钮, 它位于 widget 窗口中
-                But.setGeometry(10,10,100,50); // 设置按钮的位置和尺寸
-            ```
-    * `QTableWidget`: 表格组件
-        * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
-        * 属性
-            * `sortingEnabled`: 设置是否可按列排序.  
-            * `Header`: 可设置行高, 列宽. 
-                * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
-        * 示例: 
-            ```cpp
-            // 解决点击表格时表头变粗的问题
-            ui->myTableWidget->setHighlightSections(false);
-
-            // QTableWidget ui->myTableWidget; 
-            int rowNum = ui->myTableWidget->rowCount(); // 获取当前行数
-            ui->myTableWidget->clearContents(); // 清空表格内容
-            ui->myTableWidget->setRowCount(0); // 清空表格行
-
-            // 设置列宽
-            ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
-            ui->myTableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents); // 设置列宽按内容变化. 
-
-            ui->myTableWidget->insertRow(rowNum); // 在第rowNum行前插入新行. 若参数大于当前表格最大行号, 则在表格末尾插入. 这里的写法就是末尾插入. 
-
-            // 在行中插入新的单元格
-            QTableWidgetItem* pQTableWidgetItem1 = new QTableWidgetItem(); 
-            ui->myTableWidget->setItem(rowNum, 0, pQTableWidgetItem1); // 在第0列插入
-
-            pQTableWidgetItem1->setData(Qt::DisplayRole, 12); // 为单元格设置数据12. 选用DisplayRole, 可以让列在排序按数字而非字符序. 
-
-            pQTableWidgetItem1->setTextAlignment(Qt::AlignRight); // 设置文本右对齐
-
-            // 在列中插入控件(比如按钮)
-            ui->myTableWidget->setCellWidget(row, 0, myButton); 
-
-            // 清空表格
-            ui->myTableWidget->clearContents(); // 不会去除表头
-            ui->myTableWidget->setRowCount(0);
-
-            // 去除行号
-            QHeaderView *h = ui->myTableWidget->verticalHeader();
-            h->setHiddern(true);
-
-            ```
-        * 问题
-            * 排序后, 对item获取的行号可能不正确. 
-                * 解决方法: 每次`setItem`前先关闭排序功能. 
+    * 按钮
+        * `QPushButton`: 
+            * 示例: 
                 ```cpp
-                ui->myTableWidget->setSortingEnabled(false);
-                ... // 调用setItem插入单元
-                ui->myTableWidget->setSortingEnabled(false);
+                    QWidget widget; // 添加窗口
+                    QPushButton But("按钮控件",&widget); // 定义一个按钮, 它位于 widget 窗口中
+                    But.setGeometry(10, 10, 100, 50); // 设置按钮的位置和尺寸
+                ```
+        * `QToolButton`: 
+            * 特性
+                * 常在点击后执行某个任务. 
+                * 通常不是显示文字, 而是显示图标. 
+        * `QRadioButton`: 单选按钮
+            ```cpp
+                // 将单选按钮添加到组中
+                auto radioGrp = new QButtonGroup(this);
+                radioGrp->addButton(ui->rBtn0, 0);
+                radioGrp->addButton(ui->rBtn1, 1);
             ```
-    * `QTreeWidget`: 树组件
+    * 单元组件
+        * `QTableWidget`: 表格组件
+            * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
+            * 属性
+                * `sortingEnabled`: 设置是否可按列排序.  
+                * `Header`: 可设置行高, 列宽. 
+                    * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
+            * 示例: 
+                ```cpp
+                // 解决点击表格时表头变粗的问题
+                ui->myTableWidget->setHighlightSections(false);
+
+                // QTableWidget ui->myTableWidget; 
+                int rowNum = ui->myTableWidget->rowCount(); // 获取当前行数
+                ui->myTableWidget->clearContents(); // 清空表格内容
+                ui->myTableWidget->setRowCount(0); // 清空表格行
+
+                // 设置列宽
+                ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
+                ui->myTableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents); // 设置列宽按内容变化. 
+
+                ui->myTableWidget->insertRow(rowNum); // 在第rowNum行前插入新行. 若参数大于当前表格最大行号, 则在表格末尾插入. 这里的写法就是末尾插入. 
+
+                // 在行中插入新的单元格
+                QTableWidgetItem* pQTableWidgetItem1 = new QTableWidgetItem(); 
+                ui->myTableWidget->setItem(rowNum, 0, pQTableWidgetItem1); // 在第0列插入
+
+                pQTableWidgetItem1->setData(Qt::DisplayRole, 12); // 为单元格设置数据12. 选用DisplayRole, 可以让列在排序按数字而非字符序. 
+
+                pQTableWidgetItem1->setTextAlignment(Qt::AlignRight); // 设置文本右对齐
+
+                // 在列中插入控件(比如按钮)
+                ui->myTableWidget->setCellWidget(row, 0, myButton); 
+
+                // 清空表格
+                ui->myTableWidget->clearContents(); // 不会去除表头
+                ui->myTableWidget->setRowCount(0);
+
+                // 去除行号
+                QHeaderView *h = ui->myTableWidget->verticalHeader();
+                h->setHiddern(true);
+
+                ```
+            * 问题
+                * 排序后, 对item获取的行号可能不正确. 
+                    * 解决方法: 每次`setItem`前先关闭排序功能. 
+                    ```cpp
+                    ui->myTableWidget->setSortingEnabled(false);
+                    ... // 调用setItem插入单元
+                    ui->myTableWidget->setSortingEnabled(false);
+                ```
+        * `QTreeWidget`: 树组件
         * 示例: 
             ```cpp
             QTreeWidget* qTree; 
@@ -277,7 +295,7 @@
                 movie->start();
                 ```
 * 事件
-    * 一个 Qt 界面程序要想接收事件, main() 函数中就必须调用 `exec` 函数, 它的功能就是使程序能够持续不断地接收各种事件. (?)
+    * 一个 Qt 界面程序要想接收事件, `main()` 函数中就必须调用 `exec` 函数, 它的功能就是使程序能够持续不断地接收各种事件. (?)
     * `QEventLoop`
         ```cpp
         void XXX::slot1() {
