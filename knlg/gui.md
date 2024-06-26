@@ -95,6 +95,9 @@
 
     <img alt="" src="./pic/qt_window.png" width="80%" height="80%">
 
+    * `QObject`: 
+        * `deleteLater`: 会在对象的所有事件处理完后再释放对象. **应该使用该方法, 而非直接用delete释放对象.**
+            * `deleteLater` 后依然可以访问和操作对象, 直到再次回到事件循环. 
     * `QWidget`: 所有控件的父类
         * 窗口关闭处理
             * 须在子窗口的构造函数中加一句`setAttribute(Qt::WA_DeleteOnClose)`, 这样关闭子窗口时才会执行析构函数. 
@@ -122,13 +125,14 @@
             ui->mySplitter->setStretchFactor(1, 2); // 1表示第1个格子. 占比为2
             ```
         * `QHBoxLayout`
+        * 动态添加控件: 可以通过调用`addWidget`方法往一个layout控件中动态添加控件. 
         * 踩坑
             * 在designer中, 需要先往一个widget中添加组件, 然后才能设置layout. 
     * 容器
         * `QScrollArea`
             * 在容器中内容长于容器时(比如设置了里面组件的最小高度大于容器高度时), 将显示滚动条. 
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
-        * QT Creator生成的MainWindow主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
+        * `QT Creator`生成的`MainWindow`主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
         * `QDialog::show()`: 非模态, 非阻塞的. 
         * `QDialog::exec()`: 模态, 阻塞, 整个系统阻塞掉. 
@@ -267,9 +271,18 @@
             }
             ```
     * 输入组件
+        * `QLineEdit`: 文本框(一行)
+            * `setInputMask("000.000.000.000; ")`: 设置输入格式为点分十进制字符串. 
+                * 参考: https://juejin.cn/post/7154316626676940813
+            * `setValidator(new QRegExpValidator(QRegExp("\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b")))`: 同上, 但是更严谨. 
         * `QCombobox`: 下拉框
             * `setCurrentText(const QString &text)`: 如果列表中有匹配的文本, 则`currentIndex`会被设置为相应的索引. 
-        * `QTextEdit`: 文本框
+            * 信号: 
+                * `activated(int)`: 选中任何item时
+                * `currentIndexChanged`: 选项发生改变时
+                * `currentTextChanged`: 文本发生改变时
+                * `editTextChanged`: 编辑文本时
+        * `QTextEdit`: 文本框(多行)
             * 接口
                 * 追加内容
                     * `append(sth)`: 会换行
@@ -282,7 +295,7 @@
         * `QPlainTextEdit`: 也是文本框
             * 渲染html的性能比`QTextEdit`好. 
                 * `appendHtml(sth)`: 不会换行
-    * `QtFileDialog`: 文件选择对话框
+    * `QFileDialog`: 文件选择对话框
         * `QString d = QFileDialog::getExistingDirectory();`
         * `QString d = QFileDialog::getOpenFileName();`
     * `QLable`

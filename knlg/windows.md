@@ -870,8 +870,10 @@
                 * `executable`: 指定要用的shell程序(如`cmd.exe`)
                 * `args`: 参数列表
         * ``: 
-* 按f5时, 若没有`launch.json`, 则会生成
-    * `program`: 指定要调试的程序
+* 按f5时, 若没有`launch.json`, 则会生成. 
+    * `launch.json`预置变量参考: https://code.visualstudio.com/docs/editor/variables-reference
+    * 配置项
+        * `program`: 指定要调试的程序
 * 远程调试: 在目标已通过`gdbserver`开启调试的情况下: 
     * `configurations`数组中添加如下配置项: 
         ```json

@@ -102,7 +102,6 @@
 ### 查看信息
 * 打印docker信息: `docker info`
 
-
 ## 常用配置
 * 修改docker文件存放位置
     ```sh
@@ -125,6 +124,10 @@
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
     * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 
         > `docker run -tid --name <容器名> --privileged=true <镜像> /sbin/init`
+* docker容器网络不通的问题: 
+    * 先`docker image <容器id>`看一下容器的`Networks`信息. 
+    * `ifconfig`看一下docker网卡, 如果没配ip地址, 则配置IP(例如, `ifconfig docker0 172.17.0.1`)
+    * 重启docker服务: `systemctl restart docker`
 
 ## 其他
 * 更换apt源
