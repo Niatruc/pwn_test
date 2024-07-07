@@ -580,7 +580,7 @@
                 * `CurrentVersion\`
                     * `Policies\`
                         * `System\`
-                            * `EnableLUA`: LUA表示受限用户账户, 现在称为UAC. 为0时, 禁用UAC. QT程序以admin运行时不能拖文件进去, 因为这个值为1, 而`explorer.exe`的权限较低. 此时可将该值改为0, 并重启系统, 解决此问题. 
+                            * `EnableLUA`: `LUA`表示受限用户账户, 现在称为`UAC`. 为0时, 禁用`UAC`. QT程序以admin运行时不能拖文件进去, 因为这个值为1, 而`explorer.exe`的权限较低. 此时可将该值改为0, 并重启系统, 解决此问题. 
             * `Windows NT\`
                 * `CurrentVersion\`
                     * `AeDebug\`

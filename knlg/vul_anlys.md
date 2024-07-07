@@ -875,7 +875,46 @@
         * queue目录下文件名称中更多的属性: 
             * `pos:11`: 表示该文件在源用例文件的基础上改变了第11个字节. 
             * `+cov`: 表示该文件相对于源用例文件, 在执行后产生了新的边覆盖. (也就是说此文件让目标程序产生了新的动作)
-
+        * 统计数据
+            * `fuzzer_stats`
+                * `start_time`: 模糊测试会话开始时间(unix时间, 秒)
+                * `last_update`: 自上次更新以来的时间(秒)
+                * `run_time`: 任务运行时间(秒)
+                * `cycles_done`: 模糊测试完成轮数(每轮扫描一次队列)
+                * `cycles_wo_finds`: 没有发现新执行路径的轮数
+                * `fuzz_time`: 模糊测试时间(秒)
+                * `calibration_time`: 测试用例检验耗时(秒)
+                * `sync_time`: Fuzzer同步耗时(秒)
+                * `trim_time`: 修剪测试用例耗时(秒)
+                * `execs_done`: 目标程序总执行次数
+                * `execs_per_sec`: 每秒执行次数
+                * `execs_ps_last_min`: 最近一分钟的每秒执行次数
+                * `corpus_count`: 队列中的测试用例数目
+                * `corpus_favored`: 队列中标记为'优先'的测试用例数目
+                    * `favored`: 根据`update_bitmap_score`函数中的注释, 标记为`favored`的用例有如下特点: 
+                        * 该用例更小
+                        * 使用该用例时程序运行速度更快
+                * `corpus_found`: 模糊测试期间新增的测试用例数目
+                * `corpus_imported`: 导入到语料库中的测试用例数量
+                * `corpus_variable`: 引发不同执行路径的测试用例数量
+                * `max_depth`: 测试用例最大变异层次(每次有新用例(其引发新的执行路径)加入队列时, 该值加1)
+                * `cur_item`: 当前正在处理的测试用例索引
+                * `pending_favs`: 待处理的标记为'优先'的测试用例数量
+                * `pending_total`: 待处理的测试用例总数
+                * `stability`: 模糊测试稳定性百分比(该数值越大, 表示同个输入数据在多次执行中产生相同执行路径的概率越高)
+                * `bitmap_cvg`: 边覆盖率(边数量/65536 (65536即位图的位数`MAP_SIZE`))
+                * `saved_crashe`: 保存的崩溃测试用例数量
+                * `saved_hangs`: 保存的挂起测试用例数量
+                * `last_find`: 距离最近发现新执行路径的时间(毫秒)
+                * `last_crash`: 距离最近崩溃的时间(毫秒)
+                * `last_hang`: 距离最近挂起的时间(毫秒)
+                * `execs_since_crash`: 自最近一次崩溃以来目标程序运行次数
+                * `exec_timeout`: 执行超时时间(毫秒)(由`afl-fuzz`的`-t`参数指定)
+                * `slowest_exec_ms`: 目标程序最长执行时间(毫秒)
+                * `peak_rss_mb`: 最大常驻集大小(MB)
+                * `edges_found`: 发现的边数量
+                * `total_edges`: 控制流图中的总边数
+                * `var_byte_coun`: 内存中发生变化的字节数
 * 其他工具
     * `afl-whatsup`: 依靠读afl-fuzz输出目录中的fuzzer_stats文件来显示状态. 
     * `afl-gotcpu`: 获取CPU状态. 
@@ -1023,8 +1062,12 @@
             static void mark_as_redundant(struct queue_entry* q, u8 state) { }
             static void add_to_queue(u8* fname, u32 len, u8 passed_det) { }
             EXP_ST void destroy_queue(void) { }
-            EXP_ST void write_bitmap(void) { }
-            EXP_ST void read_bitmap(u8* fname) { }
+            EXP_ST void write_bitmap(void) { 
+                // 将virgin_bits数组写入`fuzz_bitmap`文件中
+            }
+            EXP_ST void read_bitmap(u8* fname) { 
+                // 从`fuzz_bitmap`文件中读取数据到virgin_bits数组
+            }
             static inline u8 has_new_bits(u8* virgin_map) { }
             static u32 count_bits(u8* mem) { }
             static u32 count_bytes(u8* mem) { }
@@ -1080,7 +1123,9 @@
                 }
             }
 
+            // 将mem中的数据写进out_fd, 即`.cur_input`文件中
             static void write_to_testcase(void* mem, u32 len) { }
+
             static void write_with_gap(void* mem, u32 len, u32 skip_at, u32 skip_len) { }
             static void show_stats(void); { }
 
@@ -1261,25 +1306,26 @@
             * `AFL_CRASHING_SEEDS_AS_NEW_CRASH`: 将导致崩溃的种子视为新的崩溃. `op:dry_run`, `orig:<seed_file_name>`写到`crashes`目录. 
             * `AFL_EXIT_ON_TIME`: 若在指定时间(秒)内未找到新路径, 则结束fuzz, 可提高速度. 在自动化任务中有用. 
             * `AFL_EXIT_WHEN_DONE`: 当所有路径已经被fuzz过, 且一段时间内再无新路径时,结束fuzz. 在自动化任务中有用. 
-            * `AFL_EXPAND_HAVOC_NOW`: 
+            * `AFL_EXPAND_HAVOC_NOW`: 在变异过程中使用扩展的havoc模式. 
             * `AFL_FAST_CAL`: 若指定, 则`calibrate_case`中只运行目标程序3次, 否则为7次. 
             * `AFL_FORCE_UI`: 
             * `AFL_FORKSRV_INIT_TMOUT`: fork server 启动超时时间. 
-            * `AFL_HANG_TMOUT`: 相当于`-t`参数. 
-            * `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`: 
-            * `AFL_IGNORE_PROBLEMS`: 
-            * `AFL_IGNORE_PROBLEMS_COVERAGE`: 
-            * `AFL_IMPORT_FIRST`: 
+            * `AFL_HANG_TMOUT`: 超过该超时时间则认为测试用例导致程序挂起. 默认值为1秒或`-t`参数指定的数值. 
+            * `AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES`: 设为1时等价于`echo core > /proc/sys/kernel/core_pattern`
+            * `AFL_IGNORE_PROBLEMS`: `afl-fuzz`在遇到错误的fuzz设置时会终止. 若不想其终止, 可设置该变量. 
+            * `AFL_IGNORE_PROBLEMS_COVERAGE`: 设为1时忽略后续加载的库的覆盖. 
+            * `AFL_IMPORT_FIRST`: 在多fuzzer并行时, 设置改变量会让fuzzer在开始运行前从其他fuzzer导入测试用例. 可以让界面中的`own finds`数据更准确. 
+            * `AFL_FINAL_SYNC`: 设为1则在终止前fuzzer会再进行一次import测试用例的操作, 这样可确保主fuzzer拥有所有的独特测试用例, 之后用`afl-cmin`对一个队列进行操作即可. 
             * `AFL_INPUT_LEN_MIN`, `AFL_INPUT_LEN_MAX`: 测试用例的最小和最大长度. 
-            * `AFL_KILL_SIGNAL`: 
-            * `AFL_FORK_SERVER_KILL_SIGNAL`: 
-            * `AFL_MAP_SIZE`: 
+            * `AFL_KILL_SIGNAL`: 设置在子进程超时时的发给子进程的信号id. 默认为9(`SIGKILL`)
+            * `AFL_FORK_SERVER_KILL_SIGNAL`: 设置在afl终止时的发给fork server的信号id. 默认为15(`SIGTERM`)
+            * `AFL_MAP_SIZE`: 指定用于收集插桩数据的map的大小. 
             * `AFL_MAX_DET_EXTRAS`
                 * 该值指定字典中单词长度阈值, 达到该阈值时开启可能性模式. 
                 * 在可能性模式, 为避免降低fuzz速度, 并非所有字典条目都会始终用于模糊测试突变. 
                 * 默认值为200
-            * `AFL_NO_AFFINITY`: 
-            * `AFL_NO_ARITH`: 
+            * `AFL_NO_AFFINITY`: 设置该变量则禁用cpu亲和, 即将任务绑定到某个cpu. 这样做会导致fuzz测试速度下降, 但可以运行更多fuzzer. 
+            * `AFL_NO_ARITH`: 跳过大多数确定性算法. 能加速对于文本文件的fuzz. 
             * `AFL_NO_AUTODICT`: 
             * `AFL_NO_COLOR`: 
             * `AFL_NO_CPU_RED`: 
@@ -1307,6 +1353,10 @@
             * `AFL_PIZZA_MODE`: 
             * `AFL_FUZZER_STATS_UPDATE_INTERVAL`: `fuzzer_stats`文件的更新间隔(秒). 默认是1分钟更新一次. 
     * unicorn模式: 
+        * 编译`libunicornafl.so`: 
+            1. 切换到`unicorn_mode/unicornafl/build_python`
+            2. `make unicornafl`
+            3. 文件路径: `unicorn_mode/unicornafl/build_python/libunicornafl.so`
         * 唯一导出函数`uc_afl_fuzz`: 
             ```cpp
                 extern "C" UNICORNAFL_EXPORT uc_afl_ret uc_afl_fuzz(
@@ -1341,6 +1391,7 @@
             * 错误: 
                 * `afl-fuzz: error while loading shared libraries: libpython3.12.so.1.0`
                     * `locate`找一下`libpython3.12.so.1.0`库, 然后将所在目录路径加入`LD_LIBRARY_PATH`
+        * 注: 
     * 自定义变异器
         * 参考: https://aflplus.plus/docs/custom_mutators/
         * 编码: 

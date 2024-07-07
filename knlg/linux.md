@@ -663,6 +663,14 @@
     * `<sys/stat.h>`
     * `<fcntl.h>`
     * `<poll.h>`: `poll`. 
+* 文件类型: 
+    * 普通文件(`-`)
+    * 目录(`d`)
+    * 字符设备文件(`c`)
+    * 块设备文件(`b`)
+    * 本地域套接字(`s`)
+    * 有名管道(`p`)
+    * 符号链接(`l`)
 * api
     * `int fd = open(const char *pathname,int flags, mode_t mode);` 
         * 参数

@@ -37,7 +37,7 @@
 7. `strcpy(buf, buf2)`: 溢出
 8. `strncpy(buf, buf2, 40)` 和 `memcpy(buf, buf2, 40)`: 拷贝40字节, 且结尾不放NULL. 可泄漏.
 9. `strcat(buf, buf2)`: 在buf字符串的末尾拼接buf2字符串. 有溢出. 会放一个NULL在结尾, 可导致`one-byte-overflow`. 在某些地方可用这一个NULL来改变栈或堆地址.
-10. `strncat(buf, buf2, n)`: 与strcat差不多, 只是多了大小限制. 可pwn. 例子: [Seccon CTF quals 2016 jmper](https://github.com/ctfs/write-ups-2016/tree/master/seccon-ctf-quals-2016/exploit/jmper-300)
+10. `strncat(buf, buf2, n)`: 与`strcat`差不多, 只是多了大小限制. 可pwn. 例子: [Seccon CTF quals 2016 jmper](https://github.com/ctfs/write-ups-2016/tree/master/seccon-ctf-quals-2016/exploit/jmper-300)
 
 # 用gdb找字符串
 在SSP(Stack Smashing Protector)问题中, 需要找到`argv[0]`和输入缓存之间的下标.
