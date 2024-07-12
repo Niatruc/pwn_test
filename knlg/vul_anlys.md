@@ -878,11 +878,11 @@
         * 统计数据
             * `fuzzer_stats`
                 * `start_time`: 模糊测试会话开始时间(unix时间, 秒)
-                * `last_update`: 自上次更新以来的时间(秒)
-                * `run_time`: 任务运行时间(秒)
+                * `last_update`: `fuzzer_stats`文件上次更新时间(unix时间, 秒)
+                * `run_time`: 任务运行时长(秒)
                 * `cycles_done`: 模糊测试完成轮数(每轮扫描一次队列)
                 * `cycles_wo_finds`: 没有发现新执行路径的轮数
-                * `fuzz_time`: 模糊测试时间(秒)
+                * `fuzz_time`: 模糊测试时长(秒)
                 * `calibration_time`: 测试用例检验耗时(秒)
                 * `sync_time`: Fuzzer同步耗时(秒)
                 * `trim_time`: 修剪测试用例耗时(秒)
@@ -904,10 +904,10 @@
                 * `stability`: 模糊测试稳定性百分比(该数值越大, 表示同个输入数据在多次执行中产生相同执行路径的概率越高)
                 * `bitmap_cvg`: 边覆盖率(边数量/65536 (65536即位图的位数`MAP_SIZE`))
                 * `saved_crashe`: 保存的崩溃测试用例数量
-                * `saved_hangs`: 保存的挂起测试用例数量
-                * `last_find`: 距离最近发现新执行路径的时间(毫秒)
-                * `last_crash`: 距离最近崩溃的时间(毫秒)
-                * `last_hang`: 距离最近挂起的时间(毫秒)
+                * `saved_hangs`: 保存的超时测试用例数量
+                * `last_find`: 最近发现新执行路径的时间(unix时间)(秒)
+                * `last_crash`: 最近崩溃的时间(unix时间)(秒)
+                * `last_hang`: 最近超时的时间(unix时间)(秒)
                 * `execs_since_crash`: 自最近一次崩溃以来目标程序运行次数
                 * `exec_timeout`: 执行超时时间(毫秒)(由`afl-fuzz`的`-t`参数指定)
                 * `slowest_exec_ms`: 目标程序最长执行时间(毫秒)
@@ -1143,10 +1143,13 @@
             static void link_or_copy(u8* old_path, u8* new_path) { }
             static void nuke_resume_dir(void); { }
             static void pivot_inputs(void) { }
+
+            // 测试用例文件的名称中除了`id`以外的部分都在这里生成. 该函数由`save_if_interesting`函数调用. 
             static u8* describe_op(u8 hnb) { }
+
             static void write_crash_readme(void) { }
 
-            // 检查一次execve的执行结果是不是感兴趣的, 是则保存或者放入输入测试用例队列. 返回1表示测试用例被保存. 
+            // 检查一次execve的执行结果是不是感兴趣的, 是则保存到文件或者放入输入测试用例队列. 返回1表示测试用例被保存到文件. 
             static u8 save_if_interesting(char** argv, void* mem, u32 len, u8 fault) { }
 
             static u32 find_start_position(void) { }

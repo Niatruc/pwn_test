@@ -373,21 +373,21 @@
     * unicornafl
         ```py
             ql_afl_fuzz(ql: Qiling,
-                    input_file: str,
-                    place_input_callback: Callable[["Qiling", bytes, int], bool],
-                    exits: List[int],
-                    validate_crash_callback: Callable[["Qiling", int, bytes, int], bool] = None,
-                    always_validate: bool = False,
-                    persistent_iters: int = 1)
+                input_file: str, # afl使用mmap传递测试用例的时候有用. 如果是用共享内存, 则这个参数无意义. 
+                place_input_callback: Callable[["Qiling", bytes, int], bool], # 默认返回True, 表示接受数据
+                exits: List[int],
+                validate_crash_callback: Callable[["Qiling", int, bytes, int], bool] = None,
+                always_validate: bool = False,
+                persistent_iters: int = 1)
 
             ql_afl_fuzz_custom(ql: Qiling,
-                        input_file: str,
-                        place_input_callback: Callable[["Qiling", bytes, int], bool],
-                        fuzzing_callback: Callable[["Qiling"], int],
-                        exits: List[int] = [],
-                        validate_crash_callback: Callable[["Qiling", bytes, int], bool] = None,
-                        always_validate: bool = False,
-                        persistent_iters: int = 1)                
+                input_file: str,
+                place_input_callback: Callable[["Qiling", bytes, int], bool],
+                fuzzing_callback: Callable[["Qiling"], int],
+                exits: List[int] = [],
+                validate_crash_callback: Callable[["Qiling", bytes, int], bool] = None,
+                always_validate: bool = False,
+                persistent_iters: int = 1)                
         ```
 
         * `ql_afl_fuzz_custom`多了一个`fuzzing_callback`参数. `ql_afl_fuzz`调用了`ql_afl_fuzz_custom`, 其`fuzzing_callback`会调用`ql.uc.emu_start(pc, 0, 0, 0)`继续从当前的pc运行虚拟机. 

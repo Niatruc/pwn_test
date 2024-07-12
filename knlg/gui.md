@@ -125,6 +125,7 @@
             ui->mySplitter->setStretchFactor(1, 2); // 1表示第1个格子. 占比为2
             ```
         * `QHBoxLayout`
+        * `QVBoxLayout`
         * 动态添加控件: 可以通过调用`addWidget`方法往一个layout控件中动态添加控件. 
         * 踩坑
             * 在designer中, 需要先往一个widget中添加组件, 然后才能设置layout. 
@@ -189,13 +190,23 @@
                 radioGrp->addButton(ui->rBtn0, 0);
                 radioGrp->addButton(ui->rBtn1, 1);
             ```
+        * `QCheckBox`: 
+            * 信号
+                * `stateChanged(int)`
+            * 方法
+                * `setChecked(true)`: 设为选中
+                * `isChecked()`: 判断是否选中
     * 单元组件
         * `QTableWidget`: 表格组件
-            * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
+            * 要点
+                * 行号从0开始. `QTableWidgetItem::row()`, `QTableWidget::selectRow(int rowNum)` 等函数都基于此前提. 
+                * cell和item: cell表示单元格所在的这个空格, item才是单元格内容. 
             * 属性
                 * `sortingEnabled`: 设置是否可按列排序.  
                 * `Header`: 可设置行高, 列宽. 
                     * `horizontalHeaderStretchLastSection`: 设置最后一列宽度占满表格. 对于单列表格有用. 
+            * 信号
+                * `currentCellChanged(int currentRow, int currentColumn, int previousRow, int previousColumn)`: 当选中了新的单元格时, 触发该信号. 
             * 示例: 
                 ```cpp
                 // 解决点击表格时表头变粗的问题
@@ -209,19 +220,29 @@
                 // 设置列宽
                 ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
                 ui->myTableWidget->horizontalHeader()->setResizeMode(QHeaderView::ResizeToContents); // 设置列宽按内容变化. 
+                    // 其他模式
+                    //   QHeaderView::Fixed, 固定
+                    //   QHeaderView::Stretch, 拉满, 等宽
+                    //   QHeaderView::Custom
+                    //   QHeaderView::Interactive
+                ui->myTableWidget->horizontalHeader()->setStretchLastSection(true) // 让最后一列填满表格
 
                 ui->myTableWidget->insertRow(rowNum); // 在第rowNum行前插入新行. 若参数大于当前表格最大行号, 则在表格末尾插入. 这里的写法就是末尾插入. 
 
-                // 在行中插入新的单元格
+                // 在单元格插入新的item
                 QTableWidgetItem* pQTableWidgetItem1 = new QTableWidgetItem(); 
                 ui->myTableWidget->setItem(rowNum, 0, pQTableWidgetItem1); // 在第0列插入
 
+                // 删除item
+                auto item = ui->myTableWidget->takeItem(rowNum, colNum)
+                delete item
+
+                ui->myTableWidget->setCellWidget(row, col, myButton); // 在列中插入控件(比如按钮)
+                ui->myTableWidget->cellWidget(row, col); // 获取控件
+                ui->myTableWidget->removeCellWidget(row, col); // 删除单元格中的控件
+
                 pQTableWidgetItem1->setData(Qt::DisplayRole, 12); // 为单元格设置数据12. 选用DisplayRole, 可以让列在排序按数字而非字符序. 
-
                 pQTableWidgetItem1->setTextAlignment(Qt::AlignRight); // 设置文本右对齐
-
-                // 在列中插入控件(比如按钮)
-                ui->myTableWidget->setCellWidget(row, 0, myButton); 
 
                 // 清空表格
                 ui->myTableWidget->clearContents(); // 不会去除表头
@@ -229,7 +250,7 @@
 
                 // 去除行号
                 QHeaderView *h = ui->myTableWidget->verticalHeader();
-                h->setHiddern(true);
+                h->setHidden(true);
 
                 ```
             * 问题
@@ -272,18 +293,22 @@
             ```
     * 输入组件
         * `QLineEdit`: 文本框(一行)
-            * `setInputMask("000.000.000.000; ")`: 设置输入格式为点分十进制字符串. 
-                * 参考: https://juejin.cn/post/7154316626676940813
-            * `setValidator(new QRegExpValidator(QRegExp("\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b")))`: 同上, 但是更严谨. 
+            * 信号
+                * `editingFinished`: 文本框发生了更改, 并且失去焦点时触发. 
+            * 方法
+                * `setInputMask("000.000.000.000; ")`: 设置输入格式为点分十进制字符串. 
+                    * 参考: https://juejin.cn/post/7154316626676940813
+                * `setValidator(new QRegExpValidator(QRegExp("\\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b")))`: 同上, 但是更严谨. 
         * `QCombobox`: 下拉框
-            * `setCurrentText(const QString &text)`: 如果列表中有匹配的文本, 则`currentIndex`会被设置为相应的索引. 
             * 信号: 
                 * `activated(int)`: 选中任何item时
                 * `currentIndexChanged`: 选项发生改变时
                 * `currentTextChanged`: 文本发生改变时
                 * `editTextChanged`: 编辑文本时
+            * 方法
+                * `setCurrentText(const QString &text)`: 如果列表中有匹配的文本, 则`currentIndex`会被设置为相应的索引. 
         * `QTextEdit`: 文本框(多行)
-            * 接口
+            * 方法
                 * 追加内容
                     * `append(sth)`: 会换行
                     * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行
@@ -295,6 +320,9 @@
         * `QPlainTextEdit`: 也是文本框
             * 渲染html的性能比`QTextEdit`好. 
                 * `appendHtml(sth)`: 不会换行
+        * `QSpinBox`: 微调框
+            * 方法
+                * `value()`: 获取数据
     * `QFileDialog`: 文件选择对话框
         * `QString d = QFileDialog::getExistingDirectory();`
         * `QString d = QFileDialog::getOpenFileName();`
