@@ -126,7 +126,16 @@
             ```
         * `QHBoxLayout`
         * `QVBoxLayout`
-        * 动态添加控件: 可以通过调用`addWidget`方法往一个layout控件中动态添加控件. 
+        * 动态添加控件: 可以通过调用`addWidget`方法往一个layout控件中动态添加控件(添加到尾部), 也可以用`insertwidget(index, widget)`. 
+        * 遍历layout下的组件不能用`children`方法, 应该这样: 
+            ```cpp
+                for (int i = 0; i < layout->count(); i++) { 
+                    QLayoutItem *item = layout->itemAt(i);
+                    if (item) { 
+                        QWidget *widget = item->widget(); // 获取组件
+                    }
+                }
+            ```
         * 踩坑
             * 在designer中, 需要先往一个widget中添加组件, 然后才能设置layout. 
     * 容器
@@ -135,9 +144,12 @@
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * `QT Creator`生成的`MainWindow`主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
-        * `QDialog::show()`: 非模态, 非阻塞的. 
-        * `QDialog::exec()`: 模态, 阻塞, 整个系统阻塞掉. 
-        * `QDialog::open()`: 窗口模态, 只会阻塞一个窗口. 
+        * 信号
+            * `rejected`: 按`ESC`时触发
+        * 方法
+            * `QDialog::show()`: 非模态, 非阻塞的. 
+            * `QDialog::exec()`: 模态, 阻塞, 整个系统阻塞掉. 
+            * `QDialog::open()`: 窗口模态, 只会阻塞一个窗口. 
     * 右键菜单: 
         ```cpp
             this->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -194,7 +206,7 @@
             * 信号
                 * `stateChanged(int)`
             * 方法
-                * `setChecked(true)`: 设为选中
+                * `setCheckState(state)`: 设为选中状态(`Unchecked`, `PartiallyChecked`, `Checked`)
                 * `isChecked()`: 判断是否选中
     * 单元组件
         * `QTableWidget`: 表格组件
@@ -216,6 +228,7 @@
                 int rowNum = ui->myTableWidget->rowCount(); // 获取当前行数
                 ui->myTableWidget->clearContents(); // 清空表格内容
                 ui->myTableWidget->setRowCount(0); // 清空表格行
+                QModelIndexList indexList = ui->myTableWidget->selectionModel()->selectedRows(); // 获取所有选中的行
 
                 // 设置列宽
                 ui->myTableWidget->horizontalHeader()->resizeSection(0, 150); // 设置第0列的宽度为150
@@ -294,7 +307,10 @@
     * 输入组件
         * `QLineEdit`: 文本框(一行)
             * 信号
+                * `textEdited(const QString &text)`: 文本框有编辑动作时触发. 
+                * `textChanged(const QString &text)`: 文本框内容改变时触发. 
                 * `editingFinished`: 文本框发生了更改, 并且失去焦点时触发. 
+                * `cursorPositionChanged(pre_pos, cur_pos)`: 光标位置改变时触发
             * 方法
                 * `setInputMask("000.000.000.000; ")`: 设置输入格式为点分十进制字符串. 
                     * 参考: https://juejin.cn/post/7154316626676940813
@@ -307,19 +323,33 @@
                 * `editTextChanged`: 编辑文本时
             * 方法
                 * `setCurrentText(const QString &text)`: 如果列表中有匹配的文本, 则`currentIndex`会被设置为相应的索引. 
+                * `addItem(const QString & text, const QVariant &userData = QVariant())`
+                * `addItems(const QStringList & texts)`
         * `QTextEdit`: 文本框(多行)
             * 方法
                 * 追加内容
-                    * `append(sth)`: 会换行
+                    * `append(sth)`: 追加内容(会换行)
                     * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行
-                * 光标
-                    * `tc = textCursor()`: 获取光标
-                    * `tc.insertText(sth)`: 光标处插入内容
-                    * `tc.insertHtml(sth)`: 光标处插入html文本
-                    * `moveCursor(QTextCursor::End)`: 将光标移到末尾
+                * 滚动到底部
+                    * `MyTextEdit.verticalScrollBar()->setValue(MyTextEdit.verticalScrollBar()->maximum());`
+            * 光标(获取光标: `tc = myTextEdit->textCursor()`)
+                * `QTextCursor`实例方法: 
+                    * 操作内容
+                        * `insertText(sth)`: 光标处插入内容
+                        * `insertHtml(sth)`: 光标处插入html文本
+                        * `deletePreviousChar()`: 删除光标前一个字符
+                    * 选区
+                        * `hasSelection()`: 判断是否有选中
+                        * `clearSelection()`: 清除选中
+                    * 位置
+                        * `position()`: 获取光标位置
+                        * `blockNumber()`: 获取光标所在行
+                        * `columnNumber()`: 获取光标所在列
+                        * `moveCursor(QTextCursor::End)`: 将光标移到末尾
+                * `myTextEdit->setTextCursor(tc)`: 在操作完光标后, 移动文本框中光标的位置
         * `QPlainTextEdit`: 也是文本框
             * 渲染html的性能比`QTextEdit`好. 
-                * `appendHtml(sth)`: 不会换行
+                * `appendHtml(sth)`: (不会换行)
         * `QSpinBox`: 微调框
             * 方法
                 * `value()`: 获取数据
@@ -330,11 +360,12 @@
         * 设置图标: 
             * `QMovie`: 可在`QLable`组件中设动图
                 ```cpp
-                QMovie *m = new QMovie(":/image/loading.gif");
-                ui->myLable->setMoive(m);
-                movie->setScaledSize(ui->myLabel->size()); // 设置和label一样大小
-                movie->start();
+                    QMovie *m = new QMovie(":/image/loading.gif");
+                    ui->myLable->setMoive(m);
+                    movie->setScaledSize(ui->myLabel->size()); // 设置和label一样大小
+                    movie->start();
                 ```
+    * `QScintilla`: 第三方开源编辑器
 * 事件
     * 一个 Qt 界面程序要想接收事件, `main()` 函数中就必须调用 `exec` 函数, 它的功能就是使程序能够持续不断地接收各种事件. (?)
     * `QEventLoop`
@@ -350,7 +381,7 @@
     * `QCoreApplication::processEvents()`: 调用该函数, 让程序处理那些还没有处理的事件, 让程序保持响应. 
     * 监听在某个组件上的键盘事件: 
         ```cpp
-        ui->myTableWidget->installEventFilter(this); // 给表哥安装键盘事件处理器
+        ui->myTableWidget->installEventFilter(this); // 给表格安装键盘事件处理器
 
         bool MainWindows::eventFilter(QObject *obj, QEvent *eve) {
             auto e = static_cast<QKeyEvent *>(eve);
@@ -361,6 +392,8 @@
                         return false;
                     if (key == Qt::Key_up) {
                         ...
+                        e.accept(); // 阻止默认的键盘操作
+                        return true; // 阻止对事件的后续操作
                     }
                     break;
             }
@@ -387,7 +420,12 @@
             * `Qt::UniqueConnection`: 可以用or与上面的几个选项组合使用. 若设置了它, 当连接已存在时, `connect`会失败. 
     * 在程序中触发信号: `emit mySignalFunc();` `mySignalFunc`是本类中一个信号成员函数. 
     * `Cannot send events to objects owned by a different thread`: 在Qt中, ui的操作不能在别的线程里. 
-    * 阻塞信号: `myWidget->blockSignals(true)` (设为false则解除阻塞)
+    * 阻塞信号: `myWidget->blockSignals(true)` (设为`false`则解除阻塞)
+    * 在槽函数中获取发射信号的对象: 
+        ```cpp
+            QObject *senderObj = sender();
+            QPushButton *button = qobject_cast<QPushButton*>(senderObj);
+        ```
 * 定时器
     * 
 * 线程

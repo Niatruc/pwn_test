@@ -311,6 +311,8 @@
                 # QL_INTERCEPT.CALL: 直接用钩子函数覆盖原函数
                 # QL_INTERCEPT.ENTER: 进入原函数前执行钩子. 不会覆盖原函数
                 # QL_INTERCEPT.EXIT: 退出原函数前执行钩子. 不会覆盖原函数
+            
+            # set_api的原理参考`os/linux/function_hook.py:FunctionHook`类中的`add_function_hook_relocation`和`add_function_hook_mips`方法
 
             # 设置系统api钩子
             def my_recv(ql: Qiling, sockfd: int, buf: int, length: int, flags: int):
