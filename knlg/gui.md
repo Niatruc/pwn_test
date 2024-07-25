@@ -104,6 +104,7 @@
             * `void closeEvent(QCloseEvent *event)`: 实现该虚函数, 以捕获窗口关闭事件
                 * `event->ignore()`: 执行该句, 则窗口不会关闭. 
         * 接口
+            * `setFocusPolicy(Qt::ClickFocus)`: 设置控件在点击时获取焦点. 
             * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
             * `setWindowModality(type)`: 设置模态, 以禁止其他界面响应. 
                 * `type`: 
@@ -141,6 +142,10 @@
     * 容器
         * `QScrollArea`
             * 在容器中内容长于容器时(比如设置了里面组件的最小高度大于容器高度时), 将显示滚动条. 
+        * `QDockWidget`
+            * 方法
+                * `setFloating(true)`: 设置窗口为分离
+                * `mainwindow->addDockWidget(Qt::LeftDockWidgetArea, myDock)`: 将一个`QDockWidget`放到`mainwindow`中
     * `QMainWindow`: 自带工具栏, 菜单栏, 状态栏
         * `QT Creator`生成的`MainWindow`主类中, 有一个`ui`成员. 在成员函数中, 可直接用`ui->myWidgetName`的方式, 通过使用给组件命的名称, 获得组件的指针. 
     * `QDialog`: 
@@ -325,31 +330,57 @@
                 * `setCurrentText(const QString &text)`: 如果列表中有匹配的文本, 则`currentIndex`会被设置为相应的索引. 
                 * `addItem(const QString & text, const QVariant &userData = QVariant())`
                 * `addItems(const QStringList & texts)`
+                * 设置placeholder: `lineEdit()->setPlaceholderText(text)`
         * `QTextEdit`: 文本框(多行)
+            * 信号
+                * `copyAvailable(bool yes)`: 当选中或取消选中文本时触发. 
             * 方法
+                * `setOverwriteMode(True)`: 设置编辑器为覆盖模式. (相当于按下`Insert`)
                 * 追加内容
                     * `append(sth)`: 追加内容(会换行)
                     * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行
                 * 滚动到底部
                     * `MyTextEdit.verticalScrollBar()->setValue(MyTextEdit.verticalScrollBar()->maximum());`
             * 光标(获取光标: `tc = myTextEdit->textCursor()`)
-                * `QTextCursor`实例方法: 
-                    * 操作内容
-                        * `insertText(sth)`: 光标处插入内容
-                        * `insertHtml(sth)`: 光标处插入html文本
-                        * `deletePreviousChar()`: 删除光标前一个字符
-                    * 选区
-                        * `hasSelection()`: 判断是否有选中
-                        * `clearSelection()`: 清除选中
-                    * 位置
-                        * `position()`: 获取光标位置
-                        * `blockNumber()`: 获取光标所在行
-                        * `columnNumber()`: 获取光标所在列
-                        * `moveCursor(QTextCursor::End)`: 将光标移到末尾
+                * `QTextCursor`
+                    * 注: 
+                        * 直接对`tc`调用改变位置的方法, `MyTextEdit`的光标不会跟着变化, 要调用`setTextCursor`方法后才会变化. 
+                    * 方法: 
+                        * 操作内容
+                            * `insertText(sth)`: 光标处插入内容
+                            * `insertHtml(sth)`: 光标处插入html文本
+                            * `deletePreviousChar()`: 删除光标前一个字符
+                        * 选区
+                            * `hasSelection()`: 判断是否有选中
+                            * `clearSelection()`: 取消选中
+                            * `selectionStart()`: 获取选区开头的下标
+                        * 位置
+                            * `position()`: 获取光标位置
+                            * `blockNumber()`: 获取光标所在行
+                            * `columnNumber()`: 获取光标所在列
+                            * `moveCursor(QTextCursor::End, QTextCursor::KeepAnchor)`: 将光标移到末尾. `KeepAnchor`表示会选中光标掠过的文本. 
+                                * 一参的其它可选值: `PreviousCharacter`, `PreviousWord`, `PreviousBlock`等
+                                * 二参的另一个可选值: `MoveAnchor`
+                                * `QTextEdit`实例也有这个方法, 参数一样. 
+                            * `setPosition(pos, moveMode)`: 将光标设置到`pos`位置. 二参意同`moveCursor`二参. 
+                                * 每次`setPosition`后, `position()`获取的值为`setPosition`之前的光标位置. 
+                                * 如果一参超过了行文本长度, 则`position()`获取的值为末尾的下标. 
+                            * `selectedText()`: 获取选中的文本. 
+                                * 可以前后使用两次`setPosition`(二参为`QTextCursor::KeepAnchor`), 然后通过`selectedText`获取一个范围内的文本. 
+                            * `block()`: 获得光标所在行的`QTextBlock`实例
                 * `myTextEdit->setTextCursor(tc)`: 在操作完光标后, 移动文本框中光标的位置
+            * `QTextBlock`: 文本框中的一个块(比如一行)
+                * 方法
+                    * `length()`: 获取块的内容长度(包括换行符在内的格式化字符)
+                    * `text()`: 获取块的内容
+                    * `position()`: 获取行的第一个字符在整个文档中的位置
         * `QPlainTextEdit`: 也是文本框
             * 渲染html的性能比`QTextEdit`好. 
                 * `appendHtml(sth)`: (不会换行)
+            * 方法
+                * `document()`: 获取`QTextDocument`实例
+                    * `findBlockByLineNumber(2)`: 获取第二行的块(`QTextBlock`)
+                        * `text()`: 获取行文本. 
         * `QSpinBox`: 微调框
             * 方法
                 * `value()`: 获取数据

@@ -55,7 +55,7 @@
         * `gcc test.c -o test -L. -lmylib `
         * `gcc test.c -o test -L. libmylib.a`
 * 动态库
-    * `__attribute__((constructor))`指定加载函数. `__attribute__((destructor))`加载卸载函数. 
+    * `__attribute__((constructor))`指定加载函数, 被它修饰的函数会在main函数开始前执行. `__attribute__((destructor))`加载卸载函数. 
     * 隐式加载
         * 编译生成动态库
             * `gcc -o2 -fPIC -shared mylib.c -o libmylib.so`
@@ -75,10 +75,10 @@
         int main(void)
         {
             /*
-            * RTLD_NOW: 将共享库中的所有函数加载到内存 
-            * RTLD_LAZY: 会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
+            * 二参: 
+            *   RTLD_NOW: 将共享库中的所有函数加载到内存 
+            *   RTLD_LAZY: 会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
             */
-
             void *dl = dlopen(LIB, RTLD_LAZY); //打开动态库
 
             if (dl == NULL)
@@ -91,6 +91,11 @@
                 return -1;
             }
 
+            /*
+            * 一参: 
+            *   dlopen打开的句柄
+            *   RTLD_NEXT: 将会找第一个匹配了函数符号的动态库 
+            */
             void (*func)() = dlsym(dl, "mylib"); // 获取函数地址
             error = dlerror(); //检测错误
             if (error != NULL)

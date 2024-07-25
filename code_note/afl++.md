@@ -8,4 +8,5 @@
 
 # Unicorn模式
 * 备注
-    * 调试中可看到在fork server启动前用`_may_use_shm_testcase`方法获取测试用例, 之后主要用`_may_use_mmap_testcase`, 但是其中`!this->afl_use_shm_testcase_`这个判断失败(也就是说实际仍是通过共享内存获取测试用例), 所以`_may_use_mmap_testcase`几乎没做任何事. 
+    * `unicornafl.cpp`
+        * 调试中可看到在fork server启动前用`_may_use_shm_testcase`方法获取测试用例, 之后主要用`_may_use_mmap_testcase`, 但是其中`!this->afl_use_shm_testcase_`这个判断失败(也就是说实际仍是通过共享内存获取测试用例), 所以`_may_use_mmap_testcase`几乎没做任何事. 
