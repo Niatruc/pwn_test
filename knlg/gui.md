@@ -1,3 +1,5 @@
+* unicode查询: https://symbl.cc/cn/unicode/
+
 # QT
 ## 信息
 * 要素/特点
