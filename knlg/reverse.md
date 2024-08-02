@@ -282,7 +282,7 @@
     ```
 * 信息: 
     * `ql.os.entry_point`: 实际为ld库的入口地址
-    * `ql.loader.elf_entry`: 程序的主入口地址
+    * `ql.loader.elf_entry`或者`ql.os.elf_entry`: 程序的主入口地址
 * 内存操作
     * 栈: 
         * `ql.arch.stack_pop()`: 弹栈
@@ -290,8 +290,9 @@
         * `ql.arch.stack_read(<offset>)`: 读栈(`<offset>`相对于栈顶)
         * `ql.arch.stack_write(<offset>, <val>)`: 写栈
     * `ql.mem`: 
-        * `.read(addr, size)`: 读内存地址数据
-        * `.read(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
+        * `.read(addr, size)`: 读内存地址数据. 返回`bytes`类型数据. 
+        * `.read_ptr(addr, size: int = 0)`: 从内存地址读一个整数(指针大小). `size`可取值为0(表示使用CPU架构的指针大小), 1, 2, 4, 8
+        * `.write(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
         * `.get_formatted_mapinfo()`: 获取仿真程序的内存分段信息.
     * `ql.patch(addr, buf)`: 在内存打补丁. 实际会在`ql.run()`之后才改内存. 
 * 寄存器
@@ -300,6 +301,8 @@
         * `.register_mapping`: 这个字典存放所有寄存器值
         * `.arch_pc`: 通用, 计数器
         * `.arch_sp`: 通用, 栈指针
+* 文件路径映射: 将虚拟机访问的文件路径映射到宿主机文件路径. 
+    * `ql.add_fs_mapper(ql_path, real_dest)`: `ql_path`是虚拟机访问路径, `real_dest`是宿主机访问路径
 * 劫持/挂钩
     * `ql.hook_address(callback, address, user_data=None)`: 执行到`address`时会调用`callback`函数. 
         * `callback`的参数是ql实例. 
@@ -367,6 +370,15 @@
 * 打印
     * `ql.log`
         * `.print`
+    * 打印仿真信息
+        ```py
+            ql.os.emu_error() # 打印CPU上下文(寄存器), 内存映射信息
+
+            for entry in ql.os.stats.summary(): # 打印syscall统计数据, 内存字符串统计信息
+                ql.log.debug(entry)
+
+            ql.arch.utils.disassembler(ql, ql.loader.elf_entry + 0x10, 64) # 反汇编内存中的代码. 二参为内存地址, 三参为要反汇编的内存范围
+        ```
     * 过滤器
         * `ql.filter = '^open'`: 表示仅显示以"open"为开头的信息. 
 * 工具
@@ -380,7 +392,7 @@
         ```
     * `qiling.os.utils`
         ```py
-        ql.os.utils.read_string(addr, 'ascii') # 读取仿真内存中的字符串
+            ql.os.utils.read_string(addr, 'ascii') # 读取仿真内存中的字符串
         ```
     * unicornafl
         ```py
@@ -417,6 +429,8 @@
         * `QlOsPosix#__get_syscall_mapper`
             * `QlOsPosix`实例初始化时有: `self.syscall_mapper = self.__get_syscall_mapper(self.ql.arch.type)`, 这个`syscall_mapper`字典指明了所有syscall的处理函数. 
         * uc在程序使用int之类的中断指令后, 命中`UC_HOOK_INTR`类钩子. 逐步来到`QlOsPosix#load_syscall`函数. 这个函数先尝试从`posix_syscall_hooks`字典中获取enter, call, exit三类钩子. 若没有设置钩子, 则会直接调用`os/posix/syscall`目录下实现的syscall, 否则一次调用各钩子. 
+    * 系统套接字管理
+        * `os/posix/posix.py:QlOsPosix#__init__`中有一行`self._fd = QlFileDes()`, `QlFileDes`实例的初始化中有`self.__fds = [None] * NR_OPEN`(`NR_OPEN`为1024). 后续每个套接字对应的IO对象都放在`QlFileDes`实例的`__fds`列表中, 套接字值对应下标. 
 ## binwalk
 * `binwalk <bin文件>`
 * 参数

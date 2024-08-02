@@ -371,7 +371,7 @@
                                 * 可以前后使用两次`setPosition`(二参为`QTextCursor::KeepAnchor`), 然后通过`selectedText`获取一个范围内的文本. 
                             * `block()`: 获得光标所在行的`QTextBlock`实例
                 * `myTextEdit->setTextCursor(tc)`: 在操作完光标后, 移动文本框中光标的位置
-            * `QTextBlock`: 文本框中的一个块(比如一行)
+            * `QTextBlock`: 文本框中的一个块(比如一行, 注意跟`QTextLine`没关系, `QTextLine`是`QTextLayout`的东西)
                 * 方法
                     * `length()`: 获取块的内容长度(包括换行符在内的格式化字符)
                     * `text()`: 获取块的内容
@@ -510,7 +510,43 @@
             * `QWaitCondition::wait(QMutex* mutex)`: 会阻塞线程, 直到调用`wakeAll`或`wakeOne`. 官方说法, `wait`会释放`mutex`并作等待. 此外, `mutex`会"返回到相同的锁定状态"(可能是指又返回到lock状态). 这个函数做的工作是从锁定状态到等待状态的原子转换. 
     * 注意
         * 启动一个QThread子线程, 并在子线程中调用主线程生成的组件的渲染函数(如, 对`QTextEdit`组件调用`append`函数), 会导致程序崩溃退出(`0xC0000005`)
+* 进程(`QProces`)
+    ```py
+        process = QProcess()
+        process.setProcessChannelMode(QProcess.MergedChannels)  # 使进程的stdout和stderr数据都使用标准输出通道
+        process.setWorkingDirectory("/work_dir")  # 设置工作目录
+        process.readyReadStandardOutput.connect(__process_output)  # stdout有数据时会触发`readyReadStandardOutput`信号
+        process.start("test1", ["./data1", "./data2"])
 
+        def __apply_ansi_colors(text):  # 将终端颜色代码转为html颜色标签
+            code_color_map = {
+                COLOR.YELLOW: "yellow",
+                COLOR.BLUE: "blue",
+                COLOR.MAGENTA: "red",
+                COLOR.CRIMSON: "crimson",
+                COLOR.RED: "red",
+                COLOR.DEFAULT: "",
+            }
+            ptn = r"(\033\[[0-9]*m)"
+            ft = re.findall(ptn, text)
+            for t in ft:
+                if t == "\033[39m":
+                    text = text.replace(t, "</font>")
+                else:
+                    text = text.replace(t, f"<font color='{code_color_map.get(t, "")}'>")
+            text = text.replace("\n", "<br>")
+            return text
+
+        def __process_output():  # 处理stdout数据
+            data = process.readAllStandardOutput()
+            if data:
+                decoded_data = data.data().decode() # 字节数据解码为字符串
+                colored_data = __apply_ansi_colors(decoded_data)
+                cursor = my_plainTextEdit.textCursor()
+                cursor.movePosition(QTextCursor.End)
+                cursor.insertHtml(colored_data)
+                my_plainTextEdit.ensureCursorVisible()
+    ```
 * 数据
     * `QString`
         ```cpp

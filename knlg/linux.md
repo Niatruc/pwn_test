@@ -560,6 +560,7 @@
     void main() {
         int pid;
         void *params;
+        pthread_t tid;
         ...
         if (pthread_create(&tid, NULL, func, params) != 0) { // 二参是线程属性
             printf("error\n");
