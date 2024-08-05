@@ -628,14 +628,14 @@
         ```
     * `QFile`
         * 打开方式
-            |||
+            |常量|注释|
             |-|-|
-            |QIODevice::ReadOnly|以只读方式打开文件|
-            |QIODevice::WriteOnly|只写方式|
-            |QIODevice::ReadWrite|读写方式|
-            |QIODevice::Append|追加模式打开，新写入文件的数据添加到文件尾部|
-            |QIODevice::Truncate|截取方式打开文件，文件原有的内容全部被删除|
-            |QIODevice::Text|文本方式打开文件，读取时“\n”被自动翻译为换行符|
+            |`QIODevice::ReadOnly`|以只读方式打开文件|
+            |`QIODevice::WriteOnly`|只写方式|
+            |`QIODevice::ReadWrite`|读写方式|
+            |`QIODevice::Append`|追加模式打开，新写入文件的数据添加到文件尾部|
+            |`QIODevice::Truncate`|截取方式打开文件，文件原有的内容全部被删除|
+            |`QIODevice::Text`|文本方式打开文件，读取时“\n”被自动翻译为换行符|
         * 例
             ```cpp
             // 参考: https://blog.csdn.net/ligare/article/details/124494533
@@ -682,5 +682,5 @@
     * 时间
         * `QDateTime::currentDateTime().toString()`: 获取当前日期
 * 问题
-    * 在另一个线程中动态添加新建的控件时, 新控件要以new的形式创建, 不能是局部作用域中的变量. 
+    * 在另一个线程中动态添加新建的控件时, 新控件要以`new`的形式创建, 不能是局部作用域中的变量. 
     * `Cannot send events to objects owned by a different thread. `

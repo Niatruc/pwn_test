@@ -186,8 +186,9 @@
         mu.hook_add(UC_HOOK_CODE, hook_code)
             # 定义: def hook_add(self, htype: int, callback: UC_HOOK_CALLBACK_TYPE , user_data: Any=None, begin: int=1, end: int=0, arg1: int=0, arg2: int=0)
 
-        # 开始模拟执行
-        mu.emu_start(0x0000000000401149, 0x0000000000401169)
+        # 开始模拟执行. 
+        #   `count`: 表示执行的指令条数. 默认为0, 表示无限
+        mu.emu_start(begin=0x0000000000401149, end=0x0000000000401169, timeout=10, count=10)
     ```
 * hook类型
     * 指令执行类
