@@ -343,7 +343,10 @@
                     * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行
                 * 滚动到底部
                     * `MyTextEdit.verticalScrollBar()->setValue(MyTextEdit.verticalScrollBar()->maximum());`
-            * 光标(获取光标: `tc = myTextEdit->textCursor()`)
+            * 光标
+                * 获取光标: 
+                    * `tc = myTextEdit->textCursor()`
+                    * `tc = myTextEdit->cursorForPosition(pos)`: 按位置获取光标. 
                 * `QTextCursor`
                     * 注: 
                         * 直接对`tc`调用改变位置的方法, `MyTextEdit`的光标不会跟着变化, 要调用`setTextCursor`方法后才会变化. 
@@ -357,7 +360,7 @@
                             * `clearSelection()`: 取消选中
                             * `selectionStart()`: 获取选区开头的下标
                         * 位置
-                            * `position()`: 获取光标位置
+                            * `position()`: 获取光标位置(一个字符右侧的光标位置数值: 从行头到该字符的字符总数)
                             * `blockNumber()`: 获取光标所在行
                             * `columnNumber()`: 获取光标所在列
                             * `moveCursor(QTextCursor::End, QTextCursor::KeepAnchor)`: 将光标移到末尾. `KeepAnchor`表示会选中光标掠过的文本. 
@@ -432,7 +435,12 @@
             }
         }
         ```
-
+    * 在编码层面触发事件
+        ```py
+            new_key_event = QKeyEvent(QEvent.Type.KeyPress, event.key(), event.modifiers(), event.text().upper())
+            QApplication.postEvent(self.parent(), new_key_event)  # 模拟按键事件(在当前函数结束后再处理此事件)
+            QApplication.sendEvent(self.parent(), new_key_event)  # 模拟按键事件(立刻处理此事件, 完了再回来当前函数)
+        ```
 * 信号和槽机制
     * 信号函数
         * 如, "按钮被按下"这个信号可以用`clicked`函数表示

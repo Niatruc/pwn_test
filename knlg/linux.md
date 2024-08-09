@@ -187,6 +187,8 @@
 
             __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
 
+            __attribute__((alias("func"))) void f4(); // 调用f4即相当于调用func
+
             // 给结构体变量s指定属性
             struct my_struct
             __attribute__((unused)) // 表示可能不会用到

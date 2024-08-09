@@ -141,6 +141,7 @@
 
 # 工具
 ## capstone
+* 反汇编引擎
 * python
     ```py
         from capstone import *
@@ -149,8 +150,25 @@
 
         md = Cs(CS_ARCH_X86, CS_MODE_64)
         for i in md.disasm(CODE, 0x1000):
-            print("0x%x:\t%s\t%s" %(i.address, i.mnemonic, i.op_str))
+            print("0x%x:\t%s\t%s" % (i.address, i.mnemonic, i.op_str))
 
+    ```
+## keystone
+* 汇编引擎
+* python
+    ```py
+        from keystone import *
+
+        # separate assembly instructions by ; or \n
+        CODE = b"INC ecx; DEC edx"
+        
+        try:
+            # Initialize engine in X86-32bit mode
+            ks = Ks(KS_ARCH_X86, KS_MODE_32)
+            encoding, count = ks.asm(CODE)
+            print("%s = %s (number of statements: %u)" % (CODE, encoding, count))
+        except KsError as e:
+            print("ERROR: %s" %e)
     ```
 ## unicorn
 * 基本信息
@@ -481,7 +499,7 @@
 ## IDA
 * 快捷键
     * `f2`: 
-        * 在hex窗口中, 可编辑内存数据
+        * 在hex窗口中, 可编辑内存数据. 再按下`f2`完成编辑, 这时可按`ctrl-z`撤销刚才的编辑操作. 
     * `f5`: 反编译
     * `esc`: 返回上一处
     * `ctrl + enter`: 重回下一处
