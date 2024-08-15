@@ -826,7 +826,8 @@
     * `sendmsg`
     * `recvmsg`
     * `close`
-                
+# syscall
+* 参考: [Linux kernel system calls for all architectures](https://gpages.juszkiewicz.com.pl/syscalls-table/syscalls.html)
 # 错误记录
 * 驱动编译错误记录
     * `error: ISO C90 forbids mixed declarations and code [-Werror=declaration-after-statement]`

@@ -79,12 +79,12 @@
             *   RTLD_NOW: 将共享库中的所有函数加载到内存 
             *   RTLD_LAZY: 会推后共享库中的函数的加载操作, 直到调用dlsym()时方加载某函数
             */
-            void *dl = dlopen(LIB, RTLD_LAZY); //打开动态库
+            void *dl = dlopen(LIB, RTLD_LAZY); // 打开动态库
 
             if (dl == NULL)
                 fprintf(stderr,"Error:failed to load libary.\n");
 
-            char *error = dlerror(); //检测错误
+            char *error = dlerror(); // 检测错误
             if (error != NULL)
             {
                 fprintf(stderr,"%s\n",error);
@@ -97,17 +97,17 @@
             *   RTLD_NEXT: 将会找第一个匹配了函数符号的动态库 
             */
             void (*func)() = dlsym(dl, "mylib"); // 获取函数地址
-            error = dlerror(); //检测错误
+            error = dlerror(); // 检测错误
             if (error != NULL)
             {
                 fprintf(stderr,"%s\n",error);
                 return -1;
             }
 
-            func(); //调用动态库中的函数
+            func(); // 调用动态库中的函数
 
-            dlclose(dl); //关闭动态库
-            error = dlerror(); //检测错误
+            dlclose(dl); // 关闭动态库
+            error = dlerror(); // 检测错误
             if (error != NULL)
             {
                 fprintf(stderr,"%s\n",error);

@@ -401,6 +401,8 @@
     * 过滤器
         * `ql.filter = '^open'`: 表示仅显示以"open"为开头的信息. 
 * 工具
+    * `qltool`: 在终端仿真程序. 
+        * `qltui`: 交互式配置仿真信息并运行仿真. 
     * `qiling.utils`
         ```py
             from qiling.utils import ql_get_module, ql_get_module_function
