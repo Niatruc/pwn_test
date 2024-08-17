@@ -174,6 +174,8 @@
 * 基本信息
     * 基于qemu的仿真框架
     * 支持细粒度插桩
+* 参考
+    * [Unicorn Engine Reference (Unofficial)](https://hackmd.io/@K-atc/rJTUtGwuW?type=view#Unicorn-Engine-Reference-Unofficial)
 * 示例
     ```py
         from unicorn import *

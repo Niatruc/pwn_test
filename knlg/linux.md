@@ -459,6 +459,7 @@
         * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
     * 设置
         * `set follow-fork-mode child`: 设置gdb在fork之后跟踪子进程. 
+        * `set detach-on-fork off`: 可防止gdb在有fork执行之后就从父进程中分离. 
         * `set var a = 1`: 设置变量a的值为1
         * `set var $r1 = 1`: 设置寄存器r1的值为1
 

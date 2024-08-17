@@ -106,6 +106,9 @@
             * `void closeEvent(QCloseEvent *event)`: 实现该虚函数, 以捕获窗口关闭事件
                 * `event->ignore()`: 执行该句, 则窗口不会关闭. 
         * 接口
+            * `grab(const QRect &rectangle = QRect(QPoint(0, 0), QSize(-1, -1)))`: 将控件渲染成一张图, 作为`QPixmap`实例
+            * `setParent(parent)`
+                * `setParent(Null)`: 将控件从其父组件移除, 但对象不会被删除, 需要调用`deleteLater`
             * `setFocusPolicy(Qt::ClickFocus)`: 设置控件在点击时获取焦点. 
             * `show`: 在new一个窗口后, 调用该方法以显示窗口. 
             * `setWindowModality(type)`: 设置模态, 以禁止其他界面响应. 
@@ -415,9 +418,9 @@
         }
         ```
     * `QCoreApplication::processEvents()`: 调用该函数, 让程序处理那些还没有处理的事件, 让程序保持响应. 
-    * 监听在某个组件上的键盘事件: 
+    * 监听在某个组件上的事件: 
         ```cpp
-        ui->myTableWidget->installEventFilter(this); // 给表格安装键盘事件处理器
+        ui->myTableWidget->installEventFilter(this); // 给表格安装事件处理器
 
         bool MainWindows::eventFilter(QObject *obj, QEvent *eve) {
             auto e = static_cast<QKeyEvent *>(eve);
@@ -428,7 +431,7 @@
                         return false;
                     if (key == Qt::Key_up) {
                         ...
-                        e.accept(); // 阻止默认的键盘操作
+                        e.accept(); // accept以后, 父组件不会收到事件; ignore则反之
                         return true; // 阻止对事件的后续操作
                     }
                     break;
@@ -441,6 +444,12 @@
             QApplication.postEvent(self.parent(), new_key_event)  # 模拟按键事件(在当前函数结束后再处理此事件)
             QApplication.sendEvent(self.parent(), new_key_event)  # 模拟按键事件(立刻处理此事件, 完了再回来当前函数)
         ```
+    * 拖拽(`QDrag`)
+        * 参考
+            * [Qt拖放(1)：拖放基本原理(QDrag类)](https://blog.csdn.net/hyongilfmmm/article/details/83238239)
+            * [Drag and Drop](https://doc.qt.io/qt-6/dnd.html)
+        * 注: 
+            * 需要放操作的目标组件上同时处理`QDragEnterEvent`(拖动操作进入目标组件), `QDragMoveEvent`(拖动操作在目标组件上移动), `QDropEvent`(拖动操作结束), 并对事件调用`accept`. 
 * 信号和槽机制
     * 信号函数
         * 如, "按钮被按下"这个信号可以用`clicked`函数表示
