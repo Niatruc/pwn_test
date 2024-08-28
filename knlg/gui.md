@@ -1,4 +1,5 @@
 * unicode查询: https://symbl.cc/cn/unicode/
+* ansi转义序列: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
 
 # QT
 ## 信息
@@ -133,6 +134,7 @@
         * `QHBoxLayout`
         * `QVBoxLayout`
         * 动态添加控件: 可以通过调用`addWidget`方法往一个layout控件中动态添加控件(添加到尾部), 也可以用`insertwidget(index, widget)`. 
+        * 让QWidget中的控件紧凑: 加一个`QSpacerItem`: `layout->addItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding))`
         * 遍历layout下的组件不能用`children`方法, 应该这样: 
             ```cpp
                 for (int i = 0; i < layout->count(); i++) { 
@@ -290,6 +292,22 @@
             QTreeWidget* qTree; 
             QTreeWidgetItem* qItem; 
 
+            qTree->setColumnCount(2) // 设置列数. 如果在设计器中给数组件设计了多列, 需要显式调用此函数, 否则只显示一列. 
+            qTree->headerItem()->text(0) // 获取第0列的名称
+
+            // 设置列头名称
+            QStringList headerLabels;
+            headerLabels.push_back(tr("text1"));
+            headerLabels.push_back(tr("text2"));
+            qTree->setHeaderLabels(headerLabels)
+
+            qTree->resizeColumnToContents(0) // 使列的宽度适应内容. 参数表示第几列
+
+            qItem->setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable)  // 设为可编辑
+
+            qTree->currentItem() // 获取当前选中的节点
+            qTree->currentColumn() // 当前选中了节点的哪一列
+
             qDeleteAll(qTree.takeChildren()); // 清空节点下所有子节点
             qItem->setChildIndicate(QTreeWidgetItem::ShowIndicator);
 
@@ -341,6 +359,8 @@
                 * `copyAvailable(bool yes)`: 当选中或取消选中文本时触发. 
             * 方法
                 * `setOverwriteMode(True)`: 设置编辑器为覆盖模式. (相当于按下`Insert`)
+                * `setMouseTracking(True)`: 设置追踪鼠标, 这样才能持续捕获`MouseMove`事件. (为了提升文本编辑器的性能, 默认为`False`)
+                    * 注: `MouseMove`事件要在文本框的`viewport`中捕获处理. 
                 * 追加内容
                     * `append(sth)`: 追加内容(会换行)
                     * `insertPlainText(sth)`, `insertHtml(sth)`: 不会换行

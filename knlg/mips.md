@@ -20,6 +20,7 @@
 * 通用寄存器
     * `$0`(`$zero`): 常量0(constant value 0)
         * 为0这个有用常数提供了一个简洁的编码形式. 
+        * `move $zero, $ra`: nop操作
     * `$1`(`$at`): 保留给汇编器(Reserved for assembler)
         * 加载大常数时, 编译器需要把大常数拆开, 然后重新组合到寄存器里. 汇编程序必需一个临时寄存器来重组大常数. 
     * `$2-$3`(`$v0-$v1`): 函数调用返回值(values for results and expression evaluation)

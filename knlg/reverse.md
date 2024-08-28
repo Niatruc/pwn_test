@@ -314,6 +314,7 @@
         * `.read(addr, size)`: 读内存地址数据. 返回`bytes`类型数据. 
         * `.read_ptr(addr, size: int = 0)`: 从内存地址读一个整数(指针大小). `size`可取值为0(表示使用CPU架构的指针大小), 1, 2, 4, 8
         * `.write(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
+        * `.write_ptr(addr: int, value: int, size: int = 0)`: 向内存地址写一个整数. 
         * `.get_formatted_mapinfo()`: 获取仿真程序的内存分段信息.
     * `ql.patch(addr, buf)`: 在内存打补丁. 实际会在`ql.run()`之后才改内存. 
 * 寄存器
@@ -358,6 +359,7 @@
                 except:
                     pass
             ql.os.set_syscall('recv', my_recv_write, QL_INTERCEPT.CALL) # 系统api钩子
+            # 调试发现hook类型为`QL_INTERCEPT.ENTER`时, 命中钩子时, PC寄存器的值为syscall指令的下一条指令的地址(可能意味着此时syscall指令"正在执行"). 
         ```
 * 快照
     ```py
@@ -446,12 +448,64 @@
         * `ValueError: not allowed to raise maximum limit`: 
             * 仿真程序中调用了`setrlimit`系统调用. 
             * 以root运行`afl-fuzz`则无此问题. 以普通用户单纯运行python程序亦则无此问题. 
+    * bug
+        * 开启`multithread`后, 目标程序的路径须在文件系统路径和目标程序相对路径间多一条`/`, 否则报错`UC_ERR_MAP`. 比如, `/home/xxx/firmwares/netgear/netgear_r6220//bin/mini_httpd`
 * 源码分析
     * syscall钩子
         * `os/posix/syscall`目录下多个py模块, 实现了各类syscall. 
         * `QlOsPosix#__get_syscall_mapper`
             * `QlOsPosix`实例初始化时有: `self.syscall_mapper = self.__get_syscall_mapper(self.ql.arch.type)`, 这个`syscall_mapper`字典指明了所有syscall的处理函数. 
         * uc在程序使用int之类的中断指令后, 命中`UC_HOOK_INTR`类钩子. 逐步来到`QlOsPosix#load_syscall`函数. 这个函数先尝试从`posix_syscall_hooks`字典中获取enter, call, exit三类钩子. 若没有设置钩子, 则会直接调用`os/posix/syscall`目录下实现的syscall, 否则一次调用各钩子. 
+    * api钩子(`set_api`)
+        * 基本原理: 
+            * 在程序完成加载后, 修改程序的got表, 将需要hook的api对应的表项改成一个指向`[hook_mem]`段的地址(原始got表项也存于此处)
+            * 用`hook_address`函数设置一个给上述地址钩子. 当执行此处地址的指令, 即可执行钩子函数. 
+        * posix的`set_api`函数中有一行`self.function_hook.add_function_hook(target, handler, intercept)`, 其中`add_function_hook`根据CPU架构的不同, 被指派为`FunctionHook`类中相应的`add_function_hook_xxx`函数. 
+        * `os/linux/function_hook.py`
+            * `FunctionHook`类: 
+                ```py
+                    class FunctionHook:
+                        def __init__(self, ql, phoff, phnum, phentsize, load_base, hook_mem): # elf中, `hook_mem`被设为`mem_end`
+                            ...
+                            # 根据不同CPU架构设置: 
+                            if self.ql.arch.type == QL_ARCH.MIPS:
+                                # ref: https://sites.uclouvain.be/SystInfo/usr/include/elf.h.html
+                                self.GLOB_DAT = 51
+                                self.JMP_SLOT = 127
+                                # add $t9, $t9, $zero
+                                ins = b' \xc8 \x03' # 用于填充`[hook_mem]`段
+                                self.add_function_hook = self.add_function_hook_mips
+                            ...
+                            self.ql.mem.map(hook_mem, 0x2000, perms=7, info="[hook_mem]") # 将会在紧跟着内存elf文件的地方创建一个叫`[hook_mem]`的段, 大小为0x2000. 根据后面的操作知, 该段前半部分存冗余指令(用于触发hook), 后半部分存原始got表项. 
+                            self.ql.mem.write(hook_mem, ins * (0x1000 // len(ins))) # 填充这块内存
+
+                            self._parse() # 解析字符串, 符号表, 重定向数据(rela, rel, plt_rel)等
+
+                            self.rel_list += (self.rela + self.plt_rel)
+                            self.free_list = [_ for _ in range(0, 0x1000, 0x10)] # 0, 16, 32, 48, 64, 80, 96, ... 取其中一个值并与`[hook_mem]`基址相加, 得到一个用于hook got表项的地址, 这个地址会存一条冗余指令. 
+                            self.use_list = {}
+                            self.hook_list = {} # 用于保存hook函数({函数名: HookFunc实例})
+                ```
+            * `HookFuncMips`类(专用于mips架构程序的api hook)
+                ```py
+                    class HookFuncMips(HookFunc):
+                        def _hook_got(self):
+                            self.ori_data = self.ql.mem.read(self.got + self.load_base + self.gotidx * self.ql.arch.pointersize, self.ql.arch.pointersize) 
+
+                            self.ql.mem.write_ptr(self.got + self.load_base + self.gotidx * self.ql.arch.pointersize, self.hook_fuc_ptr) # 修改got表项
+                            self.ql.mem.write(self.hook_data_ptr, bytes(self.ori_data)) # 在`[hook_mem]`段中保存原来的got表项
+                        
+                        def enable(self):
+                            if self.got == None or self.hook_fuc_ptr == None or self.hook_data_ptr == None:
+                                raise
+
+                            self.ql.os.register_function_after_load(self._hook_got) # `self._hook_got`函数会在elf完成加载后才执行(在emu_start和do_lib_patch之后)
+                            
+                            self.exit_addr = self.hook_fuc_ptr + 8
+
+                            self.ql.hook_address(self._hook_fuc_enter, self.hook_fuc_ptr) # got表项现在存的是`self.hook_fuc_ptr`值, 所以一旦调到此值表示的地址(这个地址存了一条无意义的指令, 见`FunctionHook`初始化中的`inst`变量), 就执行hook函数
+                            self.ql.hook_address(self._hook_fuc_exit, self.hook_fuc_ptr + 8)
+                ```
     * 系统套接字管理
         * `os/posix/posix.py:QlOsPosix#__init__`中有一行`self._fd = QlFileDes()`, `QlFileDes`实例的初始化中有`self.__fds = [None] * NR_OPEN`(`NR_OPEN`为1024). 后续每个套接字对应的IO对象都放在`QlFileDes`实例的`__fds`列表中, 套接字值对应下标. 
 ## binwalk
