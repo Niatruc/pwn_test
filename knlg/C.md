@@ -268,23 +268,23 @@
     * 分配内存返回NULL
     * 等等
 * 处理
-    * if/goto
-    * __try/__except: 这个是windows独有的异常处理模型, 即结构化异常处理(SEH). 
+    * `if/goto`
+    * `__try/__except`: 这个是windows独有的异常处理模型, 即结构化异常处理(SEH). 
         * `__except(<过滤器表达式>)`:
         ```cpp
-        __try {
+            __try {
 
-        } __except(MyFilter(GetExceptionCode(), GetExceptionInformation())) {
+            } __except(MyFilter(GetExceptionCode(), GetExceptionInformation())) {
 
-        }
+            }
 
-        int MyFilter(unsigned int code, struct _EXCEPTION_POINTERS* ep) {
-            DbgPrint("code: %u", code);
-            ep->ExceptionRecord->ExceptionAddress;
-            return 1;
-        }
+            int MyFilter(unsigned int code, struct _EXCEPTION_POINTERS* ep) {
+                DbgPrint("code: %u", code);
+                ep->ExceptionRecord->ExceptionAddress;
+                return 1;
+            }
         ```
-        * 在__except的块中, 可以使用`GetExceptionCode`宏得到异常代码, 但不能使用`GetExceptionInformation`, 因为它指向的信息通常位于堆栈上, 并在控件传输到异常处理程序时被销毁. 
+        * 在`__except`的块中, 可以使用`GetExceptionCode`宏得到异常代码, 但不能使用`GetExceptionInformation`, 因为它指向的信息通常位于堆栈上, 并在控件传输到异常处理程序时被销毁. 
 
 ## 宏
 ```cpp

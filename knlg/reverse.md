@@ -330,7 +330,7 @@
         * `callback`的参数是ql实例. 
     * `ql.hook_block(ql_hook_block_disasm)`: 每次执行到基本块前会调用回调函数. 
         * 回调函数: `ql_hook_block_disasm(ql, address, size)`
-    * posix libc函数钩子和系统api钩子:
+    * posix `libc函数钩子`和`系统api钩子`:
         ```py
             from qiling.const import *
             from qiling.os.const import *
@@ -441,6 +441,11 @@
 
         * `ql_afl_fuzz_custom`多了一个`fuzzing_callback`参数. `ql_afl_fuzz`调用了`ql_afl_fuzz_custom`, 其`fuzzing_callback`会调用`ql.uc.emu_start(pc, 0, 0, 0)`继续从当前的pc运行虚拟机. 
         * 这两个函数在`afl-fuzz`运行的过程中返回就意味着子进程结束, 所以**在它们后面的python代码不会执行**. 
+* 其他接口
+    * `ql.os`
+        * `.fcall`: `QlFunctionCall`实例
+            * `.cc`: `QlCC`实例. `CC`即`Call Convention`
+                * `getRawParam(self, index: int, argbits: int = 0)`: 获取当前函数栈帧中的第`index`个参数的值. 其先读取寄存器, 再读栈. 
 * 踩坑
     * 若仿真程序监听了小于1024的端口时, qiling会将端口值加上8000. 见`os/posix/syscall/socket.py:ql_syscall_bind`函数. 
     * 在posix系统, 要区分**针对系统api的钩子(用`ql.os.set_syscall`)和针对libc函数的钩子(用`ql.os.set_api`)**. 比如对`recv`函数, 要用`set_syscall`设置钩子. 
@@ -505,9 +510,46 @@
 
                             self.ql.hook_address(self._hook_fuc_enter, self.hook_fuc_ptr) # got表项现在存的是`self.hook_fuc_ptr`值, 所以一旦调到此值表示的地址(这个地址存了一条无意义的指令, 见`FunctionHook`初始化中的`inst`变量), 就执行hook函数
                             self.ql.hook_address(self._hook_fuc_exit, self.hook_fuc_ptr + 8)
+
+                    class FunctionHook:
+                        def add_function_hook_mips(self, funcname, cb, pos, userdata = None): # pos参数是intercept类型
+                            self.add_function_hook_relocation(funcname, cb, userdata)
+
+                            for symidx in range(self.mips_gotsym, self.mips_symtabno):
+                                tmp_name = self.strtab[self.symtab[symidx].st_name]
+                                if tmp_name == funcname.encode():
+                                    fn = tmp_name
+                                    if fn in self.hook_list.keys():
+                                        self.hook_list[fn].add_hook(cb, pos, userdata)
+                                        return
+
+                                    hf = HookFuncMips(self.ql, fn, self.plt_got, symidx - self.mips_gotsym + self.mips_local_gotno, self.load_base)
+                                    hf.add_hook(cb, pos, userdata)
+
+                                    if len(self.free_list) == 0:
+                                        raise
+                                    
+                                    hf.idx = self.free_list[0]
+                                    del self.free_list[0]
+
+                                    hf.hook_fuc_ptr = hf.idx * 0x10 + self.hook_mem # hook_fuc_ptr只想的地址会填入hf对应的函数的got表项
+                                    hf.hook_data_ptr = hf.idx * 0x10 + self.hook_mem + 0x1000
+
+                                    self.use_list[hf.idx] = hf
+                                    self.hook_list[fn] = hf
+
+                                    hf.enable()
                 ```
     * 系统套接字管理
         * `os/posix/posix.py:QlOsPosix#__init__`中有一行`self._fd = QlFileDes()`, `QlFileDes`实例的初始化中有`self.__fds = [None] * NR_OPEN`(`NR_OPEN`为1024). 后续每个套接字对应的IO对象都放在`QlFileDes`实例的`__fds`列表中, 套接字值对应下标. 
+        * 获取打开的资源的: `ql.os.fd`. 其中每一项为`ql_file`或`ql_socket`实例. 
+            * `ql_file`:
+                * `os/filestruct.py`
+            * `ql_socket`: 
+                * `os/posix/filestruct.py`
+            * `ql_pipe`:
+                * `os/filestruct.py`
+        * 在当前进程打开新的qiling实例时, **先前的qiling实例占用的端口并没有释放**. 
 ## binwalk
 * `binwalk <bin文件>`
 * 参数

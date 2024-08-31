@@ -46,6 +46,7 @@
             * 访问主机上所有设备的权限. 
             * 使用主机的所有内核功能. 
             * 使用主机上所有的文件系统. 
+        * `--restart=always`: 重启docker时, 该容器同时重启. 
     * `docker start <容器名>`: 启动一个已经关闭的容器.
 * 停止容器: `docker stop <容器id>`
 * 重启容器: `docker restart <容器id>`

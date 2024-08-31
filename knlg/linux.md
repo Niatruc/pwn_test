@@ -1300,7 +1300,10 @@ typedef struct {
 * `trap`: 对捕获到的SIGNAL, 改变原有的处理action为新的action
     * `-l`: 列出支持的信号
     * `trap 'echo -e "\nCTRL_C PRESSED"' SIGINT`: 表示处理`ctrl+c`产生的`SIGINT`信号. 这时将执行echo. 
-
+* `ipcs`: 获取进程间通信信息
+    * `-m`: 获取共享内存信息. 
+    * `-q`: 获取消息队列. 
+    * `-s`: 获取信号量. 
 ### 文件和目录
 * `nautilus`: 打开文件管理器(gnome)
 * `zip`
@@ -1377,6 +1380,13 @@ typedef struct {
 * 重启网络
     * `service network-manager restart`
     * `nmcli networking on`
+    * 问题
+        * 复制虚拟机后, 无法识别网卡: 
+            ```sh
+                sudo service NetworkManager stop
+                sudo rm /var/lib/NetworkManager/NetworkManager.state
+                sudo service NetworkManager start
+            ```
 * `ss`: 类似`netstat`
     * `-t`: 打印TCP连接
     * `-u`: 打印UDP连接
