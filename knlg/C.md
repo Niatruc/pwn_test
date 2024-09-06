@@ -211,15 +211,15 @@
     ```cpp
     // x86
 
-    void fun(char c[]) 
+    void func(char c[]) 
     { 
         printf("%d\n" , sizeof(c));     // c是指针
     }
-    void fun2(char &c) // 传引用, 就是实参本身
+    void func2(char &c) // 传引用, 就是实参本身
     { 
         printf("%d\n" , sizeof(c)); 
     }
-    void fun3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用fun3时传给它的数组大小若大于9则会出错
+    void func3(char(&c)[9])  // 传数组引用, 好处是可及早在编译阶段发现下标溢出错误, 即调用func3时传给它的数组大小若大于9则会出错
     { 
         printf("%d\n" , sizeof(c)); 
     } 
@@ -234,9 +234,9 @@
         f(p);   // 传的是a的地址, 因而可改变a的值
         char c[] = "12345678"; 
         printf("%d\n" , sizeof(c)); // 9
-        fun(c); // 4
-        fun2(*c); // 1(*c即c[0])
-        fun3(c); // 9
+        func(c); // 4
+        func2(*c); // 1(*c即c[0])
+        func3(c); // 9
         return 0; 
     }
     ```

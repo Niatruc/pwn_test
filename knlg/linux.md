@@ -729,7 +729,7 @@
             * `readfds`: 用于检查可读性. 如果想检查一个套接字集合`fd_set`是否有可读套接字, 就将这个参数设为`fd_set`
             * `writefds`: 用于检查可写性
             * `errorfds`: 用于检查异常
-            * `timeout`: 用于决定select等待I/O的最长时间, 在此期间select函数会阻塞. 为NULL则无限等待. 
+            * `timeout`: 用于决定`select`等待I/O的最长时间, 在此期间`select`函数会阻塞. 为`NULL`则无限等待. 
                 * `timeout->tv_sec`或`timeout->tv_usec`不为0时, 等待指定的时间. (前者为秒, 后者为微秒)
         * 返回值
             * 满足要求的描述符的个数
@@ -1318,7 +1318,7 @@ typedef struct {
 * `lsof <文件路径>`: list opened files, 可以查看打开该文件的进程. 
     * 在查找`fork`产生的孤儿进程时有用. 
     * `-p <pid>`: 可以查看进程中打开的文件描述符的详细信息, 包括大小, 类型等. 
-* `ln <参数> <源文件或目录> <目标文件或目录>`
+* `ln <参数> <源文件或目录> <软链接名字>`
 * `find <目录>`: 在目录下寻找符合条件的文件
     * `-name <通配符表达式>`: 查找符合名称的文件
     * `-type l`: 列出所有符号链接
@@ -1347,14 +1347,14 @@ typedef struct {
         sudo losetup /dev/loop0 xxx.img # 将loop0设备和一个img文件关联
         sudo kpartx -av /dev/loop0 # 会在`/dev/mapper`目录下出现`loop0p1`等文件, 代表img文件中的文件系统分区
         mkdir /vmdisk1 
-        mount /dev/mapper/loop0p1 /vmdisk1 # 把第一个分区挂载到/vmdisk1
+        sudo mount /dev/mapper/loop0p1 /vmdisk1 # 把第一个分区挂载到/vmdisk1
         mkdir /vmdisk2
-        mount /dev/mapper/loop0p2 /vmdisk2 # 把第二个分区挂载到/vmdisk2
+        sudo mount /dev/mapper/loop0p2 /vmdisk2 # 把第二个分区挂载到/vmdisk2
 
         # 卸载镜像
-        umount /vmdisk
-        kpartx -dv /dev/loop0
-        losetup -d /dev/loop0
+        sudo umount /vmdisk
+        sudo kpartx -dv /dev/loop0
+        sudo losetup -d /dev/loop0
     ```
 * `fdisk < /dev 目录下的设备文件 | 镜像文件>`: 磁盘分区工具
     * `-l`: 查看分区表详细信息

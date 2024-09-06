@@ -313,6 +313,7 @@
     * `ql.mem`: 
         * `.read(addr, size)`: 读内存地址数据. 返回`bytes`类型数据. 
         * `.read_ptr(addr, size: int = 0)`: 从内存地址读一个整数(指针大小). `size`可取值为0(表示使用CPU架构的指针大小), 1, 2, 4, 8
+        * `.string(addr: int, value=None, encoding='utf-8')`: 读写字符串. 当`value`为字符串时写入字符串. 
         * `.write(addr, buf)`: 写数据到内存地址. `buf`是`bytes`类型数据. 
         * `.write_ptr(addr: int, value: int, size: int = 0)`: 向内存地址写一个整数. 
         * `.get_formatted_mapinfo()`: 获取仿真程序的内存分段信息.
@@ -347,7 +348,7 @@
                 # QL_INTERCEPT.ENTER: 进入原函数前执行钩子. 不会覆盖原函数
                 # QL_INTERCEPT.EXIT: 退出原函数前执行钩子. 不会覆盖原函数
             
-            # set_api的原理参考`os/linux/function_hook.py:FunctionHook`类中的`add_function_hook_relocation`和`add_function_hook_mips`方法
+            # `set_api`的原理参考`os/linux/function_hook.py:FunctionHook`类中的`add_function_hook_relocation`和`add_function_hook_mips`方法
 
             # 设置系统api钩子
             def my_recv(ql: Qiling, sockfd: int, buf: int, length: int, flags: int):
