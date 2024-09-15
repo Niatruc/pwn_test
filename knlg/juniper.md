@@ -26,8 +26,8 @@
                         set http interface ge-1/0/0 # 访问接口
                         set https system-generated-certificate # 由系统自动生成X.509证书
                     ```
-        * `login class <类名>`: 创建登录类. 
-            * `allow-commands "request system reboot"`: 表示允许执行`"request system reboot"`这三条命令. 
+            * `login class <类名>`: 创建登录类. 
+                * `allow-commands "request system reboot"`: 表示允许执行`"request system reboot"`这三条命令. 
         * `interfaces ge-0/0/0 unit 0 family inet address 192.168.9.103/24`: 配置`ge-0/0/0`端口的IP地址. 
         * (ex交换机)配置vlan, 并将端口加入vlan中
             ```sh
@@ -50,7 +50,12 @@
         * `system`
             * `snapshot`: 在插入U盘的情况下, 这条命令将U盘进行分区, 并备份固件. 
             * `software add no-copy /var/tmp/junos-srxsme-12.3X48-D101-domestic.tgz no-validate reboot`: 使用所给固件压缩包升级系统, 并重启. 
-    
+
+## 存储
+* 挂U盘
+    * 以srx300为例, U盘格式要确保为FAT32. 
+    * 创建挂在目录, 比如`/tmp/my_usb/`
+    * `mount_msdosfs /dev/da1p1 /tmp/my_usb/`
 
 
 ## 用户访问和身份验证
