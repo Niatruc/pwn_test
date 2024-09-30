@@ -409,9 +409,10 @@
     * `n`: 单步跳过
     * `s`: 步入
         * `si`: 执行单条指令
-    * `until`: 退出循环体
-    * ``: 
-    * `finish`: 跳出函数
+    * `j <地址>`: 将执行流转到新的地址. 
+    * `until`: 运行到退出循环体
+    * `finish`: 运行到函数返回
+    * `return <返回值>`: 跳出函数(函数剩余部分不会执行)
     * `bt`: 调用栈
     * `l`: 查看源代码
         * `<行号>`: 列出第`<行号>`行代码
@@ -443,6 +444,7 @@
         * `shell <bash命令>`: 可执行bash命令
     * 断点
         * `b` 
+            * ` *<地址>|*<寄存器>`: 指令地址断点
             * ` <filename>:<function name>`: 函数断点
             * 条件断点
                 * `if cnt==10`
@@ -450,12 +452,20 @@
             * ` *<地址>`: 数据断点
             * ` &<变量>`: 数据断点
         * `d n`: 删除第n个断点
+        * `tb`: 零时断点. 用法同`b`, 只使用一次. 
     * `call <func>(<args>)`: 调用函数(如程序或libc库的函数). 结果保存在历史值中(`$`). 
     * 界面
         * `layout`: 
             * `src`: 源程序
-            * `asm`: 汇编
+            * `asm`: 汇编. 此时得用`ctrl + p`, `ctrl + n`在cmd中切换上一条或下一条命令. 
             * `split`: 源程序和汇编各一个窗口
+        * `focus`: 切换窗口
+            * `prev|next`: 切换
+            * `cmd`: 切换到命令行
+            * `asm`: 切换到汇编窗口
+            * `src`: 切换到源码窗口
+            * `regs`: 切换到寄存器窗口
+        * `ctrl+x, <数字>`: 切换窗口
         * `tui enable`: 源程序界面. 可以用`ctrl+x, a`切换. 
     * 设置
         * `set follow-fork-mode child`: 设置gdb在fork之后跟踪子进程. 
@@ -744,7 +754,7 @@
                 select(s + 1, &set, NULL, NULL, NULL); // 检查set集合中的套接字是否可读(会阻塞)
                 if(FD_ISSET(s, &set)) { // 检查s是否在set中(即s是否被唤醒)
                     recv(s, buf, len, 0); // 四参是flags, 一般设为0
-                } 
+                }
             }
             ```
     * `int poll(struct pollfd* fds, nfds_t nfds, int timeout);`
@@ -1110,6 +1120,8 @@ typedef struct {
 * `${a}`: 得到变量a的值(作为字符串)
 * 字符串变量操作: 
     * `${#a}`: 获取字符串a的长度. 
+    * `${str:0:2}`: 字符串分割, 0是下标, 2是长度. 
+        * 下标可以用负数, 但必须先将负数赋予一个变量, 再将变量作为下标. 
 * `>`是直接覆盖文件, `>>`是追加到文件尾. 
 * 重定向: 
     * `my_proc 2>&1`: 将标准错误输出重定向到标准输出. 
@@ -1149,10 +1161,10 @@ typedef struct {
 
         # switch语句
         case $OS in
-            Android|android)
+            "Android"|"android")
                 statements
                 ;;
-            Windows|windows)
+            "Windows"|"windows")
                 statements
                 ;;
             *)
@@ -1190,6 +1202,15 @@ typedef struct {
         do
             echo $num
         done
+
+        # 读文件
+        file_content=$(<$1)
+        echo $file_content
+
+        # 逐行读文件
+        while read -r line; do
+            echo "$line"
+        done < $file_path
     ```
 
 ## 系统指令, 工具
