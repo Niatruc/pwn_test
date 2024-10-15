@@ -365,6 +365,16 @@
         * `push --set-upstream origin <新分支名>`: 将分支推送到服务器
         * `pull origin <远程分支名>[:<本地分支名>]`: 拉取指定分支
         * `clone -b <分支名> <git地址> <仓库新名称>`: 拉取指定分支
+    * 将本地已有git仓库推送到git服务器
+        * `git remote add origin <项目url>` 将本地仓库与远程仓库关联
+        * `git push --set-upstream origin master`
+        * `git push -u origin master` 将本地项目推送到远程仓库
+    * 把别人的git仓库push到自己的服务器上: 
+        * `git remote remove origin`: 把原来的origin删掉
+        * 在服务器上新建仓库
+        * `git push --set-upstream origin master`
+        * `git remote add origin <项目url>`
+        * `git remote set-url --push origin <项目url>`
 * 库管理
     * `dpkg`
         * `-i`: 安装deb包. 
@@ -472,7 +482,31 @@
         * `set detach-on-fork off`: 可防止gdb在有fork执行之后就从父进程中分离. 
         * `set var a = 1`: 设置变量a的值为1
         * `set var $r1 = 1`: 设置寄存器r1的值为1
+## 其他
+* 调用图
+    ```sh
+        cd /sys/kernel/debug/tracing
 
+        # 打印调用栈
+        echo nop > current_tracer           # 清空跟踪器
+        echo 要跟踪的内核函数 > set_ftrace_filter   # 设置跟踪函数为drm_open
+        echo function > current_tracer      # 设置当前跟踪器
+        echo 1 > options/func_stack_trace   # 跟踪函数调用栈
+        echo 1 > tracing_on                 # 开始跟踪
+        echo 0 > tracing_on                 # 关闭跟踪
+
+        # 打印调用图
+        echo nop > current_tracer
+        echo function_graph > current_tracer
+        echo 要跟踪的内核函数 > set_graph_function
+        echo 1 > options/funcgraph-tail  # 增加函数尾部注释
+        echo > set_ftrace_filter         # 清空，否则无法显示调用栈
+        echo 1 > tracing_on 
+        echo 0 > tracing_on
+
+        # 输出结果
+        cat trace
+    ```
 # 字符串
 * api
     * `char *strtok(char s[], const char *delim);` 当发现`delim`中包含的分隔符时, 会将该字符改为`\0`. 首次调用时, 参数`s`是目标字符串, 后面调用时直接设为NULL. 直到`strtok`返回NULL, 则说明分割结束了. 

@@ -53,7 +53,7 @@
 
 ## 存储
 * 挂U盘
-    * 以srx300为例, U盘格式要确保为FAT32. 
+    * 以srx300为例, **U盘格式要确保为FAT32**. 
     * 创建挂在目录, 比如`/tmp/my_usb/`
     * `mount_msdosfs /dev/da1p1 /tmp/my_usb/`
 

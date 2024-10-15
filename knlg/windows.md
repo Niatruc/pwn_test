@@ -645,6 +645,10 @@
         * 如果有源码, 可以在函数开头放一个`Sleep`, 睡眠比较长一段时间. 启动服务后, 记录下进程id, 并在其睡眠结束前通过windbg附加到进程, 在`Sleep`后设置断点. 
 
 # 用户, 授权机制
+* 修改用户名和用户目录名
+    * 运行`netplwiz`, 点属性, 修改用户名
+    * 修改注册表: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Profilelist`, 在其下每一项中找到当前用户所属的那一项, 修改`ProfileImagePath`值为新目录名. 
+    * 重启, 用启动盘启动PE系统, 进入`C:\用户`, 找到以前用户名的文件夹, 重命名为现在的用户名. 
 * 启用`administrator`
     * 非家庭版
         * 方法一: `计算机管理` -> `本地用户和组` -> `用户` -> `administrator`, 右键`属性`, 把账户`已禁用`的勾去掉. 
@@ -913,6 +917,22 @@
                 "recommendationsUrl": ""
             }
         ```
+* vs环境变量
+
+    |环境变量名|含义|
+    |-|-|
+    |$(SolutionDir) | 解决方案目录：即.sln文件所在路径|
+    |$(ProjectDir) | 项目根目录:, 即.vcxproj文件所在路径|
+    |$(Configuration) | 当前的编译配置名称, 比如Debug, 或Release|
+    |$(ProjectName) | 当前项目名称|
+    |$(SolutionName) | 解决方案名称|
+    |$(OutDir) | 项目输出文件目录|
+    |$(TargetDir) | 项目输出文件目录|
+    |$(TargetName) | 项目生成目标文件, 通常和$(ProjectName)同名, 如Game|
+    |$(TargetExt) | 项目生成文件后缀名, 如.exe, .lib具体取决于工程设置|
+    |$(TargetFileName) | 项目输出文件名字。比如Game.exe, 等于 (TargetName)+(TargetExt)|
+    |$(ProjectExt) | 工程文件后缀名, 如.vcxproj|
+
 # Win11
 * 安装
     * Vmware

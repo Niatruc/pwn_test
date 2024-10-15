@@ -1058,6 +1058,20 @@
 
 ## frida
 * 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
+* 例: 
+    ```sh
+        # 附加到lsass进程. (cmd中失败, powershell则可)
+        frida lsass.exe
+
+        # 加载脚本
+        frida lsass.exe -l <xx.js>
+
+        # 跟踪函数
+        frida-trace lsass.exe -i RtlCompareMemory
+
+        # 追踪库中的函数. 会在当前目录下新建一个`msv1_0.DLL/__handlers__`目录, 目录下各个js文件对应被hook的函数, 其中的onEnter和onLeave回调函数在被修改后会立刻生效. 
+        frida-trace lsass.exe -I msv1_0.DLL
+    ```
 
 
 ## api monitor

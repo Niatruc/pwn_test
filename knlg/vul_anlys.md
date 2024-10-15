@@ -291,6 +291,7 @@
 * BYOVD(Bring your own vulnerable driver)
     * 攻击者向目标环境植入一个带有漏洞的合法驱动程序, 再通过漏洞利用获得内核权限以杀死/致盲终端安全软件等. 
     * 参考
+        * [BYOVD ATTACK 学习](https://xz.aliyun.com/t/12927)
         * [loldrivers](https://www.loldrivers.io/)
         * [Microsoft 推荐的驱动程序阻止规则](https://learn.microsoft.com/zh-cn/windows/security/application-security/application-control/windows-defender-application-control/design/microsoft-recommended-driver-block-rules)
         * 项目

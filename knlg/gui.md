@@ -2,6 +2,31 @@
 * ansi转义序列: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
 
 # QT
+## 参考
+* 下载: https://download.qt.io/archive/qt/5.14/5.14.2/
+* vs插件: https://download.qt.io/official_releases/vsaddin/2.8.1/qt-vsaddin-msvc2019-2.8.1-rev.06.vsix (hash: 390b0ebba8f4276f82564179f8ad2abe )
+* qt存储库: https://mirrors.tuna.tsinghua.edu.cn/qt/online/qtsdkrepository/windows_x86/root/qt/
+* ubuntu下支持拼音输入法: https://blog.csdn.net/qq_27278957/article/details/96912344
+* 以root运行的qtcreator无法输入中文. 
+* QT以root权限run/debug: https://www.cnblogs.com/liushui-sky/p/12880971.html
+* 静态编译`Qt`
+    * 参考: https://blog.csdn.net/GerZhouGengCheng/article/details/118305670
+    * 需要先安装: 
+        * python
+        * `sudo apt-get install libxcb-xfixes0-dev`
+* 以root运行qtcreator, 调试项目时报错
+    * 在工程设置中, 将`run in terminal`的钩去掉. 
+* 高版本系统开发的程序放到低版本运行: 
+    * https://www.toutiao.com/article/7088346748493627917/?wid=1663733063118
+* 打包
+    * https://blog.csdn.net/zyhse/article/details/106381937
+    * linuxdeployqt
+        * https://github.com/probonopd/linuxdeployqt/blob/master/README.md
+        * `linuxdeployqt Test -appimage -unsupported-allow-new-glibc`
+        * `linuxdeployqt Test -appimage -unsupported-bundle-everything`
+* 表格显示问题(过早, 在字符串出现空格处显示省略号)的改进: 
+    * https://stackoverflow.com/questions/64198197/how-to-prevent-too-aggressive-text-elide-in-qtableview
+
 ## 信息
 * 要素/特点
     * 跨平台: Linux, Windows

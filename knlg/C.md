@@ -503,10 +503,16 @@
 ## Cling
 * 一个基于LLVM的C++解释器.
 * 下载已编译的工程: [https://root.cern.ch/download/cling/](https://root.cern.ch/download/cling/). 之后将其bin目录添加到PATH环境变量.
+* 自己编译: 
+    * `./cpt.py --check-requirements && ./cpt.py --create-dev-env Debug --with-workdir=./cling-build`
+    * 报错: 
+        * 在100%后, 出现`ld ... signal 9`. 
+            * 因内存不足. 
+            * 解决: 将`DEBUG`改为`released`
 * 使用:
-  * 直接运行cling.
-  * 执行C++代码: `cling '#include <stdio.h>' 'printf("Hello World!\n")'`
-  * 用Cling运行C++文件: `cat test.cpp | cling`
+    * 直接运行cling.
+    * 执行C++代码: `cling '#include <stdio.h>' 'printf("Hello World!\n")'`
+    * 用Cling运行C++文件: `cat test.cpp | cling`
 * 可在Jupyter Lab中使用, 需先安装kernel:
   ```sh
     cd share/cling/Jupyter/kernel/
