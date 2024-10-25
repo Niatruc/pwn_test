@@ -1,3 +1,8 @@
+* 查看是否已开启`intel-vt`或`amd-v`: `grep flags /proc/cpuinfo|head -n1|grep -Eo '(vmx|svm)'`
+* 添加内核模块: 
+    > `modprobe kvm`
+    > `modprobe kvm-intel`
+
 # virtualbox
 * 为防止安装系统时的意外错误, 需在配置中`system`处开启`UEFI`
 * 挂载共享文件夹: `sudo mount -t vboxsf public_dir /mnt/shared `
@@ -161,6 +166,9 @@
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
     * `sudo apt install qemu qemu-kvm virt-manager bridge-utils`
+    * 启动及启用`libvirtd`服务
+        > `systemctl start libvirtd`
+        > `systemctl enable libvirtd`
 * 手动编译qemu
     * `configure`: 运行后生成`config-host.mak`文件. 
         * `--enable-debug`: 加入调试符号
@@ -309,7 +317,9 @@
             * `sudo ln -s /usr/arm-linux-gnueabihf/lib/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3`
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
-
+* virtsh
+    * 安装: `sudo apt install libvirt-clients`
+    * 
 ## 原理
 * 参考
     * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
