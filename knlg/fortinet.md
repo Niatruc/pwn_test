@@ -1,13 +1,74 @@
 * 固件下载: https://fortiweb.ru/en/download/
+* 工具
+    * https://github.com/rrrrrrri/fgt-gadgets
 
+# 使用
+* 命令
+    * `execute`
+        * `ping`
+    * `fnsysctl`: 在完成证书认证后可用. 可以使用linux命令, 如`ls`, `ps`, `mv`, `df`等. 
 # 逆向
 ## 提取固件
-* 工具
-    * `libguestfs-tools`: 有`virt-filesystems`, `guestmount`等工具. 
-        * 安装: `sudo apt install libguestfs-tools`
-* 查看磁盘分区: `sudo virt-filesystems -a fortios.vmdk`
-* 挂载磁盘分区: `sudo guestmount -a fortios.vmdk -m /dev/sda1 ./fortios`
+* 从`.out`文件中提取文件系统: 
+    * 固件解密
+        * 工具: 
+            * https://github.com/optistream/fortigate-crypto
+            * https://github.com/BishopFox/forticrack (使用python实现)
+* 从`.qcow2`或`.vmdk`文件中提取文件系统: 
+    * 工具
+        * `libguestfs-tools`: 有`virt-filesystems`, `guestmount`等工具. 
+            * 安装: `sudo apt install libguestfs-tools`
+    * 查看磁盘分区: `sudo virt-filesystems -a fortios.vmdk`
+    * 挂载磁盘分区: `sudo guestmount -a fortios.vmdk -m /dev/sda1 ./fortios`
+        * 默认使用`-w`(写权限)打开, 会挂载失败(`mount: /sysroot: can't read superblock on /dev/sda1`). 要使用`-r`. 
+    * 卸载磁盘分区: `sudo guestunmount ./fortios`
+    * 提取文件系统: 
+        * 对于较老的版本(比如`7.0.0`): 
+            * `gzip -d rootfs.gz`
+                * 对于新版本固件, `gzip`无法识别`rootfs.gz`
+            * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
+        * 解压压缩包: 需要用fortinet自带的xz和tar
+            * 例: 解压`bin`目录的压缩包
+                * `sudo chroot . /sbin/xz --check=sha256 -d /bin.tar.xz`
+                * `sudo chroot . /sbin/ftar -xf /bin.tar`
+    * 打包
+        * 压缩成`.tar.xz`文件
+            * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
+            * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
+        * 压缩成`rootfs.gz`
+            * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
+            * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
 
+## 仿真
+* arm版固件仿真
+    * virt-manager: 
+        * 在创建虚拟机时勾选`customize configuration before install`
+        * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`Custom: /usr/share/AAVMF/AAVMF_CODE.fd`
+* 配置网络:
+
+    ```
+        config system interface
+        edit port1
+        set mode static
+        set ip 192.168.1.2 255.255.255.0
+        set allowaccess http ping https ssh telnet
+        end
+    ```
+
+    * 注意: 和宿主机的`virbr0`使用同一网段. 
+    * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
+* 证书
+    * `get system status`可查看证书状态. 
+
+## 文件分析
+* `flatkc`
+    * 基本信息
+        * 压缩镜像文件. 由它来解压`rootfs`. 
+        * x64虚拟机中的`flatkc`是bzImage, 需要先转成elf再进行逆向分析: 
+            * 用`extract-vmlinux`: `/usr/src/linux-headers-6.5.0-21-generic/scripts/extract-vmlinux flatkc > flatkc.kvm.vmlinux`
+            * 用`vmlinux-to-elf`(有符号): `./vmlinux-to-elf flatkc flatkc.kvm.vmlinux`
+        * `.out`固件提取出来的`flatkc`:
+            * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将之转为elf文件. 
 
 # 漏洞分析
 # CVE-2024-21762

@@ -317,9 +317,11 @@
             * `sudo ln -s /usr/arm-linux-gnueabihf/lib/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3`
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
-* virtsh
+* virsh
     * 安装: `sudo apt install libvirt-clients`
-    * 
+    * 命令
+        * `list`
+            * `--all`: 列出所有虚拟机. 
 ## 原理
 * 参考
     * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)

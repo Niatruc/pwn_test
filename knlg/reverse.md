@@ -82,7 +82,7 @@
     * [超级简单的数据压缩算法—LZW算法](https://www.cnblogs.com/mcomco/p/10475329.html)
     * [zlib压缩原理](https://blog.csdn.net/dovakejin/article/details/129096962)
 * 理论
-    * 压缩原理: 所谓"压缩"就是找出文件内容的概率分布, 将那些出现概率高的部分代替成更短的形式. 所以, 内容越是重复的文件, 就可以压缩地越小. 
+    * 压缩原理: 所谓"压缩"就是找出文件内容的概率分布, 将那些出现概率高的部分代替成更短的形式. 所以, 内容越是重复的文件, 就可以压缩得越小. 
     * 步骤: 
         1. 得到文件内容的概率分布, 哪些部分出现的次数多, 哪些部分出现的次数少; 
         2. 对文件进行编码, 用较短的符号替代那些重复出现的部分. 
@@ -138,6 +138,17 @@
     ```
 * 其他的还有: 虚拟寄存器轮转算法, 寄存器加密, 栈混乱代码随机生成, VM寄存器随机化, 原始栈开辟新的执行空间解决多线程等等. 
 
+# 解密
+* 明文攻击
+    * PKCrack: 
+        * 项目地址: https://github.com/keyunluo/pkcrack
+        * 使用: 
+            * ` pkcrack -C encrypted.zip -c ciphertext.txt -P plaintext.zip -p plaintext.txt -d decryptedtext.txt -a`: 
+                * `encrypted.zip`: 加密的zip包
+                * `ciphertext.txt`: 加密的zip包中的明文文件的名字
+                * `plaintext.zip`: 压缩后的明文文件
+                * `plaintext.txt`: 压缩的明文文件中明文文件的名字
+                * `decryptedtext.txt`: 输出的文件
 
 # 工具
 ## capstone
