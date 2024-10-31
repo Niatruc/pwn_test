@@ -18,8 +18,8 @@
     * 工具
         * `libguestfs-tools`: 有`virt-filesystems`, `guestmount`等工具. 
             * 安装: `sudo apt install libguestfs-tools`
-    * 查看磁盘分区: `sudo virt-filesystems -a fortios.vmdk`
-    * 挂载磁盘分区: `sudo guestmount -a fortios.vmdk -m /dev/sda1 ./fortios`
+    * 查看磁盘分区: `sudo virt-filesystems -a fortios.qcow2`
+    * 挂载磁盘分区: `sudo guestmount -a fortios.qcow2 -m /dev/sda1 ./fortios`
         * 默认使用`-w`(写权限)打开, 会挂载失败(`mount: /sysroot: can't read superblock on /dev/sda1`). 要使用`-r`. 
     * 卸载磁盘分区: `sudo guestunmount ./fortios`
     * 提取文件系统: 

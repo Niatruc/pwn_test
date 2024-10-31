@@ -176,13 +176,13 @@
         * `--target-list=`: 指定编译的目标. 可以用逗号隔开. 
             * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
             * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
-* 镜像
+* `qemu-img`
     * `qemu-img convert win2kpro.vmdk -O qcow win2kpro.img`: 将一个vmdk文件转成qcow2文件
     * 将一个vdi文件转成qcow2文件: 
         > `VBoxManage clonehd --format RAW img.vdi img.raw`
         > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
-* 快照
-    * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
+    * 快照
+        * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
 * 运行
     * 运行一个linux内核
         ```sh
