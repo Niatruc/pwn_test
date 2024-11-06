@@ -941,7 +941,10 @@
         * `GetFileType(hFile)`也是
 
 # 系统引导和磁盘分区
-* BIOS和MBR
+* 参考
+    * [聊聊BIOS、UEFI、MBR、GPT、GRUB](https://segmentfault.com/a/1190000020850901)
+    * [MBR引导程序源码理解](https://blog.csdn.net/lijiewen2017/article/details/124574991)
+* `BIOS`和`MBR`
     * 流程
         * 启动电源, 硬件初始化检查.
         * 根据`CMPS`的设置, BIOS加载启动盘, 将`MBR`的引导代码载入内存, 然后启动过程由`MBR`来执行.
@@ -956,7 +959,7 @@
 
         <img alt="" src="./pic/mbr.jpg" width="40%" height="40%">
 
-* `UEFI`(Unified Extensible Firmware Interface, 统一的可扩展固件接口)和GPT
+* `UEFI`(Unified Extensible Firmware Interface, 统一的可扩展固件接口)和`GPT`
     * `LBA`(64位), 分区数量无限制, MS128个分区.
     * `UEFI`相当于一个微型操作系统. 具备文件系统的支持, 能直接读取`FA`T分区中的文件, 可开发处直接在UEFI下运行的应用程序(以`efi`结尾). 可将windows安装程序做成`efi`程序, 然后把它放任意分区中直接运行.
     * 不需要主引导记录, 不需要活动分区, 只要复制一个安装文件到一个`FAT32`(主)分区或U盘中, 然后从中启动.

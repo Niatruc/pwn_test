@@ -1,6 +1,7 @@
 # 文章
 * [【干货分享】恶意样本分析手册——常用方法篇](https://bbs.huaweicloud.com/blogs/109534)
 * [rootkits-investigation-procedures.pdf](https://www.sans.org/media/score/checklists/rootkits-investigation-procedures.pdf)
+* [网络靶场实战-加密固件分析](https://blog.csdn.net/We8__/article/details/137859910)
 
 # 网站
 * https://opensecuritytraining.info/MalwareDynamicAnalysis.html
@@ -981,6 +982,7 @@
         `-A`: 分析
         `-d`: 开启调试器
         `-w`: 加上该选项后可编辑文件
+        `-p <工程>`: 加载r2工程
 * 配置
     * `~/.radare2rc`
 * 命令
