@@ -196,7 +196,7 @@
 * 模式
     * 参考
         * https://zhuanlan.zhihu.com/p/128582757
-    1. 电码本模式(ECB): 各分组用同一加密密钥. 
+    1. 电码本模式(`ECB`, `Electronic Codebook`): 各分组用同一加密密钥. 
         * 优点
             * 适合短数据处理
             * 适合并行计算
@@ -207,7 +207,7 @@
 
                 <img alt="" src="./pic/DES_ECB_dec.png" width="50%" height="50%">
 
-    2. 密码分组链接模式(CBC, Cipher-block chaining)
+    2. 密码分组链接模式(`CBC`, `Cipher-block chaining`): 将**前一组的密文**作用于(一般是异或)当前组的明文
         1. 密文链接方式: 把**前一组的密文**作为当前组的加密输入之一(与当前组明文异或)
             * 加密过程: 
                 * $C_i = E_k(P_i \bigoplus C_{i-1})$
@@ -223,7 +223,7 @@
             <img alt="" src="./pic/DES_CBC_enc.png" width="50%" height="50%">
 
             <img alt="" src="./pic/DES_CBC_dec.png" width="50%" height="50%">
-        2. 明密文链接方式(Propagating cipher-block chaining): 把**前一组的明文和密文**作为当前组的加密输入之一(与当前组明文异或)
+        2. 明密文链接方式(`Propagating cipher-block chaining`): 把**前一组的明文和密文**作为当前组的加密输入之一(与当前组明文异或)
             * 加解密: 
                 * $C_i = E_k(P_i \bigoplus P_{i-1} \bigoplus C_{i-1})$, $P_0 \bigoplus C_0 = IV$
                 * $P_i = D_k(C_i) \bigoplus P_{i-1} \bigoplus C_{i-1}$, $P_0 \bigoplus C_0 = IV$
@@ -231,7 +231,7 @@
             <img alt="" src="./pic/DES_PCBC_enc.png" width="50%" height="50%">
 
             <img alt="" src="./pic/DES_PCBC_dec.png" width="50%" height="50%">
-    3. CFB(Cipher feedback, 密文反馈模式)
+    3. `CFB`(`Cipher feedback`, 密文反馈模式): 用**前一组的密文**来生成当前组的密钥
         * 将块密码变为自同步的流密码. CFB的解密过程几乎就是颠倒的CBC的加密过程. 
         * 加解密: 
             * $C_i = E_k(C_{i-1}) \bigoplus P_i$
@@ -241,7 +241,7 @@
             <img alt="" src="./pic/DES_CFB_enc.png" width="50%" height="50%">
 
             <img alt="" src="./pic/DES_CFB_dec.png" width="50%" height="50%">
-    4. 输出反馈(OFB, Output feedback)
+    4. 输出反馈(`OFB`, `Output feedback`): 用**前一组的密钥**来生成当前组的密钥
         * 将块密码变成同步的流密码. 
         * 由于明文和密文只在最终的异或过程中使用, 因此可以事先对IV进行加密, 最后并行的将明文或密文进行并行的异或处理. 
         * 加解密: 
@@ -253,7 +253,7 @@
             <img alt="" src="./pic/DES_OFB_enc.png" width="50%" height="50%">
 
             <img alt="" src="./pic/DES_OFB_dec.png" width="50%" height="50%">
-    5. 计数器模式(CTR, Counter mode)
+    5. 计数器模式(`CTR`, `Counter mode`)
         * 将块密码变为流密码. 
         * 通过递增一个加密计数器以产生连续的密钥流. 
         * 计数器可以是任意保证长时间不产生重复输出的函数, 但使用一个普通的计数器是最简单和最常见的做法. 
@@ -261,6 +261,44 @@
             <img alt="" src="./pic/DES_CTR_enc.png" width="50%" height="50%">
 
             <img alt="" src="./pic/DES_CTR_dec.png" width="50%" height="50%">
+
+## 流密码
+* 要点
+    * 密钥与分组进行异或运算实现加密. 
+    * 每个分组使用的密钥都不一样. 流密码的算法主要是为了生成密钥. 
+
+### RC4
+* 参考
+    * [RC4](https://l2x.gitbooks.io/understanding-cryptography/content/docs/chapter-1/rc4.html)
+* 要点
+    * 有线等效加密(`WEP`)采用的加密算法. 
+    * 步骤
+        1. 通过算法生成一个256字节的S-box. 
+        2. 再通过算法每次取出S-box中的某一字节K.
+        3. 将K与明文做异或得到密文. 
+### chacha20
+* 参考
+    * [chacha20 算法流程](https://blog.csdn.net/choumin/article/details/132804784)
+* 要点
+    * 每个分组64字节. 
+    * chacha20算法只生成流密钥. 
+    * 初始密钥矩阵: 
+        * 以一个DWORD为一个元素, 组成4*4矩阵. 
+        * 第一行(16个字节)为一个常量: 比如`"expand 32-byte k"`
+        * 第二三行(32个字节)
+    * 每次生成密钥的方法: 
+        * 对矩阵进行列运算和对角线运算, 重复10遍. 
+        * 运算规则: 
+            ```cpp
+                a += b; d ^= a; d <<<= 16;
+                c += d; b ^= c; b <<<= 12;
+                a += b; d ^= a; d <<<= 8;
+                c += d; b ^= c; b <<<= 7;
+            ```
+            * 三个基本运算: 加, 异或, 循环移位. 
+            * abcd及矩阵列或对角线的4个元素. 运用上述规则对矩阵元素进行更新. 
+        * 更新后的矩阵与原矩阵相加, 得到新一组密钥. 
+
 # 非对称加密
 ## RSA
 * 算法描述

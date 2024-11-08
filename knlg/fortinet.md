@@ -32,7 +32,7 @@
         * `gzip -d rootfs.gz`
             * 对于新版本固件, `gzip`无法识别`rootfs.gz`
         * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
-        * 解压压缩包: 需要用fortinet自带的`xz`和`tar`
+        * 解压压缩包: 老版本需要用fortinet自带的`xz`和`ftar`, 新版本可直接用公共的`xz`和`tar`
             * 例: 解压`bin`目录的压缩包
                 * `sudo chroot . /sbin/xz --check=sha256 -d /bin.tar.xz`
                 * `sudo chroot . /sbin/ftar -xf /bin.tar`
@@ -81,3 +81,5 @@
 # CVE-2024-21762
 * 参考: 
     * [FortiGate SSLVPN CVE-2024-21762漏洞利用分析](https://research.qianxin.com/archives/1854)
+
+# CVE-2024-47575 (FortiJump)

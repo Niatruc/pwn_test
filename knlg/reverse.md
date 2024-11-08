@@ -1067,7 +1067,10 @@
     * 可以像od那样调试. 可以像ida那样反汇编, 反编译, 并查看各类信息. 
 
 ## bindiff
-* 二进制文件对比工具. 可独立使用, 也可在ida或ghidra中使用. 
+* 要点
+    * 二进制文件对比工具. 可独立使用, 也可在ida或ghidra中使用. 
+    * 对于ida, 版本要对应. ida 7 就用bindiff 7. 
+    * 置信度: 数值越高, 说明对比的结果越可信. 
 
 ## frida
 * 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
