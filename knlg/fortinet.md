@@ -77,6 +77,13 @@
         * `.out`固件提取出来的`flatkc`:
             * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将之转为elf文件. 
 
+* 内核版本(`fnsysctl cat /proc/version`)
+
+|固件版本|Linux内核版本|
+|-|-|
+|7.0.0|3.2.16|
+|7.4.1|4.19.13|
+
 # 漏洞分析
 # CVE-2024-21762
 * 参考: 
