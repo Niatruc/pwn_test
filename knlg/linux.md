@@ -118,8 +118,16 @@
         }
 
         ```
-* 编译链接工具
-    * `gcc`
+## 编译链接工具
+* `gcc`
+    * 编译: 
+        * 下载源码: https://mirrors.nju.edu.cn/gnu/
+        * 执行: `./configure --prefix=/usr --enable-multilib --enable-languages=c,c++ -disable-multilib`
+        * 执行`make`, 时间比较长. 
+        * 问题: 
+            * 在ubuntu22中编译gcc 7.5时报错`error: size of array 'assertion_failed__1150' is negative ... typedef char IMPL_PASTE(assertion_failed_##_, line)[2*(int)(pred)-1]`
+                * 解决: 将`./gcc-7.5.0/libsanitizer/sanitizer_common/sanitizer_platform_limits_posix.cc`中`CHECK_SIZE_AND_OFFSET(ipc_perm, mode); `注释掉. 
+    * 参数
         * `-c <源程序文件名>`: 编译成`.o`文件(不链接)
         * `-o <输出文件名>`
         * `-g`: 带上调试符号. 
@@ -157,162 +165,164 @@
                 * `-D_FORTIFY_SOURCE=2`: 在1的基础上, 对栈变量进行检测, 且会在运行时进行检查. 
                 * `-D_FORTIFY_SOURCE=3`: 在2的基础上, 可以对`malloc`出来的内存进行检测(gcc 12以上)
 
-        * 链接器脚本(lds文件)
-            * 参考: 
-                * `https://www.codenong.com/cs109007373/`
-            * 示例
-            
-            ```
-            SECTIONS
-            {
-                . = 0×10000;
-                .text : { *(.text) }
+    * 链接器脚本(lds文件)
+        * 参考: 
+            * `https://www.codenong.com/cs109007373/`
+        * 示例
+        
+        ```
+        SECTIONS
+        {
+            . = 0×10000;
+            .text : { *(.text) }
 
-                .data : {
-                    tbl = .;
-                    *(.data.tbl)
-                    tbl_end = .;
-                }
+            .data : {
+                tbl = .;
+                *(.data.tbl)
+                tbl_end = .;
             }
-            ```
+        }
+        ```
 
-            * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
-            * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
-            * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
-        * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
+        * 把定位器符号置为`0×10000`(若不指定, 则该符号的初始值为0).
+        * 在C程序的全局空间中声明`extern char tbl[], tbl_end; `, 即可使用`.data`节中的这两个地址. 
+        * 声明变量时, 使用`__attribute__((section(".data.tbl")))`, 即可将变量放到`.data.tbl`处. 
+    * `__attribute__`: 用于声明函数属性, 变量属性, 类型属性
+        ```cpp
+        __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
+
+        __attribute__((stdcall)) void f2(); // 指定函数的调用约定
+
+        __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
+
+        __attribute__((alias("func"))) void f4(); // 调用f4即相当于调用func
+
+        // 给结构体变量s指定属性
+        struct my_struct
+        __attribute__((unused)) // 表示可能不会用到
+        __attribute__((aligned(1))) // 表示1字节对齐
+        __attribute__((section("my_sec"))) // 表示s被分配到my_sec节中
+        s = { ... };
+        ```
+    * `__builtin_expect`: 
+        * gcc 2.96以后支持, 其将分支转移的信息提供给编译器, 这样编译器可以对代码进行优化, 以减少指令跳转带来的性能下降. 
+        * 编译时, 可能性更大的代码紧接前面的代码. 
+        * `likely`和`unlikely`的判断作用一样, 只有编译结果上的区别. 
             ```cpp
-            __attribute__((constructor)) static void fun1(); // 这个函数会在main函数前执行
-
-            __attribute__((stdcall)) void f2(); // 指定函数的调用约定
-
-            __attribute__((regparm(3))) void f3(); // 调用函数的时候参数不是通过栈传递, 而是直接放到寄存器里, 被调用函数直接从寄存器取参数
-
-            __attribute__((alias("func"))) void f4(); // 调用f4即相当于调用func
-
-            // 给结构体变量s指定属性
-            struct my_struct
-            __attribute__((unused)) // 表示可能不会用到
-            __attribute__((aligned(1))) // 表示1字节对齐
-            __attribute__((section("my_sec"))) // 表示s被分配到my_sec节中
-            s = { ... };
+                #define likely(x)       __builtin_expect((x),1) // x为真的可能性更大时用这个
+                #define unlikely(x)     __builtin_expect((x),0) // x为假的可能性更大时用这个
             ```
-        * `__builtin_expect`: 
-            * gcc 2.96以后支持, 其将分支转移的信息提供给编译器, 这样编译器可以对代码进行优化, 以减少指令跳转带来的性能下降. 
-            * 编译时, 可能性更大的代码紧接前面的代码. 
-            * `likely`和`unlikely`的判断作用一样, 只有编译结果上的区别. 
-                ```cpp
-                    #define likely(x)       __builtin_expect((x),1) // x为真的可能性更大时用这个
-                    #define unlikely(x)     __builtin_expect((x),0) // x为假的可能性更大时用这个
-                ```
-    * `make`
-        * 参考
-            * `https://www.zhaixue.cc/makefile/makefile-intro.html`
-        * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
-        * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
-        * Makefile
-            ```makefile
-                MAKE=make
+* `make`
+    * 参考
+        * `https://www.zhaixue.cc/makefile/makefile-intro.html`
+    * 指定`make install`的安装位置: 先执行`./configure --prefix=<目标路径>`
+    * `-C $(DIR) M=$(PWD)`: 跳转到源码目录`$(DIR)`下, 读其中的Makefile. 然后返回到`$(PWD)`目录. 
+    * Makefile
+        ```makefile
+            MAKE=make
 
-                include ../.config # 可使用其他.config文件中的配置
+            include ../.config # 可使用其他.config文件中的配置
 
-                all: haha.text target1
+            all: haha.text target1
 
-                # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
-                target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
+            # 可以将一些宏参数传给目标(在目标代码中会用到这些宏)
+            target1: CFLAGS+=-DNAME=\"$(CFG_NAME)\" -DDEBUG=$(CFG_IS_DEBUG)
 
-                # 目标: 依赖文件集
-                #   命令1
-                #   命令2
-                # 命令前加个@, 可以阻止终端打印这条命令. 
-                target1: 
-                    @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
-                
-                # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
-                target2: 
-                ifdef DEBUG
-                    ...
-                else
-                    ...
-                endif
+            # 目标: 依赖文件集
+            #   命令1
+            #   命令2
+            # 命令前加个@, 可以阻止终端打印这条命令. 
+            target1: 
+                @ $(MAKE) -C /lib/modules/5.4.0-42-generic/build M=/home/u1/output src=/home/u1/codes
+            
+            # 使用条件语句, 如ifdef, ifeq ($(a), $(b))
+            target2: 
+            ifdef DEBUG
+                ...
+            else
+                ...
+            endif
 
-                %.o:%.c
-                    gcc -o $@ $<
-                
-                # 可使用循环语句: 
-                fortest: 
-                    for arch in arm aarch64 mips powerpc ; do \
-                        echo $$arch ; \
-                    done
-                
-                # 自定义函数
-                define func
-                    @echo $(0), $(1)
-                endef
-                $(call func, 参数1, 参数2)
+            %.o:%.c
+                gcc -o $@ $<
+            
+            # 可使用循环语句: 
+            fortest: 
+                for arch in arm aarch64 mips powerpc ; do \
+                    echo $$arch ; \
+                done
+            
+            # 自定义函数
+            define func
+                @echo $(0), $(1)
+            endef
+            $(call func, 参数1, 参数2)
 
-                ########################################################################################################################
-                # 示例: 构建一个动态库
-                libmy.so: add.o sub.o
-                    gcc -shared -o $@ $^
+            ########################################################################################################################
+            # 示例: 构建一个动态库
+            libmy.so: add.o sub.o
+                gcc -shared -o $@ $^
 
-                %.o: %.c
-                    gcc -fPIC -c $<
+            %.o: %.c
+                gcc -fPIC -c $<
 
-                # 示例: 构建一个静态库
-                libmy.so: add.o sub.o
-                    ar -rc $@ $^
+            # 示例: 构建一个静态库
+            libmy.so: add.o sub.o
+                ar -rc $@ $^
 
-                %.o: %.c
-                    gcc -c $<
-                
-            ```
+            %.o: %.c
+                gcc -c $<
+            
+        ```
 
-            * 默认执行第一个目标(在上面的文件中, 指`all`). 
-            * `-C <目录>`: 指定跳转目录, 读取那里的`Makefile`. 
-            * `M=<工作目录绝对路径>`: 在读取上述`Makefile`后, 跳转到`工作目录`, 继续读入`Makefile`. `M`是内核头文件目录下的`Makefile`中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
-            * 注意上述选项后面接的路径都**必须是完整路径**. 
-            * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
-                * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
-            * 常量
-                * `BASH_SOURCE`: 当前文件路径. 
-                    * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
-                * `$@`: 表示目标文件. (也就是紧跟在`make`指令后面的字符串)
-                * `$^`: 表示所有依赖文件. 
-                * `$<`: 表示第一个依赖文件. 
-                * `$?`: 表示比目标还新的依赖文件列表. 
-            * 符号
-                * 赋值符号
-                    * `=`: 给变量赋值. 会在整个`Makefile`展开后, 再决定变量的值. 
-                    * `:=`: 表示变量的值取决于它在`Makefile`中的位置, 而不是整个`Makefile`展开后的最终值
-                    * `?=`: 如果没有被赋值过就赋予等号后面的值. 
-                    * `+=`: 添加等号后面的值. 
-                    * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
-            * 预定义函数: 
-                * `$(shell command)`: 执行`shell`命令函数, 执行`command`命令并返回其输出结果. 
-                * `$(wildcard pattern)`: 查找文件名函数, 返回匹配`pattern`模式的所有文件名. 
-                * `$(subst from,to,text)`: 字符串替换函数, 将`text`中所有的`from`替换为`to`. 
-                * `$(patsubst pattern,replacement,text)`: 模式字符串替换函数, 将`text`中所有匹配模式`pattern`的字符串替换为`replacement`. 
-                * `$(abspath path)`: 获取`path`的绝对路径. 
-    * `cmake`
-        * 用法: 
-            * 基本流程: 
-                1. 编辑`CMakeLists.txt`
-                2. 在源码目录下新建一个目标目录, 比如叫`build`. 
-                3. 进入`build`目录, 执行`cmake ..`, 将会在该目录下生成`Makefile`. 
-                4. 执行`make`
-            * 启用调试: 
-                * 在`CMakeLists.txt`添加: `add_definitions("-Wall -g")`
-                * 或者: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
-    * `ar`
-        * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
-        * `-x`: 从静态库文件中抽取文件 objfile
-            * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
-            * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
-        * `-t`: 打印静态库的成员文件列表
-        * `-d`: 从静态库中删除文件 objfile
-        * `-s`: 重置静态库文件索引
-        * `-v`: 创建文件冗余信息
-        * `-c`: 创建静态库文件
+        * 默认执行第一个目标(在上面的文件中, 指`all`). 
+        * `-C <目录>`: 指定跳转目录, 读取那里的`Makefile`. 
+        * `M=<工作目录绝对路径>`: 在读取上述`Makefile`后, 跳转到`工作目录`, 继续读入`Makefile`. `M`是内核头文件目录下的`Makefile`中会用到的一个变量(`KBUILD_EXTMOD := $(M)`)
+        * 注意上述选项后面接的路径都**必须是完整路径**. 
+        * `-DVAR1=${VAR1}`: 可传递宏变量`VAR1`. 
+            * 若有传参, 则不过`${VAR1}`是否为空, 代码中`#ifdef VAR1`都会为真. 
+        * 常量
+            * `BASH_SOURCE`: 当前文件路径. 
+                * `dirname BASH_SOURCE[0]`: 可获得当前文件所在目录的路径. 
+            * `$@`: 表示目标文件. (也就是紧跟在`make`指令后面的字符串)
+            * `$^`: 表示所有依赖文件. 
+            * `$<`: 表示第一个依赖文件. 
+            * `$?`: 表示比目标还新的依赖文件列表. 
+        * 符号
+            * 赋值符号
+                * `=`: 给变量赋值. 会在整个`Makefile`展开后, 再决定变量的值. 
+                * `:=`: 表示变量的值取决于它在`Makefile`中的位置, 而不是整个`Makefile`展开后的最终值
+                * `?=`: 如果没有被赋值过就赋予等号后面的值. 
+                * `+=`: 添加等号后面的值. 
+                * `override VAR:= $(VAR)_blabla`: 使用`override`关键字, 可对已经赋值的变量追加赋值. 
+        * 预定义函数: 
+            * `$(shell command)`: 执行`shell`命令函数, 执行`command`命令并返回其输出结果. 
+            * `$(wildcard pattern)`: 查找文件名函数, 返回匹配`pattern`模式的所有文件名. 
+            * `$(subst from,to,text)`: 字符串替换函数, 将`text`中所有的`from`替换为`to`. 
+            * `$(patsubst pattern,replacement,text)`: 模式字符串替换函数, 将`text`中所有匹配模式`pattern`的字符串替换为`replacement`. 
+            * `$(abspath path)`: 获取`path`的绝对路径. 
+* `cmake`
+    * 用法: 
+        * 基本流程: 
+            1. 编辑`CMakeLists.txt`
+            2. 在源码目录下新建一个目标目录, 比如叫`build`. 
+            3. 进入`build`目录, 执行`cmake ..`, 将会在该目录下生成`Makefile`. 
+            4. 执行`make`
+        * 启用调试: 
+            * 在`CMakeLists.txt`添加: `add_definitions("-Wall -g")`
+            * 或者: `cmake -DCMAKE_BUILD_TYPE=Debug ..`
+* `ar`
+    * `-r`: 将 objfile 文件插入静态库尾或者替换静态库中同名文件
+    * `-x`: 从静态库文件中抽取文件 objfile
+        * `-x mylib.a`: 将`.a`文件中所有obj文件导出. 
+        * `-xv mylib.a obj1.o`: 只导出其中一个对象文件. 
+    * `-t`: 打印静态库的成员文件列表
+    * `-d`: 从静态库中删除文件 objfile
+    * `-s`: 重置静态库文件索引
+    * `-v`: 创建文件冗余信息
+    * `-c`: 创建静态库文件
+
+## 项目管理
 * git
     * 工作流: 
         

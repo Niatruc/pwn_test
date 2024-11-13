@@ -275,6 +275,7 @@
     * `-E`: (用户模式)指定环境变量 
         * `LD_PRELOAD='<custom_lib.so>'`
     * `-enable-kvm`
+    * `-s`: 相当于`-gdb tcp::1234`, 即在tcp端口1234上开启gdbserver服务. 
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`
@@ -322,6 +323,11 @@
     * 命令
         * `list`
             * `--all`: 列出所有虚拟机. 
+
+
+* qcow2
+    * 参考
+        * [qcow2原理详解](https://royhunter.github.io/2016/06/28/qcow2/)
 ## 原理
 * 参考
     * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)

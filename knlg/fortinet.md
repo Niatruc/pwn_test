@@ -16,6 +16,7 @@
         * 工具: 
             * https://github.com/optistream/fortigate-crypto
             * https://github.com/BishopFox/forticrack (使用python实现)
+                * forticrack原理: https://bishopfox.com/blog/breaking-fortinet-firmware-encryption
 * 从`.qcow2`或`.vmdk`文件中提取文件系统: 
     * 工具
         * `libguestfs-tools`: 有`virt-filesystems`, `guestmount`等工具. 
@@ -30,7 +31,6 @@
             * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
             * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用32字节常量(`28+4`和`27+5`))
         * `gzip -d rootfs.gz`
-            * 对于新版本固件, `gzip`无法识别`rootfs.gz`
         * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
         * 解压压缩包: 老版本需要用fortinet自带的`xz`和`ftar`, 新版本可直接用公共的`xz`和`tar`
             * 例: 解压`bin`目录的压缩包
@@ -43,6 +43,15 @@
         * 压缩成`rootfs.gz`
             * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
             * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
+
+## 修改固件文件及重新打包
+* 将flatkc打包为bzImage
+    * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
+    * 问题记录: 
+        * `error: ‘-mindirect-branch’ and ‘-fcf-protection’ are not compatible`
+            * 解决: 使用低版本gcc
+        * `recipe for target 'drivers/gpu/drm/i915' failed`
+            * `make menuconfig`, 找到`Device Drivers` -> `Graphics support` -> `(AGP support)`, 关闭. 
 
 ## 仿真
 * arm版固件仿真
