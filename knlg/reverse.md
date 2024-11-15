@@ -625,6 +625,7 @@
     * `u`: 转为数据(取消解析)
     * `;`: 在ida view窗口中, 可为指令添加注释. 
     * `/`: 在伪代码窗口中, 可添加注释. 
+    * `y`: 在伪代码窗口中, 可修改函数声明. 
 * 反编译的伪代码窗口: 
     * `Synchronize with`: 可以与反汇编窗口和hex窗口同步, 以确定C语句对应的汇编指令. 
     * 修改变量类型: 
@@ -634,6 +635,16 @@
     * 折叠代码: 
         1. 点击要折叠的代码块的关键字, 比如`if`, `while`
         2. 输入数字键盘的`-`, 或在右键菜单中点击`Collapse item`
+    * 修改函数声明
+        * 修改调用约定
+            * 参考: [Custom calling conventions](https://hex-rays.com/blog/igors-tip-of-the-week-51-custom-calling-conventions)
+
+            ```c
+                {return type} __usercall funcname@<return argloc>({type} arg1, {type} arg2@<argloc>, ...);
+
+                // 例: ida识别为windows x64的调用约定. 强行让ida识别为Linux x64的调用约定: 
+                __int64 *__usercall sub_6E88F0@<rax>(__int64 a1@<rdi>, _BYTE *a2@<rsi>, __int64 a3@<rdx>, unsigned __int64 a4@<rcx>)
+            ```
 * 用pycharm调试ida插件
     * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
     * 步骤

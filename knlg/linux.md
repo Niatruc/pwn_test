@@ -1386,7 +1386,10 @@ typedef struct {
 * `ln <参数> <源文件或目录> <软链接名字>`
 * `find <目录>`: 在目录下寻找符合条件的文件
     * `-name <通配符表达式>`: 查找符合名称的文件
-    * `-type l`: 列出所有符号链接
+    * `-print0`: 打印所有文件
+    * `-type <文件类型>`: 
+        * `f`: 普通文件
+        * `l`: 符号链接
     * `-xtype l`: 列出指向不存在的文件的符号链接
 * `truncate`: 用于将文件缩小或扩展到指定的大小. 
     * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
@@ -1528,6 +1531,17 @@ typedef struct {
     * 要将一个多行字符串变量输出到一个文件且保持换行, 要这样写: `echo "$str1" > myfile`, **一定要加双引号才会换行**. 
 * `grep`
     * `-v <字符串>`: 反向查找, 即查找不包含`<字符串>`的行. 
+* `tr`: 用于转换或删除文件中的字符. 
+    * 基本用法: 
+        * `tr <opt> s1 file1`
+        * `tr s1 s2 file1`: 用字符`s2`替换字符`s1`
+        * 注: 
+            * `s1`和`s2`都可以包含多个字符, 如此则命令会对每个字符做操作(**在替换操作中, `s1`和`s2`中的每个字符一一对应**)
+    * 参数
+        * `-d s1`: 删除字符`s1`
+        * `-s s1`: 将连续字符替换成单个字符`s1`
+        * ``: 
+        * ``: 
 * `sed`: stream editor
     * 参考: 
         * [sed 基础教程](`https://www.twle.cn/c/yufei/sed/sed-basic-index.html`)
@@ -1558,7 +1572,27 @@ typedef struct {
                 d
             }" myfile > myfile2 # 也可以这么写
         ```
-* `awk`
+* `awk`: 
+    * 要点
+        * 每读一行数据, 将各列依次放进$1, $2, ... 默认按空格和tab分隔. 
+        * 基本用法: `awk options 'pattern {action}' file`
+    * 参数
+        * `-F <分隔符>`
+        * `-v <变量名>=<值>`: 设置内部变量值
+        * `-f <awk脚本文件>`
+    * 内建变量
+        * `NF`: 一条记录的字段的数目
+        * `NR`: 行号
+        * `FS`: 当前分隔符
+        * ``: 
+    * 例
+        ```sh
+            awk '{print $1}'
+
+            awk 'BEGIN{ORS=" "}{print $1}' # ORS指定使用的分隔符
+
+            awk 'NR == 1 {print $1}' # 当行号为1时执行操作
+        ```
 * `watch`
     * `watch -n 1 <命令>`: 每隔1秒执行一次`命令`, 并回显
 * `tail <文件>`: 默认显示文件后10行. 
@@ -1568,8 +1602,19 @@ typedef struct {
     * `-n 4`: 前4行
 * `hexdump`
     * `'-e "%x"'`: 指定使用格式字符串打印数据. 
-        
+* `diff`
+    * 例: 
+        * `diff -Naur f_old f_new > f.patch`: 生成补丁
+* `patch`
+    * 例: 
+        * `patch -p0 < f.patch`: 会给老文件打补丁
+        * `patch -p0 f_old f.patch`: 同上
+
 ### ELF工具
+* `strings`: 搜索字符串
+    * `-a`: 搜索整个文件, 而非只搜数据段
+    * `-t ()`: 
+    * ``: 
 * `strip <可执行文件>`: 将可执行文件中的调试信息去除. 
 * `dress`
 * `patchelf`

@@ -37,10 +37,10 @@
                 * `sudo chroot . /sbin/xz --check=sha256 -d /bin.tar.xz`
                 * `sudo chroot . /sbin/ftar -xf /bin.tar`
     * 打包
-        * 压缩成`.tar.xz`文件
-            * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
+        * `bin`等目录压缩成`.tar.xz`文件
             * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
-        * 压缩成`rootfs.gz`
+            * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
+        * `rootfs`压缩成`rootfs.gz`
             * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
             * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
 
