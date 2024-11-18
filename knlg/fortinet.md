@@ -36,28 +36,55 @@
             * 例: 解压`bin`目录的压缩包
                 * `sudo chroot . /sbin/xz --check=sha256 -d /bin.tar.xz`
                 * `sudo chroot . /sbin/ftar -xf /bin.tar`
-    * 打包
-        * `bin`等目录压缩成`.tar.xz`文件
-            * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
-            * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
-        * `rootfs`压缩成`rootfs.gz`
-            * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
-            * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
 
 ## 修改固件文件及重新打包
 * 将flatkc打包为bzImage
-    * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
-    * 问题记录: 
-        * `error: ‘-mindirect-branch’ and ‘-fcf-protection’ are not compatible`
-            * 解决: 使用低版本gcc
-        * `recipe for target 'drivers/gpu/drm/i915' failed`
-            * `make menuconfig`, 找到`Device Drivers` -> `Graphics support` -> `(AGP support)`, 关闭. 
+    * 方法一: 使用linux源码编译
+        * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
+        * 问题记录: 
+            * `error: ‘-mindirect-branch’ and ‘-fcf-protection’ are not compatible`
+                * 解决: 使用低版本gcc(如ubuntu18的gcc7.5)
+            * `recipe for target 'drivers/gpu/drm/i915' failed`
+                * `make menuconfig`, 找到`Device Drivers` -> `Graphics support` -> `(AGP support)`, 关闭. 
+    * 方法二: 手动修改flatkc
+        ```sh
+            # 分别用`extract-vmlinux`和`vmlinux-to-elf`从flatkc中提取vmlinux(一个无符号, 一个有符号)
+            # 然后根据对有符号的vmlinux的逆向分析, 修改无符号的vmlinux
+            
+            # 用gzip压缩修改后的vmlinux
+            cat vmlinux_new | gzip -9 > vmlinux.gz
+
+            # 将原来flatkc文件中的压缩数据部分用0填充
+            dd if=/dev/zero of=flatkc bs=1 seek=$((0x41B4)) count=$((0x6e1a51)) conv=notrunc
+
+            # 将新的压缩文件填到flatkc的压缩数据空间中
+            dd if=vmlinux.gz of=flatkc bs=1 seek=$((0x41B4)) conv=notrunc
+        ```
+* `bin`等目录打包成`.tar.xz`文件
+    * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
+    * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
+* `rootfs`打包成`rootfs.gz`
+    * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
+    * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
 
 ## 仿真
 * arm版固件仿真
     * virt-manager: 
         * 在创建虚拟机时勾选`customize configuration before install`
         * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`Custom: /usr/share/AAVMF/AAVMF_CODE.fd`
+    * 使用`qemu-system`:
+        ```sh
+            # 将qemu的arm efi固件复制到一个镜像文件中(大小须至少64M): 
+            truncate -s 64m efi.img
+            dd if=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd of=efi.img conv=notrunc
+
+            # 启动系统
+            qemu-system-aarch64 -M virt -cpu cortex-a72 -m 4G -hda fortios.qcow2 -drive if=pflash,format=raw,file=efi.img,readonly=on
+
+            # 之后在qemu监视窗口中找`view` -> `serial0`查看串口输出. 
+        ```
+* x64版固件仿真
+    * `qemu-system-x86_64 -m 4G -hda fortios.qcow2`
 * 配置网络:
 
     ```
@@ -75,17 +102,21 @@
     * 可查看证书状态: 
         > `get system status`
         > `diagnose debug vm-print-license`
-
+* 调试
+    * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
 ## 文件分析
 * `flatkc`
     * 基本信息
-        * 压缩镜像文件. 由它来解压`rootfs`. 
-        * x64虚拟机中的`flatkc`是bzImage, 需要先转成elf再进行逆向分析: 
+        * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
+        * x64虚拟机中的`flatkc`是bzImage, 需要先提取内核elf文件再进行逆向分析: 
             * 用`extract-vmlinux`: `/usr/src/linux-headers-6.5.0-21-generic/scripts/extract-vmlinux flatkc > flatkc.kvm.vmlinux`
             * 用`vmlinux-to-elf`(有符号): `./vmlinux-to-elf flatkc flatkc.kvm.vmlinux`
         * `.out`固件提取出来的`flatkc`:
-            * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将之转为elf文件. 
-
+            * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将其中的内核elf文件提取出来. 
+    * 分析
+        * 7.4.1
+            * `0x41B4` ~ `0x6E5C05`: 为压缩的内核镜像文件, 长为`0x6e1a51`
+            * `0x6E5C10`: 紧接着
 * 内核版本(`fnsysctl cat /proc/version`)
 
 |固件版本|Linux内核版本|

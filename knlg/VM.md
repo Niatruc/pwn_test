@@ -276,6 +276,7 @@
         * `LD_PRELOAD='<custom_lib.so>'`
     * `-enable-kvm`
     * `-s`: 相当于`-gdb tcp::1234`, 即在tcp端口1234上开启gdbserver服务. 
+    * `-S`: 在启动时不运行CPU(需要在控制台按下`c`才会继续运行). 
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`

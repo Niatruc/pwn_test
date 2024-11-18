@@ -151,6 +151,13 @@
                 * `plaintext.txt`: 压缩的明文文件中明文文件的名字
                 * `decryptedtext.txt`: 输出的文件
 
+# 技巧
+* 字符串搜索和过滤: 
+    ```sh
+        # 利用strings, 从当前目录下所有文件搜索字符串
+        find . -type f -print0 | xargs -0 -I {} sh -c 'strings "{}" | grep "要搜索的字符串" | if [ $(wc -c) -gt 0 ]; then echo {}; fi'
+    ```
+
 # 工具
 ## capstone
 * 反汇编引擎
@@ -616,7 +623,8 @@
     * `f5`: 反编译
     * `esc`: 返回上一处
     * `ctrl + enter`: 重回下一处
-    * `g`: 跳转到地址
+    * `g`: 跳转到地址(对当前所在节做偏移运算)
+        * 如果
     * `x`: 交叉引用
     * `n`: 重命名
     * `d`: 转为数据(多按几次, 依次转为byte, word, dw, qw类型)
@@ -636,7 +644,7 @@
         1. 点击要折叠的代码块的关键字, 比如`if`, `while`
         2. 输入数字键盘的`-`, 或在右键菜单中点击`Collapse item`
     * 修改函数声明
-        * 修改调用约定
+        * 修改调用约定, 使ida将正确的寄存器识别为函数参数: 
             * 参考: [Custom calling conventions](https://hex-rays.com/blog/igors-tip-of-the-week-51-custom-calling-conventions)
 
             ```c
@@ -645,6 +653,14 @@
                 // 例: ida识别为windows x64的调用约定. 强行让ida识别为Linux x64的调用约定: 
                 __int64 *__usercall sub_6E88F0@<rax>(__int64 a1@<rdi>, _BYTE *a2@<rsi>, __int64 a3@<rdx>, unsigned __int64 a4@<rcx>)
             ```
+    * 使字符串变量显示为字符串值(参考: [String literals in pseudocode](https://hex-rays.com/blog/igors-tip-of-the-week-56-string-literals-in-pseudocode))
+        * 字符串值显示为变量名的原因: 字符串所在的段是可写的. 
+        * 方法1: 
+            * 跳转到字符串所在段. 
+            * `alt + s`修改段属性: `Segment permissions` -> `Write`, 去掉该选项的勾选. 
+        * 方法2: 修改字符串变量的声明, 加上关键字`volatile`或`const`
+        * 方法3: 
+            * `Edit` -> `Plugins` -> `Hex-Rays Decompiler` -> `Analysis options 1` -> `Print only constant string literals`, 去掉该选项的勾选. 
 * 用pycharm调试ida插件
     * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
     * 步骤
@@ -885,7 +901,7 @@
                     if ida_idp.is_call_insn(insn):
                         print("Call at %x" % ea)
 
-                Get the type and the value of an operand
+                # Get the type and the value of an operand
                 # Get mov instructions to memory adresses
                 f = ida_funcs.get_func(ea)
                 for ea in Heads(f.start_ea, f_end_ea):
@@ -896,12 +912,12 @@
                 if insn.ops[1].type == ida_ua.o_mem:
                     print("Data is moved at addr %x" % insn.ops[1].value)
                 # Types returned by GetOpType:
-
                 # o_void: no operand
                 # o_reg: register
                 # o_mem: known address
                 # o_phrase, o_displ: pointers to adresses
                 # o_imm: constant value
+
                 # Look for assembly code
                 f = ida_funcs.get_func(ea)
                 for ea in idautils.Heads(f.start_ea, f_end_ea):
