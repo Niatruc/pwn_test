@@ -46,13 +46,14 @@
         * `-i`: 表示交互式操作
         * `-t`: 表示终端
         * `-v <宿主机目录>:<容器目录>`: 指定挂载目录. 
-        * `-d`: 可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入.
+        * `-d`: 可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入. 
         * `--privileged=true`: 赋予容器内进程以下权限/能力: 
             * 访问主机上所有设备的权限. 
             * 使用主机的所有内核功能. 
             * 使用主机上所有的文件系统. 
         * `--restart=always`: 重启docker时, 该容器同时重启. 
     * `docker start <容器名>`: 启动一个已经关闭的容器.
+* 打印容器日志: `docker logs -f <容器id>`
 * 停止容器: `docker stop <容器id>`
 * 重启容器: `docker restart <容器id>`
 * 删除容器: `docker rm -f <容器id>`

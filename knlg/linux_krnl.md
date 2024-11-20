@@ -1,3 +1,8 @@
+# 内核命令行参数
+* 参考: [The kernel’s command-line parameters](https://www.kernel.org/doc/html/v4.14/admin-guide/kernel-parameters.html)
+* 参数项: 
+    * `nokaslr`: 若编译内核时设置了`CONFIG_RANDOMIZE_BASE`, 则此项可禁止内核和模块基地址随机化. 
+
 # 内核编译
 * 步骤
     * 指定gcc: `export CC=/usr/bin/gcc-4.x`

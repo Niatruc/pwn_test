@@ -54,6 +54,9 @@
             # 用gzip压缩修改后的vmlinux
             cat vmlinux_new | gzip -9 > vmlinux.gz
 
+            # 使用ll查看vmlinux.gz的大小, 如果有变化, 需修改flatkc中解压数据的代码段, 一般就在压缩数据的下方. 
+            # 参考后文, 对`input_len`进行修改. 
+
             # 将原来flatkc文件中的压缩数据部分用0填充
             dd if=/dev/zero of=flatkc bs=1 seek=$((0x41B4)) count=$((0x6e1a51)) conv=notrunc
 
@@ -64,7 +67,7 @@
     * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
     * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
 * `rootfs`打包成`rootfs.gz`
-    * `find . | cpio -H newc -o > ../rootfs.raw`: 打包当前目录为`rootfs.raw`
+    * 切换到rootfs目录, 然后执行`find . | cpio -H newc -o > ../rootfs.raw`, 打包当前目录为`rootfs.raw`
     * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
 
 ## 仿真
@@ -116,7 +119,24 @@
     * 分析
         * 7.4.1
             * `0x41B4` ~ `0x6E5C05`: 为压缩的内核镜像文件, 长为`0x6e1a51`
-            * `0x6E5C10`: 紧接着
+            * `0x6E5C10`: 紧接的代码片段用于解压数据. 
+                * 参考Linux内核项目的`arch/x86/boot/compressed/head_64.S`文件: 
+                ```x86asm
+                    /*
+                    * Do the extraction, and jump to the new kernel..
+                    */
+                        pushq	%rsi			/* Save the real mode argument */
+                        movq	%rsi, %rdi		/* real mode address */
+                        leaq	boot_heap(%rip), %rsi	/* malloc area for uncompression */
+                        leaq	input_data(%rip), %rdx  /* input_data */
+                        movl	$z_input_len, %ecx	/* input_len */
+                        movq	%rbp, %r8		/* output target address */
+                        movq	$z_output_len, %r9	/* decompressed length, end of relocs */
+                        call	extract_kernel		/* returns kernel location in %rax */
+                        popq	%rsi
+
+                ```
+                * 需根据压缩数据的大小, 对`input_len`进行修改. 
 * 内核版本(`fnsysctl cat /proc/version`)
 
 |固件版本|Linux内核版本|

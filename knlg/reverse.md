@@ -155,7 +155,7 @@
 * 字符串搜索和过滤: 
     ```sh
         # 利用strings, 从当前目录下所有文件搜索字符串
-        find . -type f -print0 | xargs -0 -I {} sh -c 'strings "{}" | grep "要搜索的字符串" | if [ $(wc -c) -gt 0 ]; then echo {}; fi'
+        find . -type f -print0 | xargs -0 -I {} sh -c 'strings "{}" | grep "要搜索的字符串" |  xargs -I _ echo -n "\"_\": " | tee /dev/tty | if [ $(wc -c) -gt 0 ]; then echo {}; fi'
     ```
 
 # 工具
