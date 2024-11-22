@@ -178,12 +178,16 @@
             * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
             * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
 * `qemu-img`
+    * `qemu-img info <qcow2文件路径>`: 可查看磁盘大小, 快照信息等. 
     * `qemu-img convert win2kpro.vmdk -O qcow win2kpro.img`: 将一个vmdk文件转成qcow2文件
     * 将一个vdi文件转成qcow2文件: 
         > `VBoxManage clonehd --format RAW img.vdi img.raw`
         > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
-    * 快照
-        * `qemu-img snapshot -c <快照名> <qcow2文件路径>`
+    * 快照`qemu-img snapshot`
+        * `-l <qcow2文件路径>`: 列出快照信息. 
+        * `-c <快照名> <qcow2文件路径>`: 创建快照. 
+        * `-a <快照名> <qcow2文件路径>`: 恢复快照. 
+        * `-d <快照名> <qcow2文件路径>`: 删除快照. 
 * 运行
     * 运行一个linux内核
         ```sh

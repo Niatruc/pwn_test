@@ -157,7 +157,10 @@
         # 利用strings, 从当前目录下所有文件搜索字符串
         find . -type f -print0 | xargs -0 -I {} sh -c 'strings "{}" | grep "要搜索的字符串" |  xargs -I _ echo -n "\"_\": " | tee /dev/tty | if [ $(wc -c) -gt 0 ]; then echo {}; fi'
     ```
-
+* 二进制文件对比
+    * bindiff: 可对两个ida数据库文件进行对比, 从而获取两个原始二进制文件的代码差异. 
+    * `cmp 1.bin 2.bin`: 可获知差异位置
+    * `diff <(hexdump -C 1.bin) <(hexdump -C 2.bin)`: 可获知差异位置和差异数据
 # 工具
 ## capstone
 * 反汇编引擎
@@ -781,12 +784,12 @@
                         * `srcdbg_step_into()`: 
                         * `srcdbg_step_over()`: 
                         * `step_until_ret()`: 运行至返回
-                        * `read_dbg_memory(ea, buffer, size)`: 
+                        * `read_dbg_memory(ea, buffer, size)`: 读取内存数据
                         * `write_dbg_memory(ea, py_buf, size=size_t(-1))`: 
                         * `refresh_debugger_memory()`: 
 
             * `idautils`
-                * `Heads(start=None, end=None)`: 获取一个head的生成器(head指指令或者数据项)
+                * `Heads(start=None, end=None)`: 获取一个head的生成器(head指指令或者数据项), 用于每次取一条指令的地址
                 * `XrefsTo(ea, flags=0)`: 获取一个交叉引用的生成器(对每个交叉引用, 调用`frm`函数, 得到其地址)
             * `idaapi`
                 * `get_byte(ea)`: 获取`ea`处的字节
@@ -891,41 +894,30 @@
             ```py
                 # 在一个函数中找到所有调用函数的指令
                 f = ida_funcs.get_func(ea)
-                for ea in Heads(f.start_ea, f.end_ea): # 遍历函数的每一条指令
+                for ea in idautils.Heads(f.start_ea, f.end_ea): # 遍历函数的每一条指令
                     insn = idaapi.insn_t()
-                    length = idaapi.decode_insn(insn, ea) # 解析一个地址处的质量你个
+                    length = idaapi.decode_insn(insn, ea) # 解析一个地址处的指令
                     if insn.itype == ida_allins.NN_call: # 判断指令类型
                         print("Call at %x" % ea)
                 
-                    # 另一种写法
+                    # 另一种写法: 
                     if ida_idp.is_call_insn(insn):
                         print("Call at %x" % ea)
+                    
+                    if insn.itype == ida_allins.NN_mov: # 判断是否为mov指令
+                        if insn.ops[1].type == ida_ua.o_mem: # 判断第一个操作数的类型
+                            print("Data is moved at addr %x" % insn.ops[1].value) # 获取第一个操作数的值
+                            # o_void: 无操作数
+                            # o_reg: 寄存器
+                            # o_mem: 已知的地址
+                            # o_phrase, o_displ: 指针
+                            # o_imm: 常量
 
-                # Get the type and the value of an operand
-                # Get mov instructions to memory adresses
-                f = ida_funcs.get_func(ea)
-                for ea in Heads(f.start_ea, f_end_ea):
-                insn = idaapi.insn_t()
-                length = idaapi.decode_insn(insn, ea)
-                if insn.itype != ida_allins.NN_mov:
-                    continue
-                if insn.ops[1].type == ida_ua.o_mem:
-                    print("Data is moved at addr %x" % insn.ops[1].value)
-                # Types returned by GetOpType:
-                # o_void: no operand
-                # o_reg: register
-                # o_mem: known address
-                # o_phrase, o_displ: pointers to adresses
-                # o_imm: constant value
-
-                # Look for assembly code
-                f = ida_funcs.get_func(ea)
-                for ea in idautils.Heads(f.start_ea, f_end_ea):
-                    insn = idaapi.insn_t()
-                    length = idaapi.decode_insn(insn, ea)
-                    if insn.itype != ida_allins.NN_xor and insn.ops[0].reg == idautils.procregs.ecx and insn.ops[1].reg == idautils.procregs.ecx:
+                    # 搜索指令`xor ecx, ecx`
+                    if insn.itype == ida_allins.NN_xor and insn.ops[0].reg == idautils.procregs.ecx and insn.ops[1].reg == idautils.procregs.ecx:
                         print("Found at addr %x" % ea)
-                # Get prototype of an imported function
+
+                # 获取导入函数的原型
                 # get import function prototype
                 import_prototype = idaapi.get_named_type(None, 'WriteFile', 0)
 
@@ -939,11 +931,17 @@
             ```
         * 调试
             ```py
-                # 读取内存或寄存器的值
+                # 读取寄存器的值
+                # 方法一: 
                 rv = ida_idd.regval_t()
-                ida_dbg.get_reg_val("ECX", rv)
+                ida_dbg.get_reg_val("ECX", rv) # 若成功获取ecx的值, 则返回True
                 print(hex(rv.ival))
+
+                # 方法二: 
                 print(hex(idautils.cpu.ecx))
+
+                # 按地址读取内存信息
+                idc.read_dbg_memory(<ea>, <size>)
 
                 # 调用被调试进程中的函数
                 # test check_passwd(char *passwd) -> int
