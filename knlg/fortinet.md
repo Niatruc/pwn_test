@@ -69,7 +69,13 @@
 * `rootfs`打包成`rootfs.gz`
     * 切换到rootfs目录, 然后执行`find . | cpio -H newc -o > ../rootfs.raw`, 打包当前目录为`rootfs.raw`
     * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
-
+    * 之后需要将`rootfs.gz`加密, 再传入qcow2镜像中. 
+* 问题记录
+    * `Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(1,0)`
+        * 因修改`rootfs.gz`不当引起, 包括未对`rootfs.gz`进行加密处理, 或加密算法有问题. 
+    * 将`/bin/smartctl`替换为`busybox`后, 运行`diagnose hardware smartctl ls`出现`applet not found`
+        * 因运行上述指令时busybox接收的参数是`{"smartctl", "sh"}`
+        * 解决: 另写一个程序替换`/bin/smartctl`, 在程序中通过`execvp("/bin/busybox", &argv[1])`运行`busybox`; 将busybox程序传入bin目录并打包`rootfs.gz`. 
 ## 仿真
 * arm版固件仿真
     * virt-manager: 

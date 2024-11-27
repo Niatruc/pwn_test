@@ -195,7 +195,7 @@
                 -kernel <内核bzImage文件路径>
                 -initrd <文件系统镜像的压缩文件(xx.img.gz)> # 作为初始的ram磁盘(ram disk)
                 -append "root=/dev/ram init=/linuxrc" # 指定内核命令行
-                -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为studio)
+                -serial file:output.txt # 将串口重定向到主机的字符设备. (在图形解密模式中, 默认为vc; 在非图形解密模式中, 默认为stdio)
         ```
     * 针对不同架构: 
         * arm
