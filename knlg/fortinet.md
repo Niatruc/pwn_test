@@ -113,7 +113,9 @@
         > `diagnose debug vm-print-license`
 * 调试
     * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
+
 ## 文件分析
+* `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
 * `flatkc`
     * 基本信息
         * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
@@ -143,12 +145,36 @@
 
                 ```
                 * 需根据压缩数据的大小, 对`input_len`进行修改. 
+
 * 内核版本(`fnsysctl cat /proc/version`)
 
-|固件版本|Linux内核版本|
-|-|-|
-|7.0.0|3.2.16|
-|7.4.1|4.19.13|
+    |固件版本|Linux内核版本|
+    |-|-|
+    |7.0.0|3.2.16|
+    |7.4.1|4.19.13|
+
+## 修改文件系统后的补丁工作: 
+* `init`
+    * 绕过`do_halt`调用: 
+        * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
+        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用nop或jmp绕过. 
+    * 绕过`/data/rootfs.gz.chk`检查
+        * 搜索字符串`/data/rootfs.gz`
+        * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
+        * 在此函数结尾修改rax的值(`xor rax, rax`), 强制让函数返回0. 
+    * `init_set_epoll_handler`
+        * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
+        * 打补丁, 强制进入`if ( getpid() == 1 )`判断的内部. 
+    * 绕过白名单检查
+        * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
+        * 强制让if判断上方的函数调用返回1. 
+* `flatkc`
+    * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
+    * 若不想绕过加密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
+    * 绕过白名单检查: 
+        * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
+        * 补丁: 在该函数开头处调用`integrity_iint_find`后直接返回0, 跳过后面对文件hash的比较. 
+
 
 # 漏洞分析
 # CVE-2024-21762

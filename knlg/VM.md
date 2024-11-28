@@ -188,6 +188,16 @@
         * `-c <快照名> <qcow2文件路径>`: 创建快照. 
         * `-a <快照名> <qcow2文件路径>`: 恢复快照. 
         * `-d <快照名> <qcow2文件路径>`: 删除快照. 
+* 挂载qcow2镜像
+    * `guestmount`
+        * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
+        * `guestunmount myfs`: 卸载
+    * `qemu-nbd`
+        * `sudo modprobe nbd max_part=8`: 确保加载了nbd(network block device)内核模块. 
+        * `-c /dev/nbd0 myfs.qcow2`: 将qcow2镜像与设备`/dev/nbd0`连接. 
+            * 之后就可以使用`fdisk -l /dev/nbd0`查看qcow2镜像的分区信息. 
+            * 也可以通过`mount`将其中某个分区挂载到目录. 
+        * `-d /dev/nbd0`: 卸载. 
 * 运行
     * 运行一个linux内核
         ```sh
@@ -214,11 +224,15 @@
         * `-virtfs local,path=/mnt/shared,mount_tag=host0,security_model=passthrough,id=host0`
             * 通过使用9p网络协议, 使物理机中的目录可直接被虚拟机访问. 
             * `-virtfs`是`-fsdev -device virtio-9p-pci`的简化.  
-            * `local`表示共享文件夹是本地文件夹, `path`指定了共享文件夹的路径, `mount_tag`指定了共享文件夹在虚拟机中的挂载点, `security_model`指定了安全模型, `id`是共享文件夹的标识符
+            * `local`表示共享文件夹是本地文件夹, `path`指定了共享文件夹的路径, `mount_tag`指定了共享文件夹在虚拟机中的挂载点, `security_model`指定了安全模型, `id`是共享文件夹的标识符. 
         * 进入虚拟机后, 执行: 
             * `mkdir -p /mnt/shared`
             * `sudo mount -t 9p -o trans=virtio,version=9p2000.L host0 /mnt/shared`
                 * `-t`选项指定了文件系统类型, `9p`是QEMU支持的文件系统类型, `trans`指定了传输协议, `version`指定了文件系统版本, `host0`是共享文件夹的标识符. 
+        * 注: 另一种方式: 
+            * `/usr/lib/qemu/virtiofsd --socket-path=test.sock -o source=test/`: 使用virtiofs服务, 挂载test目录. 
+            * `qemu-system`加上参数: `-chardev socket,id=char0,path=test.sock -device vhost-user-fs-pci,chardev=char0,tag=host0`
+            * 客户机中执行: `sudo mount -t virtiofs host0 /mnt`
     * 方法2: img镜像
         * 创建img镜像: `dd if=/dev/zero of=/home/shared.img bs=4M count=1k`
         * 格式化: `mkfs.ext4 /home/shared.img`
