@@ -80,7 +80,7 @@
 * arm版固件仿真
     * virt-manager: 
         * 在创建虚拟机时勾选`customize configuration before install`
-        * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`Custom: /usr/share/AAVMF/AAVMF_CODE.fd`
+        * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`UEFI aarch64: /usr/share/AAVMF/AAVMF_CODE.fd`
     * 使用`qemu-system`:
         ```sh
             # 将qemu的arm efi固件复制到一个镜像文件中(大小须至少64M): 
@@ -116,6 +116,7 @@
 
 ## 文件分析
 * `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
+    * 注: 在arm版本中没有该文件, 可修改`boot/grub/grub.cfg`. 
 * `flatkc`
     * 基本信息
         * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
@@ -131,8 +132,8 @@
                 * 参考Linux内核项目的`arch/x86/boot/compressed/head_64.S`文件: 
                 ```x86asm
                     /*
-                    * Do the extraction, and jump to the new kernel..
-                    */
+                     * Do the extraction, and jump to the new kernel..
+                     */
                         pushq	%rsi			/* Save the real mode argument */
                         movq	%rsi, %rdi		/* real mode address */
                         leaq	boot_heap(%rip), %rsi	/* malloc area for uncompression */

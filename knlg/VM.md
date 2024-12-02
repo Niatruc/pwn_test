@@ -250,7 +250,9 @@
         * 虚拟机内部挂载iso: 
             * `mkdir -p /mnt/iso`
             * `mount /dev/cdrom /mnt/iso`
-
+* 创建qcow2镜像
+    * 方法一: 
+        * `virt-make-fs --format=qcow2 --type=ext2 myfs myfs.ext2.qcow2`: 可将已有的目录`myfs`创建为qcow2镜像. 
 * 网络
     * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
         ```sh

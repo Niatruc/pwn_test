@@ -2,6 +2,7 @@
 * [【干货分享】恶意样本分析手册——常用方法篇](https://bbs.huaweicloud.com/blogs/109534)
 * [rootkits-investigation-procedures.pdf](https://www.sans.org/media/score/checklists/rootkits-investigation-procedures.pdf)
 * [网络靶场实战-加密固件分析](https://blog.csdn.net/We8__/article/details/137859910)
+* [Unpacking, Patching, and Repacking a zImage file](https://github.com/Caesurus/CTF_Writeups/blob/main/2024-04-zImageKernelPatch/README.MD)
 
 # 网站
 * https://opensecuritytraining.info/MalwareDynamicAnalysis.html
@@ -1033,6 +1034,7 @@
         * `z`: 数据节中的字符串
         * `t`: 文件哈希(md5, sha1, sha256), 可用于判断两个文件是否一致. 
     * `s`: 搜索(seek)
+        * 可打印出当前地址
         * `<地址|符号名>`: 跳转到地址
     * `p [arg|len] [@addr]`: 打印(print)
         * `x`: 16进制
