@@ -233,37 +233,60 @@
         #   `count`: 表示执行的指令条数. 默认为0, 表示无限
         mu.emu_start(begin=0x0000000000401149, end=0x0000000000401169, timeout=10, count=10)
     ```
-* hook类型
-    * 指令执行类
-        * `UC_HOOK_INTR`: 中断, 系统调用
-        * `UC_HOOK_INSN`: 指令(仅支持很少一部分)
-        * `UC_HOOK_CODE`: 一个范围内的代码
-        * `UC_HOOK_BLOCK`: 基本块
-        * `UC_HOOK_EDGE_GENERATED`: 产生了新的边(在程序分析中有用)
-            * 和`UC_HOOK_BLOCK`的差异: 
-                1. 在执行指令前调用. 
-                2. 仅在有产生新的边时调用. 
-        * `UC_HOOK_TCG_OPCODE`: 执行tcg op指令时. 
-        * `UC_HOOK_TLB_FILL`: tlb fill请求. 在tlb缓存中不包含地址时触发. 
-    * 内存访问类
-        * `UC_HOOK_MEM_READ`: 内存读. 
-        * `UC_HOOK_MEM_WRITE`: 内存写. 
-        * `UC_HOOK_MEM_FETCH`: 在指令执行事件中获取内存数据(`memory fetch`, 指cpu周期中的取指令操作). 
-        * `UC_HOOK_MEM_READ_AFTER`: 成功读取内存后. 
-    * 异常处理类
-        * `UC_HOOK_INSN_INVALID`: 执行非法指令产生的异常
-        * `UC_HOOK_MEM_READ_UNMAPPED`: 读取未映射的内存
-        * `UC_HOOK_MEM_WRITE_UNMAPPED`: 非法写内存
-        * `UC_HOOK_MEM_FETCH_UNMAPPED`: 在指令执行事件中, 非法获取内存数据(意即PC寄存器指向了未映射的内存). 
-        * `UC_HOOK_MEM_READ_PROT`: 读取有读保护的内存
-        * `UC_HOOK_MEM_WRITE_PROT`: 写入有写保护的内存
-        * `UC_HOOK_MEM_FETCH_PROT`: 从不具备可执行权限(non-executable)的内存中获取数据(意即PC寄存器指向了不可执行的区域)
-    * 对以上hook类型进行结合的有用的宏: 
-        * `UC_HOOK_MEM_FETCH_INVALID`: (`UC_HOOK_MEM_FETCH_PROT` + `UC_HOOK_MEM_FETCH_UNMAPPED`)(还有读和写相关的, 类推)
-        * `UC_HOOK_MEM_UNMAPPED`: 所有对未映射内存区域的非法操作(`UC_HOOK_MEM_READ_UNMAPPED` + `UC_HOOK_MEM_WRITE_UNMAPPED` + `UC_HOOK_MEM_FETCH_UNMAPPED`)
-        * `UC_HOOK_MEM_PROT`: 所有对保护性内存区域的非法操作(`UC_HOOK_MEM_READ_PROT` + `UC_HOOK_MEM_WRITE_PROT` + `UC_HOOK_MEM_FETCH_PROT`). 
-        * `UC_HOOK_MEM_INVALID`: (`UC_HOOK_MEM_UNMAPPED` + `UC_HOOK_MEM_PROT`)
-        * `UC_HOOK_MEM_VALID`: 
+* 内存映射
+    ```py
+        # 列出已映射的内存
+        for region in mu.mem_regions():
+            print(f"  0x{region[0]:x} - 0x{region[1]:x} (Size: 0x{region[1] - region[0]:x})")
+    ```
+* hook
+    * 类型
+        * 指令执行类
+            * `UC_HOOK_INTR`: 中断, 系统调用
+            * `UC_HOOK_INSN`: 指令(仅支持很少一部分)
+            * `UC_HOOK_CODE`: 一个范围内的代码
+            * `UC_HOOK_BLOCK`: 基本块
+            * `UC_HOOK_EDGE_GENERATED`: 产生了新的边(在程序分析中有用)
+                * 和`UC_HOOK_BLOCK`的差异: 
+                    1. 在执行指令前调用. 
+                    2. 仅在有产生新的边时调用. 
+            * `UC_HOOK_TCG_OPCODE`: 执行tcg op指令时. 
+            * `UC_HOOK_TLB_FILL`: tlb fill请求. 在tlb缓存中不包含地址时触发. 
+        * 内存访问类
+            * `UC_HOOK_MEM_READ`: 内存读. 
+            * `UC_HOOK_MEM_WRITE`: 内存写. 
+            * `UC_HOOK_MEM_FETCH`: 在指令执行事件中获取内存数据(`memory fetch`, 指cpu周期中的取指令操作). 
+            * `UC_HOOK_MEM_READ_AFTER`: 成功读取内存后. 
+        * 异常处理类
+            * `UC_HOOK_INSN_INVALID`: 执行非法指令产生的异常
+            * `UC_HOOK_MEM_READ_UNMAPPED`: 读取未映射的内存
+            * `UC_HOOK_MEM_WRITE_UNMAPPED`: 非法写内存
+            * `UC_HOOK_MEM_FETCH_UNMAPPED`: 在指令执行事件中, 非法获取内存数据(意即PC寄存器指向了未映射的内存). 
+            * `UC_HOOK_MEM_READ_PROT`: 读取有读保护的内存
+            * `UC_HOOK_MEM_WRITE_PROT`: 写入有写保护的内存
+            * `UC_HOOK_MEM_FETCH_PROT`: 从不具备可执行权限(non-executable)的内存中获取数据(意即PC寄存器指向了不可执行的区域)
+        * 对以上hook类型进行结合的有用的宏: 
+            * `UC_HOOK_MEM_FETCH_INVALID`: (`UC_HOOK_MEM_FETCH_PROT` + `UC_HOOK_MEM_FETCH_UNMAPPED`)(还有读和写相关的, 类推)
+            * `UC_HOOK_MEM_UNMAPPED`: 所有对未映射内存区域的非法操作(`UC_HOOK_MEM_READ_UNMAPPED` + `UC_HOOK_MEM_WRITE_UNMAPPED` + `UC_HOOK_MEM_FETCH_UNMAPPED`)
+            * `UC_HOOK_MEM_PROT`: 所有对保护性内存区域的非法操作(`UC_HOOK_MEM_READ_PROT` + `UC_HOOK_MEM_WRITE_PROT` + `UC_HOOK_MEM_FETCH_PROT`). 
+            * `UC_HOOK_MEM_INVALID`: (`UC_HOOK_MEM_UNMAPPED` + `UC_HOOK_MEM_PROT`)
+            * `UC_HOOK_MEM_VALID`: 
+    * 各个hook回调函数的原型: 
+        ```py
+            def _hook_tcg_op_cb(self, handle, address, arg1, arg2, user_data)
+            def _hook_edge_gen_cb(self, handle, cur, prev, user_data)
+            def _hookcode_cb(self, handle, address, size, user_data)
+            def _hook_mem_invalid_cb(self, handle, access, address, size, value, user_data)
+            def _hook_mem_access_cb(self, handle, access, address, size, value, user_data)
+            def _hook_intr_cb(self, handle, intno, user_data)
+            def _hook_insn_invalid_cb(self, handle, user_data)
+            def _hook_insn_in_cb(self, handle, port, size, user_data)
+            def _hook_insn_sys_cb(self, handle, reg, pcp_reg, user_data)
+            def _hook_insn_out_cb(self, handle, port, size, value, user_data)
+            def _hook_insn_syscall_cb(self, handle, user_data)
+            def _hook_insn_cpuid_cb(self, handle: int, user_data: int) -> int
+        ```
+    
 * 其他
     * 环境变量`LIBUNICORN_PATH`可指定`libunicorn.so`的搜索路径. 
 ## qiling
@@ -1039,6 +1062,9 @@
     * `p [arg|len] [@addr]`: 打印(print)
         * `x`: 16进制
         * `i`: 指令
+            * `pi 16`: 表示打印16条指令
+        * `I`: 将一定数量的字节反汇编为指令. 
+            * `pI 0x1010 - 0x1000 @ 0x1000`: 这样写便可将`0x1000`处直到`0x1010`处的16个字节打印为指令. 
         * `F [len]`: 解码
             * `a`: ASN1/DER
             * `A`: 安卓二进制xml
@@ -1049,7 +1075,7 @@
             * `x`: X509(数字证书标准, 规定了数字证书的格式)
             * `X`: xz
         * `(d|D) [N]`: 反汇编(d则N条指令, D则N个字节)
-            * `f`: 反汇编函数
+            * `f`: 反汇编函数. (前提是先用`a`命令对整个文件进行分析)
     * `d`: 调试(debug)
         * `b`: 断点(breakpoint)
             * `<addr>|<sym>`: 设置断点
