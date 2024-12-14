@@ -1095,19 +1095,44 @@
         * `m`: 打开菜单
     * `V`: 可视模式(visual)
 * python编程
-    * 安装: `pip install r2pipe`
-    * 编码
+    * `r2pipe`
+        * 安装: `pip install r2pipe`
+        * 编码
+            ```py
+                import r2pipe
+
+                r = r2pipe.open('binary') # 加载
+                # r = r2pipe.open('binary', flags=['-2']) # 可以传参给radare2. `-2`表示关闭stderr
+
+                r.cmd('doo; db main; dc') # 执行多条命令, 返回打印的结果(字符串)
+
+                json = r.cmdj('iij') # `j`命令生成json结果, `cmdj`方法对json进行转换生成对象
+            ```
+    * `r2libr`
+        * 要点
+            * 安装: `pip install r2libr`
+            * 无需安装radare2
         ```py
-            import r2pipe
+            from typing import *
+            import libr, ctypes, json
 
-            r = r2pipe.open('binary') # 加载
-            # r = r2pipe.open('binary', flags=['-2']) # 可以传参给radare2. `-2`表示关闭stderr
+            def r2_cmd(r2c, cmd: str) -> str: # 执行命令, 获取字符串结果
+                r = libr.r_core.r_core_cmd_str(r2c, ctypes.create_string_buffer(cmd.encode("utf-8")))
+                return ctypes.string_at(r).decode("utf-8")
 
-            r.cmd('doo; db main; dc') # 执行多条命令, 返回打印的结果(字符串)
+            def r2_cmdj(r2c, cmd: str) -> Union[Dict, List[Dict]]: # 执行命令, 获取执行结果的json字符串并转成字典
+                return json.loads(r2_cmd(r2c, cmd + "j"))
 
-            json = r.cmdj('iij') # `j`命令生成json结果, `cmdj`方法对json进行转换生成对象
+            obj_path = b"test_program" # 目标二进制程序的路径. 注意是bytes类型数据. 
+            r2_proj_path = b"r2_test.proj" # 工程文件路径. 注意是bytes类型数据. 
+
+            r2c = libr.r_core.r_core_new() # 初始化r2工程实例
+            libr.r_core.r_core_file_open(r2c, obj_path, UC_PROT_READ | UC_PROT_EXEC, load_addr) # 打开文件. load_addr
+            libr.r_core.r_core_bin_load(r2c, obj_path, (1<<64) - 1) # 载入二进制文件. 三参指定基地址
+
+            libr.r_core_project_save(r2c, r2_proj_path) # 保存工程
+            libr.r_core_project_open(r2c, r2_proj_path) # 打开工程
         ```
-
 * 插件
     * `r2dec`
         * 安装: `r2pm -i r2dec`

@@ -126,7 +126,7 @@
         * `.out`固件提取出来的`flatkc`:
             * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将其中的内核elf文件提取出来. 
     * 分析
-        * 7.4.1
+        * 7.4.1 (x64)
             * `0x41B4` ~ `0x6E5C05`: 为压缩的内核镜像文件, 长为`0x6e1a51`
             * `0x6E5C10`: 紧接的代码片段用于解压数据. 
                 * 参考Linux内核项目的`arch/x86/boot/compressed/head_64.S`文件: 
