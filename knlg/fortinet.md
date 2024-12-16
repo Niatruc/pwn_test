@@ -171,7 +171,7 @@
         * 强制让if判断上方的函数调用返回1. 
 * `flatkc`
     * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
-    * 若不想绕过加密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
+    * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
     * 绕过白名单检查: 
         * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
         * 补丁: 在该函数开头处调用`integrity_iint_find`后直接返回0, 跳过后面对文件hash的比较. 

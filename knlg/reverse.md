@@ -193,6 +193,12 @@
         except KsError as e:
             print("ERROR: %s" %e)
     ```
+## lief
+* 参考: [Welcome to LIEF’s documentation!](https://lief.re/doc/latest/index.html)
+* 基本信息
+    * 支持: ELF, PE, Mach-O, android程序(OAT, DEX, VDEX, ART) 
+
+
 ## unicorn
 * 基本信息
     * 基于qemu的仿真框架
@@ -597,6 +603,12 @@
             * `ql_pipe`:
                 * `os/filestruct.py`
         * 在当前进程打开新的qiling实例时, **先前的qiling实例占用的端口并没有释放**. 
+
+## pandare
+* 参考: [Package pandare](https://docs.panda.re/)
+* 基本信息
+    * 
+
 ## binwalk
 * `binwalk <bin文件>`
 * 参数
@@ -1094,6 +1106,14 @@
     * `v`: 平板模式(panel)
         * `m`: 打开菜单
     * `V`: 可视模式(visual)
+    * `w [@addr]`: 可用于打补丁
+        * 注
+            * 运行r2时加上`-w`参数, 或者进入后执行`oo+`, 即可对文件打补丁
+            * 执行`e io.cache=true`, 即可以缓存模式打补丁
+        * `<字符串>`: 写入字符串
+        * `a <汇编指令>`: 用汇编指令打补丁
+        * `c`: 列出所有修改
+            * `f <文件>`: 将打补丁后的文件保存为新文件. 
 * python编程
     * `r2pipe`
         * 安装: `pip install r2pipe`
