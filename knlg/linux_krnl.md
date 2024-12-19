@@ -437,7 +437,7 @@
     * 无法在内核中修改数据, 加断点, 单步调试, 只能查看信息
 * `kdb`: 只能在2.6版旧内核使用, 需要打上补丁; 优点是不需要两台机器进行调试, 直接在本机进行操作
 * `kgdb`
-    * ubuntu内核已开启KGDB选项: `cat /boot/config-$(uname -r) | grep -i "GDB"`
+    * ubuntu内核已开启`KGDB`选项: `cat /boot/config-$(uname -r) | grep -i "GDB"`
     * `vmlinux`
         * Linux能够使用硬盘空间作为虚拟内存, 因此得名`vm`
         * 未压缩的内核镜像, 也是ELF文件
@@ -446,17 +446,17 @@
             * `sudo ./kdress vmlinuz-$(uname -r) vmlinux /boot/System.map-$(uname -r)`
     * `vmlinuz`
         * 在`/boot/`下有. 
-        * 在vmlinux的基础上, 经过gzip或bzip压缩而来, 同时添加了启动和解压缩代码. 是可以引导boot启动内核的最终镜像. 
-        * 将vmlinuz解压为vmlinux: `/usr/src/linux-headers-$(uname -r)/scripts/extract-vmlinux /boot/vmlinuz-$(uname -r) > vmlinux` 
+        * 在`vmlinux`的基础上, **经过gzip或bzip压缩而来**, **同时添加了启动和解压缩代码**(`arch/arm/boot/compressed/`下的`head.S`和`misc.c`, ). 是可以引导boot启动内核的最终镜像. 
+        * 将`vmlinuz`解压为`vmlinux`: `/usr/src/linux-headers-$(uname -r)/scripts/extract-vmlinux /boot/vmlinuz-$(uname -r) > vmlinux` 
     * `zImage`
-        * 是vmlinux经过gzip压缩后的文件. 头部也有解压缩代码. 
+        * 是`vmlinux`经过gzip压缩后的文件. 头部也有解压缩代码. 
         * 使用`LZ77`压缩算法. 
         * 适用于小内核, 比 `bzImage` 小. 
     * `bzImage`: big zImage
-        * `zImage`的改进版本. 
-        * 使用 gzip 实用程序将 vmlinux 文件压缩为较小的大小(通常压缩到 512KB 以下), 从而创建 bzimage 映像文件. 
+        * `zImage`的改进版本. 压缩率更高. 大内核一般采用这种压缩方式. 
+        * 使用 gzip 实用程序将`vmlinux`文件压缩为较小的大小(通常压缩到 512KB 以下), 从而创建`bzimage`映像文件. 
     * `uImage`
-        * 是`U-boot`专用的映像文件, 它是在zImage之前加上一个长度为`0x40`的头, 说明这个映像文件的类型, 加载位置, 生成时间, 大小等信息. 换句话说, 如果直接从uImage的`0x40`位置开始执行, zImage和uImage没有任何区别. 
+        * 是`U-boot`专用的映像文件, 它是在`zImage`之前加上一个长度为`0x40`的头, 说明这个映像文件的类型, 加载位置, 生成时间, 大小等信息. 换句话说, 如果直接从`uImage`的`0x40`位置开始执行, `uImage`和`zImage`没有任何区别. 
 * `strace`
 * 内核配置项
     * `CONFIG_DEBUG_KERNEL`: 用于使其它调试选项可用. 

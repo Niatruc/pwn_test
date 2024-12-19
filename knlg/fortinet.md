@@ -162,10 +162,10 @@
     * 绕过`/data/rootfs.gz.chk`检查
         * 搜索字符串`/data/rootfs.gz`
         * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
-        * 在此函数结尾修改rax的值(`xor rax, rax`), 强制让函数返回0. 
+        * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
     * `init_set_epoll_handler`
         * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
-        * 打补丁, 强制进入`if ( getpid() == 1 )`判断的内部. 
+        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. 
     * 绕过白名单检查
         * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
         * 强制让if判断上方的函数调用返回1. 
@@ -174,7 +174,7 @@
     * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
     * 绕过白名单检查: 
         * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
-        * 补丁: 在该函数开头处调用`integrity_iint_find`后直接返回0, 跳过后面对文件hash的比较. 
+        * 补丁: 修改该函数开头处调用`integrity_iint_find`后的跳转逻辑, 让函数直接跳转至末尾(返回0), 绕过对文件hash的比较. 
 
 
 # 漏洞分析

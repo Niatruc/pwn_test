@@ -605,7 +605,9 @@
         * 在当前进程打开新的qiling实例时, **先前的qiling实例占用的端口并没有释放**. 
 
 ## pandare
-* 参考: [Package pandare](https://docs.panda.re/)
+* 参考: 
+    * [Package pandare](https://docs.panda.re/)
+    * [Time-Travel Debugging in PANDA](https://raywang.tech/2018/11/14/Time-Travel-Debugging-in-PANDA/)
 * 基本信息
     * 
 
