@@ -1690,7 +1690,14 @@ typedef struct {
         ```
 
         * 默认不支持多会话, 若要远程登录, 需先注销原登录账户. 
-
+* busybox
+    * 参考
+        * [arm64 linux+busybox 内核编译](https://blog.csdn.net/weiwenzem/article/details/139501481)
+    * 问题记录
+        * 在ubuntu22上交叉编译arm64版本: 
+            * 1.21.1: 错误提示缺少`rpc.h`, 且通过`sudo apt install libntirpc-dev`安装对应库也未能解决此问题. 
+            * 1.36.1: 可完成编译
+            * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
 # 设置
 * `sudo`
     * 运行`visudo`(将会编辑`/etc/sudoers`)

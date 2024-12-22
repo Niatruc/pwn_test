@@ -38,7 +38,7 @@
                 * `sudo chroot . /sbin/ftar -xf /bin.tar`
 
 ## 修改固件文件及重新打包
-* 将flatkc打包为bzImage
+* 将`flatkc`打包为`bzImage`
     * 方法一: 使用linux源码编译
         * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
         * 问题记录: 
@@ -118,22 +118,23 @@
 * `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
     * 注: 在arm版本中没有该文件, 可修改`boot/grub/grub.cfg`. 
 * `flatkc`
-    * 基本信息
-        * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
-        * x64虚拟机中的`flatkc`是bzImage, 需要先提取内核elf文件再进行逆向分析: 
-            * 用`extract-vmlinux`: `/usr/src/linux-headers-6.5.0-21-generic/scripts/extract-vmlinux flatkc > flatkc.kvm.vmlinux`
-            * 用`vmlinux-to-elf`(有符号): `./vmlinux-to-elf flatkc flatkc.kvm.vmlinux`
-        * `.out`固件提取出来的`flatkc`:
-            * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将其中的内核elf文件提取出来. 
-    * 分析
-        * 7.4.1 (x64)
+    * 7.4.1 (x64)
+        * 基本信息
+            * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
+            * x64虚拟机中的`flatkc`是`bzImage`, 需要先提取内核elf文件再进行逆向分析: 
+                * 用`extract-vmlinux`: `/usr/src/linux-headers-6.5.0-21-generic/scripts/extract-vmlinux flatkc > flatkc.kvm.vmlinux`
+                * 用`vmlinux-to-elf`(有符号): `./vmlinux-to-elf flatkc flatkc.kvm.vmlinux`
+            * `.out`固件提取出来的`flatkc`:
+                * 如果是`BIOS (ia32) ROM Ext`, 可用`vmlinux-to-elf`将其中的内核elf文件提取出来. 
+        * 分析
+            
             * `0x41B4` ~ `0x6E5C05`: 为压缩的内核镜像文件, 长为`0x6e1a51`
             * `0x6E5C10`: 紧接的代码片段用于解压数据. 
                 * 参考Linux内核项目的`arch/x86/boot/compressed/head_64.S`文件: 
                 ```x86asm
                     /*
-                     * Do the extraction, and jump to the new kernel..
-                     */
+                        * Do the extraction, and jump to the new kernel..
+                        */
                         pushq	%rsi			/* Save the real mode argument */
                         movq	%rsi, %rdi		/* real mode address */
                         leaq	boot_heap(%rip), %rsi	/* malloc area for uncompression */
@@ -146,7 +147,10 @@
 
                 ```
                 * 需根据压缩数据的大小, 对`input_len`进行修改. 
-
+    * 7.4.1 (aarch64)
+        * 基本信息
+            * 文件类型: `Linux kernel ARM64 boot executable Image, little-endian, 4K pages`. 大小: 15M. 
+            * 不是压缩的内核镜像. 对其使用`vmlinux-to-elf`, 会在文件开头加上elf头部和节头表, 在末尾会加上符号信息和程序头表. 
 * 内核版本(`fnsysctl cat /proc/version`)
 
     |固件版本|Linux内核版本|
@@ -165,10 +169,10 @@
         * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
     * `init_set_epoll_handler`
         * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
-        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. 
+        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的jnz指令nop掉)
     * 绕过白名单检查
         * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
-        * 强制让if判断上方的函数调用返回1. 
+        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的jnz跳转nop掉)
 * `flatkc`
     * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
     * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 

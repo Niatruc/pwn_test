@@ -732,7 +732,7 @@
         * 调试器选`windbg debugger`
         * `process options` -> `connection string`, 填`com:port=\\.\pipe\my_pipe,baud=115200,pipe`
         * `debugger options` -> `set specific options`, 选中`kernel mode debugging`
-
+    * [Using IDA's GDB debugger with QEMU emulator](https://hex-rays.com/hubfs/freefile/debugging_gdb_qemu.pdf)
 * IDAPython
     * 从7.4开始使用的是python3.
     * 参考资料

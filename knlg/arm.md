@@ -3,6 +3,7 @@
     * [Android逆向基础](https://github.com/JnuSimba/AndroidSecNotes/tree/master/Android%E9%80%86%E5%90%91%E5%9F%BA%E7%A1%80)
     * [A32 and T32 Instructions](https://developer.arm.com/documentation/dui0802/b/A32-and-T32-Instructions/)
     * [移动安全之Android逆向系列：ARM汇编&IDA动态分析源码](https://forum.butian.net/share/707)
+    * [arm64架构分析](https://github.com/hardenedlinux/embedded-iot_profile/blob/master/docs/arm64/arm64%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90.md)
 * arm架构与处理器家族: 
     * `ARMv1`: `ARM1`
     * `ARMv2`: `ARM2`, `ARM3`
@@ -31,23 +32,35 @@
     * Hyp 模式
         * `armv7a`为`cortex-A15`处理器提供硬件虚拟化引进的管理模式. 
 # 寄存器
-* 未备份寄存器(`r0` ~ `r7`)
-    * `r0` ~ `r3:` 传参. `r0`常用于存结果. 
-    * `r4` ~ `r6`: 
-        * 是`callee-save`寄存器(即被使用前要先保存值)
-        * 常用于保存局部变量
-    * `r7`
-        * 保存栈底地址(相当于x86的bp寄存器)(thumb模式下)
-        * 保存系统调用号
-* 备份寄存器(`r8` ~ `r14`)
-    * `r8`, `r10`, `r11`: 通用寄存器
-    * `r9`: 保留
-    * `r10`(`SL`): `callee-save`寄存器, Stack Limit(`sl`). 
-    * `r11`(`FP`): `callee-save`寄存器,  帧指针`fp`(Flame Pointer)(相当于x86的`ebp`)
-    * `r12`(`IP`(`intra-procedure scratch`)): 
-    * `r13`: 堆栈指针`sp`, 指向栈顶
-    * `r14`: `LR`寄存器(linked register), 存返回地址
-    * `r15`: 程序计数器`PC`
+* arm
+    * 未备份寄存器(`r0` ~ `r7`)
+        * `r0` ~ `r3:` 传参. `r0`常用于存结果. 
+        * `r4` ~ `r6`: 
+            * 是`callee-save`寄存器(即被使用前要先保存值)
+            * 常用于保存局部变量
+        * `r7`
+            * 保存栈底地址(相当于x86的bp寄存器)(thumb模式下)
+            * 保存系统调用号
+    * 备份寄存器(`r8` ~ `r14`)
+        * `r8`, `r10`, `r11`: 通用寄存器
+        * `r9`: 保留
+        * `r10`(`SL`): `callee-save`寄存器, Stack Limit(`sl`). 
+        * `r11`(`FP`): `callee-save`寄存器,  帧指针`fp`(Flame Pointer)(相当于x86的`ebp`)
+        * `r12`(`IP`(`intra-procedure scratch`)): 
+        * `r13`: 堆栈指针`SP`, 指向栈顶
+        * `r14`: `LR`寄存器(linked register), 存返回地址
+        * `r15`: 程序计数器`PC`
+* aarch64
+    * `x0` ~ `x7`: 传递子程序的参数和返回值, 多余的参数用堆栈传递, 64位的返回结果保存在`x0`中. 
+    * `x8`: 间接结果寄存器，用于保存子程序返回地址, 尽量不要使用. 
+    * `x9` ~ `x15`: 临时寄存器, 也叫可变寄存器. 
+    * `x16` ~ `x17`: 子程序内部调用寄存器(`IP0`, `IP1`), 尽量不要使用. 
+    * `x18`: 平台寄存器(`PR`), 它的使用与平台相关, 尽量不要使用. 
+    * `x19` ~ `x28`: 临时寄存器. (`callee-save`)
+    * `x29`(`FP`): 帧指针寄存器. (`callee-save`)
+    * `x30`(`LR`): 链接寄存器. 
+    * `SP`: 堆栈指针寄存器. 
+    * `PC`: 计数器. 
 * `WZR`, `XZR`: 零寄存器
 # 指令
 * 特性
@@ -66,7 +79,7 @@
     * `STR`
         * `STR R8, [R9,#4]`: 将`R8`的值写入`R9 + 0x4`的运算结果指向的内存地址处
     * `STP`: `P`可理解为pair. 可同时操作两个寄存器
-        * `STP x29, x30, [SP, #0x10]`  ; 将 `x29`, `x30` 的值存入 `sp` 偏移 16 个字节的位置 
+        * `STP x29, x30, [SP, #0x10]`  ; 将 `x29`, `x30` 的值存入 `sp` 偏移 16 个字节的位置. **在函数的开头通常都会有这行指令**
     * `LDM`
         * `LDM R0!, {R1-R3}`: 将R0指向的存储单元的数据依次加载到R1,R2,R3寄存器
     * `STM`: 可用于保存现场
@@ -74,8 +87,9 @@
     * `SWP`
         * `SWP R1, R2 [R0]`: 读取R0指向的内容到R1中, 并将R2的内容写入到该内存单元中
 * 分支跳转指令
-    * `B`: 无条件跳转. 
-    * `BL`: 带链接的跳转. 用于函数调用. 
+    * `B <地址>`: 无条件跳转. 
+    * `BR <地址>`: 无条件跳转(至寄存器). 
+    * `BL <地址>`: 带链接的跳转. 用于函数调用. 
     * `CB`: 将寄存器值与立即数比较后再进行跳转. 
         * `CBNZ <Wt>, <label>`: `<Wt>`寄存器值不为0则跳转至`<label>`
     * `TB`: 测试位后后再进行跳转. 
