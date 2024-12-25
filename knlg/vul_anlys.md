@@ -1507,3 +1507,6 @@
     * 要点: 
         * 针对 x86_64 ELF;
         * 
+* aflnet
+    * 参考
+        * [AFLNET架构图解释及运行流程](https://blog.csdn.net/qq_45861878/article/details/133245853)

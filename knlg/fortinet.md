@@ -37,8 +37,52 @@
                 * `sudo chroot . /sbin/xz --check=sha256 -d /bin.tar.xz`
                 * `sudo chroot . /sbin/ftar -xf /bin.tar`
 
-## 修改固件文件及重新打包
-* 将`flatkc`打包为`bzImage`
+## 修改文件系统后(提权) 
+* 植入`busybox`: 
+    * 将`busybox`放到根文件系统的`/bin`目录下. 
+    * 需要一个跳板程序. 用该程序替代`/bin/smartctl`
+        ```c
+            #include <unistd.h>
+
+            int main(int argc, char const *argv[])
+            {
+                if (argc > 1)
+                {
+                    execvp("/bin/busybox", (char *const *)&argv[1]);
+                }
+                return 0;
+            }
+        ```
+    * 使用: 
+        * `diagnose hardware smartctl sh`: 进入shell命令行. aarch64版中, 之后执行busybox的内置命令(`ls`等)可能需要在前面加上`smartctl`. 
+* 植入`gdbserver`: 
+    * 放置在`/bin`目录下. 
+    * 使用: 
+        * 附加`httpsd`进程: `smartctl kill -9 $(smartctl pidof telnetd) && gdbserver 0.0.0.0:23 --attach  $(smartctl pidof httpsd)`
+            * `fortigate`固件可能有端口白名单机制, 因此只能用上面的方法绑定开放的23端口. 
+* 给`/bin/init`打补丁: 
+    * 绕过`do_halt`调用: 
+        * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
+        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用nop或jmp绕过. 
+    * 绕过`/data/rootfs.gz.chk`检查
+        * 搜索字符串`/data/rootfs.gz`
+        * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
+        * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
+    * `init_set_epoll_handler`
+        * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
+        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的jnz指令nop掉)
+    * 绕过白名单检查
+        * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
+        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的jnz跳转nop掉)
+* 给`flatkc`打补丁: 
+    * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
+    * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
+    * 绕过白名单检查: 
+        * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
+        * 补丁: 修改该函数开头处调用`integrity_iint_find`后的跳转逻辑, 让函数直接跳转至末尾(返回0), 绕过对文件hash的比较. 
+
+## 重新打包固件
+* (x64版)将`flatkc`打包为`bzImage`
     * 方法一: 使用linux源码编译
         * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
         * 问题记录: 
@@ -67,7 +111,7 @@
     * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
     * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
 * `rootfs`打包成`rootfs.gz`
-    * 切换到rootfs目录, 然后执行`find . | cpio -H newc -o > ../rootfs.raw`, 打包当前目录为`rootfs.raw`
+    * 切换到`rootfs`目录, 然后执行`find . | cpio -H newc -o > ../rootfs.raw`, 打包当前目录为`rootfs.raw`
     * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
     * 之后需要将`rootfs.gz`加密, 再传入qcow2镜像中. 
 * 问题记录
@@ -158,27 +202,6 @@
     |7.0.0|3.2.16|
     |7.4.1|4.19.13|
 
-## 修改文件系统后的补丁工作: 
-* `init`
-    * 绕过`do_halt`调用: 
-        * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
-        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用nop或jmp绕过. 
-    * 绕过`/data/rootfs.gz.chk`检查
-        * 搜索字符串`/data/rootfs.gz`
-        * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
-        * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
-    * `init_set_epoll_handler`
-        * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
-        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的jnz指令nop掉)
-    * 绕过白名单检查
-        * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
-        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的jnz跳转nop掉)
-* `flatkc`
-    * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
-    * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
-    * 绕过白名单检查: 
-        * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
-        * 补丁: 修改该函数开头处调用`integrity_iint_find`后的跳转逻辑, 让函数直接跳转至末尾(返回0), 绕过对文件hash的比较. 
 
 
 # 漏洞分析
