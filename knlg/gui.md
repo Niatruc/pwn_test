@@ -1,5 +1,8 @@
 * unicode查询: https://symbl.cc/cn/unicode/
-* ansi转义序列: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+* ansi转义序列: 
+    * [ANSI Escape Sequences](https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797)
+    * [ANSI escape code](https://en.wikipedia.org/wiki/ANSI_escape_code)
+    * [ANSI转义序列](https://zh.wikipedia.org/zh-cn/ANSI%E8%BD%AC%E4%B9%89%E5%BA%8F%E5%88%97)
 
 # QT
 ## 参考

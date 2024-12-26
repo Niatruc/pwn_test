@@ -510,7 +510,7 @@
         echo function_graph > current_tracer
         echo 要跟踪的内核函数 > set_graph_function
         echo 1 > options/funcgraph-tail  # 增加函数尾部注释
-        echo > set_ftrace_filter         # 清空，否则无法显示调用栈
+        echo > set_ftrace_filter         # 清空, 否则无法显示调用栈
         echo 1 > tracing_on 
         echo 0 > tracing_on
 
@@ -1161,6 +1161,7 @@ typedef struct {
     * `$$`: 脚本运行的当前进程的id号. 
     * `$!`: 后台运行的最后一个进程的id号. 
     * `shift n`: 将参数列表左移n个. 相当于移除`$@`列表中前n个参数, 而`$#`的大小也会减去n. 
+        * **可基于此法获取除去前几个参数后的所有剩余参数.**
 * `$(cmd)`: 表示执行`cmd`后输出的字符串. 
 * `$[a+1]`: 获取算术运算结果. 
 * `${a}`: 得到变量a的值(作为字符串)
@@ -1200,13 +1201,53 @@ typedef struct {
 * `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
     * `[ -z "$HOME" ]`: 字符串为空则true. 
     * `[ -e "$HOME" ]`: 文件存在则true. 
-    * `[ 10 -gt 3 ]`: 数字大小比较. 
+    * `[ 10 -gt 3 ]`: 数字大小比较. 有`-eq`, `-lt`, `-le`, `-gt`, `-ge`, `-ne`等. 
+    * `=`用于字符串比较. 在bash中也可写成`==`
 * `[[]]`: 是bash等才有的对`[]`的增强. 
     * 可使用布尔操作符(`&&`, `||`)和字符串大小比较符合(`>`, `<`)
     * 处理空字符串的效果更好: 用`if [[ -f $file ]]`替代`if [ -f "$file" ]`
     * 用于正则匹配: `[[ $answer =~ ^y(es)?$ ]]`
     * 用通配符: `if [[ $ANSWER = y* ]]`
 * `return`: 函数可用之返回整数值, 一般0表示成功. 调用函数后, 通过`$?`获取函数返回值. 
+    * 状态码: 
+        * 0：表示命令执行成功. (**为0时表示True, 这时&&后的命令才会被执行**)
+        * 1：特指与通常意义上的失败相对应的错误码. 例如, 命令执行遇到一般性错误. 
+        * 2：通常表示命令执行遇到非法或无效的命令参数. 
+        * 126：表示命令无法执行. 通常是由于命令的权限不足或执行的文件不存在等原因导致无法执行. 
+        * 127：表示命令没有找到. 通常是由于命令不存在或命令路径错误等导致的. 
+        * 128-255: 通常表示由信号终止的进程. 例如, `128 + 信号编号`
+* `eval`: 将其后的参数作为命令执行. 
+* `alias <别名>="<指令>"`: 为指令创建别名. 
+* `declare`: 用于声明 shell 变量. 
+    * `-f <函数名>`: 打印函数的定义
+    * `-p`: 打印变量的声明语句
+    * `-g`: 声明为全局变量
+    * `-r`: 声明为只读变量
+    * `-i`: 声明整数型变量
+    * `-a `: 声明数组
+        * `declare -a my_array=(1 2 3)`
+    * `-A`: 声明关联数组
+        * `declare -A my_assoc_array[a]=1 my_assoc_array[b]=2`
+    * `-x`: 声明变量为`export`
+    * `-n`: 声明引用变量
+        * `declare -n ref_var=var_name`: 则`$ref_var`和`$var_name`被捆绑, 一个的值发生改变, 另一个也一起变
+    * `-l`: 值转小写
+        * `declare -l lower_var="HELLO"`
+    * `-u`: 值转大写
+* `local <变量>`: 用于将函数内的变量声明为局部变量. 
+* `unset <变量>`: 取消变量定义. 
+* `source`: 导入其他sh文件. 可嵌套引入变量/函数定义等. 
+    * 注: `alias`定义的变量无法嵌套引入. 
+* 数组
+    * `my_array=(A B "C" D)`
+    * `${my_array[0]}`
+    * `${#my_array[@]}`: 获取数组长度
+* 关联数组: 
+    * 定义: `declare -A site=(["google"]="www.google.com" ["runoob"]="www.runoob.com" ["taobao"]="www.taobao.com")`
+    * `site["runoob"]="aaa.xyz"`
+    * `echo ${site["runoob"]}`
+    * `echo ${!site[@]}`: 获取关联数组的所有键
+        * `for key in ${!site[@]}; do echo $key, ${site[$key]}; done`
 * 追踪和调试
     * `sh`
         * `-n`: 仅检查语法
@@ -1252,6 +1293,17 @@ typedef struct {
             echo $var
         done
 
+        # 遍历数组, 同时获取下标
+        for((i=0;i<${#tmp_arr[@]};i++)); do
+            echo ${tmp_arr[i]}
+        done
+
+        # 遍历数组, 批量定义方法
+        functions=("my_func_1" "my_func_2" "my_func_3" "my_func_4" "my_func_5")
+        for func_name in "${functions[@]}"; do # `@`或`*`都可获取整个数组. `${functions}`只能获取第一个元素
+            eval "$func_name() { echo \"This is function $func_name, args: \$* \"; }" # 动态定义方法. 注意获取参数时, `$*`中的$要进行转义, 防止被提前解析. 
+        done
+
         # 遍历目录
         for f in ${MY_DIR}/*; do
             echo $f
@@ -1267,6 +1319,14 @@ typedef struct {
         do
             echo $num
         done
+
+        # 定义函数
+        func1() {
+            echo ${1}
+            return 0
+        }
+
+        func1 "test" # 调用函数
 
         # 读文件
         file_content=$(<$1)
