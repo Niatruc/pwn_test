@@ -4,6 +4,7 @@
 * 参考
     * [Further Adventures in Fortinet Decryption](https://bishopfox.com/blog/further-adventures-in-fortinet-decryption): 新版本固件提取rootfs
     * [搭建 FortiGate 调试环境 (一)](https://wzt.ac.cn/2023/03/02/fortigate_debug_env1/)
+    * [软件签名增强](https://handbook.fortinet.com.cn/%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/software_signature_enhance.html)
 # 使用
 * 命令
     * `execute`
@@ -63,7 +64,7 @@
 * 给`/bin/init`打补丁: 
     * 绕过`do_halt`调用: 
         * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
-        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用nop或jmp绕过. 
+        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用`nop`或`jmp`绕过. 
     * 绕过`/data/rootfs.gz.chk`检查
         * 搜索字符串`/data/rootfs.gz`
         * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
@@ -73,9 +74,9 @@
         * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的jnz指令nop掉)
     * 绕过白名单检查
         * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
-        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的jnz跳转nop掉)
+        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的`jnz`跳转`nop`掉)
 * 给`flatkc`打补丁: 
-    * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的cpio打包的`rootfs.gz`传入qcow2镜像. 
+    * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的`cpio`打包的`rootfs.gz`传入qcow2镜像. 
     * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
     * 绕过白名单检查: 
         * 搜索字符串`severity=alert msg=\"[executable file doesn't have existing hash](%s).`, 引用该字符串的是函数`fos_process_appraise_constprop_0`
@@ -87,10 +88,10 @@
         * 参考: [vmlinux重新打包zImage/bzImage思路提供](https://www.wunote.cn/article/4170/)
         * 问题记录: 
             * `error: ‘-mindirect-branch’ and ‘-fcf-protection’ are not compatible`
-                * 解决: 使用低版本gcc(如ubuntu18的gcc7.5)
+                * 解决: 使用低版本`gcc`(如ubuntu18的`gcc 7.5`)
             * `recipe for target 'drivers/gpu/drm/i915' failed`
                 * `make menuconfig`, 找到`Device Drivers` -> `Graphics support` -> `(AGP support)`, 关闭. 
-    * 方法二: 手动修改flatkc
+    * 方法二: 手动修改`flatkc`
         ```sh
             # 分别用`extract-vmlinux`和`vmlinux-to-elf`从flatkc中提取vmlinux(一个无符号, 一个有符号)
             # 然后根据对有符号的vmlinux的逆向分析, 修改无符号的vmlinux
@@ -164,7 +165,7 @@
 * `flatkc`
     * 7.4.1 (x64)
         * 基本信息
-            * 是一个压缩镜像文件(如bzImage). 由它来解压`rootfs`. 
+            * 是一个压缩镜像文件(如`bzImage`). 由它来解压`rootfs`. 
             * x64虚拟机中的`flatkc`是`bzImage`, 需要先提取内核elf文件再进行逆向分析: 
                 * 用`extract-vmlinux`: `/usr/src/linux-headers-6.5.0-21-generic/scripts/extract-vmlinux flatkc > flatkc.kvm.vmlinux`
                 * 用`vmlinux-to-elf`(有符号): `./vmlinux-to-elf flatkc flatkc.kvm.vmlinux`
