@@ -1578,7 +1578,7 @@ typedef struct {
             * 比如, 在虚拟机中, 执行`ssh -R 22222:localhost:22 user@myhost`, 把宿主机的22222端口的数据转发到虚拟机22端口. 
         2. 在远端机器执行`ssh -p PortC user@HostC`, 访问自己的`HostC:PortC`端口, 实际将访问`HostB:PortB`. 
             * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
-* `tunctl`: 创建, 管理TUN/TAP接口(作为虚拟网络设备, TAP模拟数据链路层设备, TUN模拟网络层设备). 
+* `tunctl`: 创建, 管理`TUN`/`TAP`接口(作为虚拟网络设备, `TAP`模拟数据链路层设备(有MAC地址, 更接近物理网卡), `TUN`模拟网络层设备). 
     * `-u <user>`: 指定用户
     * `-t <tapname>`: 指定接口名称
     * `-d <tapname>`: 将网卡设置为非持续的
@@ -1586,6 +1586,16 @@ typedef struct {
         * `ifconfig tap0 192.168.1.100 up`: 为`tap0`设置ip地址并启动
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
 * `ip`:
+    * `tuntap`:
+        ```sh
+            ip tuntap add dev tap0 mod tap # 创建tap网卡
+            ip tuntap add dev tun0 mod tun # 创建tun网卡
+            # 除了`add`, 还有`del`, `show`, `list`
+
+            ip link set tun0 up # 启动tun0网卡
+        ```
+
+
     * `netns`: 网络命名空间. 能创建多个隔离的网络空间, 它们有独自网络栈信息. 
         * `list`: 列出名称空间
         * `add NAME`: 添加名称空间

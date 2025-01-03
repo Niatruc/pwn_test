@@ -5,11 +5,13 @@
     * [Further Adventures in Fortinet Decryption](https://bishopfox.com/blog/further-adventures-in-fortinet-decryption): 新版本固件提取rootfs
     * [搭建 FortiGate 调试环境 (一)](https://wzt.ac.cn/2023/03/02/fortigate_debug_env1/)
     * [软件签名增强](https://handbook.fortinet.com.cn/%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/software_signature_enhance.html)
+    
 # 使用
 * 命令
     * `execute`
         * `ping`
     * `fnsysctl`: 在完成证书认证后可用. 可以使用linux命令, 如`ls`, `ps`, `mv`, `df`等. 
+
 # 逆向
 ## 提取固件
 * 从`.out`文件中提取文件系统: 
@@ -140,6 +142,10 @@
 * x64版固件仿真
     * `qemu-system-x86_64 -m 4G -hda fortios.qcow2`
 * 配置网络:
+    * 创建tap网卡: `tunctl -t tap_fgt`
+    * 指定tap网卡的ip并启用网卡: `ifconfig tap_fgt 192.168.1.1 up`
+    * qemu启动时指定网卡: `-nic tap,id=net0,ifname=tap_fgt,script=no`
+    * fortigate中配置网卡: 
 
     ```
         config system interface
@@ -150,7 +156,7 @@
         end
     ```
 
-    * 注意: 和宿主机的`virbr0`使用同一网段. 
+    * 注意: 如果使用virt-manager仿真, 则指定IP为和宿主机的`virbr0`相同的网段. 
     * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
 * 证书
     * 可查看证书状态: 
@@ -163,7 +169,7 @@
 * `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
     * 注: 在arm版本中没有该文件, 可修改`boot/grub/grub.cfg`. 
 * `flatkc`
-    * 7.4.1 (x64)
+    * `7.4.1` (`x64`)
         * 基本信息
             * 是一个压缩镜像文件(如`bzImage`). 由它来解压`rootfs`. 
             * x64虚拟机中的`flatkc`是`bzImage`, 需要先提取内核elf文件再进行逆向分析: 
@@ -177,7 +183,7 @@
             * `0x6E5C10`: 紧接的代码片段用于解压数据. 
                 * 参考Linux内核项目的`arch/x86/boot/compressed/head_64.S`文件: 
                 ```x86asm
-                    /*
+                        /*
                         * Do the extraction, and jump to the new kernel..
                         */
                         pushq	%rsi			/* Save the real mode argument */
@@ -192,7 +198,7 @@
 
                 ```
                 * 需根据压缩数据的大小, 对`input_len`进行修改. 
-    * 7.4.1 (aarch64)
+    * `7.4.1` (`aarch64`)
         * 基本信息
             * 文件类型: `Linux kernel ARM64 boot executable Image, little-endian, 4K pages`. 大小: 15M. 
             * 不是压缩的内核镜像. 对其使用`vmlinux-to-elf`, 会在文件开头加上elf头部和节头表, 在末尾会加上符号信息和程序头表. 
