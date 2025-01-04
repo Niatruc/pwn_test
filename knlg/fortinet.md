@@ -5,7 +5,7 @@
     * [Further Adventures in Fortinet Decryption](https://bishopfox.com/blog/further-adventures-in-fortinet-decryption): 新版本固件提取rootfs
     * [搭建 FortiGate 调试环境 (一)](https://wzt.ac.cn/2023/03/02/fortigate_debug_env1/)
     * [软件签名增强](https://handbook.fortinet.com.cn/%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/software_signature_enhance.html)
-    
+
 # 使用
 * 命令
     * `execute`
@@ -20,6 +20,11 @@
             * https://github.com/optistream/fortigate-crypto
             * https://github.com/BishopFox/forticrack (使用python实现)
                 * forticrack原理: https://bishopfox.com/blog/breaking-fortinet-firmware-encryption
+        * 解密后: 
+            * 可以`binwalk -Mer`提取文件系统. 
+            * 也可以挂载: 
+                * 先通过`binwalk`找到Linux EXT文件系统的偏移. 
+                * `mount -o ro,loop,offset=<偏移> <.out的解密文件> <挂载的目录>`: 挂载到目录. 
 * 从`.qcow2`或`.vmdk`文件中提取文件系统: 
     * 工具
         * `libguestfs-tools`: 有`virt-filesystems`, `guestmount`等工具. 
@@ -73,7 +78,7 @@
         * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
     * `init_set_epoll_handler`
         * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
-        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的jnz指令nop掉)
+        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的`jnz`指令`nop`掉)
     * 绕过白名单检查
         * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
         * 强制让if判断上方的函数调用返回1. (可将函数调用下方的`jnz`跳转`nop`掉)
