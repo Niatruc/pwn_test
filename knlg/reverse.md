@@ -609,7 +609,19 @@
     * [Package pandare](https://docs.panda.re/)
     * [Time-Travel Debugging in PANDA](https://raywang.tech/2018/11/14/Time-Travel-Debugging-in-PANDA/)
 * 基本信息
-    * 
+    * 使用流程
+        1. 捕获一个完整系统的运行记录. 
+        2. 以插件的形式写分析代码, 在恰当的点(比如执行基本块, 内存读等操作)注册回调函数. 
+* 编译和安装
+    * 可直接运行`./panda/scripts/install_ubuntu.sh`(联网环境下)
+    * ubuntu 22(离线环境下(参考`install_ubuntu.sh`脚本))
+        * 安装apt依赖: 记录在`/panda/dependencies/ubuntu_${version}_build.txt`和`/panda/dependencies/ubuntu_${version}_base.txt`文件中. 
+        * 安装`capstone`: 下载`v5`分支, 编译并安装. 
+        * 安装`libosi`: `https://github.com/panda-re/libosi/releases/download/v0.1.7/libosi_22.04.deb`
+        * 问题: 
+            * 无法解析`index.crates.io`域名(rust包的来源)
+    * 可直接安装deb包(在release页面下载)
+        * 安装后, 会在`/usr/local/bin/`目录下有`libpanda-<arch>.so`动态库, 而`panda-system-<arch>`使用了这些动态库. 
 
 ## binwalk
 * `binwalk <bin文件>`

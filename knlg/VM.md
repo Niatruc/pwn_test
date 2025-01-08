@@ -193,7 +193,7 @@
         * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
         * `guestunmount myfs`: 卸载
     * `qemu-nbd`
-        * `sudo modprobe nbd max_part=8`: 确保加载了nbd(network block device)内核模块. 
+        * `sudo modprobe nbd max_part=8`: 确保加载了`nbd`(network block device)内核模块. 
         * `-c /dev/nbd0 myfs.qcow2`: 将qcow2镜像与设备`/dev/nbd0`连接. 
             * 之后就可以使用`fdisk -l /dev/nbd0`查看qcow2镜像的分区信息. 
             * 也可以通过`mount`将其中某个分区挂载到目录. 
