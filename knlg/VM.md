@@ -177,27 +177,33 @@
         * `--target-list=`: 指定编译的目标. 可以用逗号隔开. 
             * `riscv64-softmmu`: 编译系统模式的针对riscv64架构的qemu
             * `riscv64-linux-user`: 编译linu用户模式的针对riscv64架构的qemu
-* `qemu-img`
-    * `qemu-img info <qcow2文件路径>`: 可查看磁盘大小, 快照信息等. 
-    * `qemu-img convert win2kpro.vmdk -O qcow win2kpro.img`: 将一个vmdk文件转成qcow2文件
-    * 将一个vdi文件转成qcow2文件: 
-        > `VBoxManage clonehd --format RAW img.vdi img.raw`
-        > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
-    * 快照`qemu-img snapshot`
-        * `-l <qcow2文件路径>`: 列出快照信息. 
-        * `-c <快照名> <qcow2文件路径>`: 创建快照. 
-        * `-a <快照名> <qcow2文件路径>`: 恢复快照. 
-        * `-d <快照名> <qcow2文件路径>`: 删除快照. 
-* 挂载qcow2镜像
-    * `guestmount`
-        * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
-        * `guestunmount myfs`: 卸载
-    * `qemu-nbd`
-        * `sudo modprobe nbd max_part=8`: 确保加载了`nbd`(network block device)内核模块. 
-        * `-c /dev/nbd0 myfs.qcow2`: 将qcow2镜像与设备`/dev/nbd0`连接. 
-            * 之后就可以使用`fdisk -l /dev/nbd0`查看qcow2镜像的分区信息. 
-            * 也可以通过`mount`将其中某个分区挂载到目录. 
-        * `-d /dev/nbd0`: 卸载. 
+* `qcow2`
+    * 参考
+        * [qcow2原理详解](https://royhunter.github.io/2016/06/28/qcow2/)
+    * `qemu-img`
+        * `qemu-img info <qcow2文件路径>`: 可查看磁盘大小, 快照信息等. 
+        * `qemu-img convert win2kpro.vmdk -O qcow win2kpro.img`: 将一个vmdk文件转成qcow2文件
+        * 将一个vdi文件转成qcow2文件: 
+            > `VBoxManage clonehd --format RAW img.vdi img.raw`
+            > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
+        * 快照`qemu-img snapshot`
+            * `-l <qcow2文件路径>`: 列出快照信息. 
+            * `-c <快照名> <qcow2文件路径>`: 创建快照. 
+            * `-a <快照名> <qcow2文件路径>`: 恢复快照. 
+            * `-d <快照名> <qcow2文件路径>`: 删除快照. 
+    * 挂载qcow2镜像
+        * `guestmount`
+            * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
+            * `guestunmount myfs`: 卸载
+        * `qemu-nbd`
+            * `sudo modprobe nbd max_part=8`: 确保加载了`nbd`(network block device)内核模块. 
+            * `-c /dev/nbd0 myfs.qcow2`: 将qcow2镜像与设备`/dev/nbd0`连接. 
+                * 之后就可以使用`fdisk -l /dev/nbd0`查看qcow2镜像的分区信息. 
+                * 也可以通过`mount`将其中某个分区挂载到目录. 
+            * `-d /dev/nbd0`: 卸载. 
+    * 创建qcow2镜像
+        * 方法一: 
+            * `virt-make-fs --format=qcow2 --type=ext2 myfs myfs.ext2.qcow2`: 可将已有的目录`myfs`创建为qcow2镜像. 
 * 运行
     * 运行一个linux内核
         ```sh
@@ -250,9 +256,7 @@
         * 虚拟机内部挂载iso: 
             * `mkdir -p /mnt/iso`
             * `mount /dev/cdrom /mnt/iso`
-* 创建qcow2镜像
-    * 方法一: 
-        * `virt-make-fs --format=qcow2 --type=ext2 myfs myfs.ext2.qcow2`: 可将已有的目录`myfs`创建为qcow2镜像. 
+
 * 网络
     * 如果没有指定, 默认为用户模式下的一张`Intel e1000 PCI`卡, 桥接到主机网络. 即等价于: 
         ```sh
@@ -286,7 +290,7 @@
         * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
     * TAP桥接
 * 其他参数: 
-    * 注: 在参数后加` help`可以列出可用的值. 
+    * 注: 在参数后加`help`可以列出可用的值. 
     * `-m <内存大小>`
     * `-smp <虚拟内核数>`
     * `-M`: 指定要模拟的开发板, 比如`vexpress-a9`, `malta`, `virt`
@@ -346,10 +350,6 @@
         * `list`
             * `--all`: 列出所有虚拟机. 
 
-
-* qcow2
-    * 参考
-        * [qcow2原理详解](https://royhunter.github.io/2016/06/28/qcow2/)
 ## 原理
 * 参考
     * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
