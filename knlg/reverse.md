@@ -668,6 +668,8 @@
                 * 使用`tzb`为cd密钥打上污点标签. 计算污点数据相关计算的计算量. 
                 * 密钥解密以及位扩散的相关代码区域的计算量会很大, 借此定位相关代码区域. 
 * 编译和安装
+    * 参考
+        * [PANDA安装及使用记录](https://x3h1n.github.io/2019/12/21/PANDA%E5%AE%89%E8%A3%85%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AE%B0%E5%BD%95/)
     * 可直接运行`./panda/scripts/install_ubuntu.sh`(联网环境下)
     * ubuntu 22(离线环境下(参考`install_ubuntu.sh`脚本))
         * 安装apt依赖: 记录在`/panda/dependencies/ubuntu_${version}_build.txt`和`/panda/dependencies/ubuntu_${version}_base.txt`文件中. 
@@ -675,6 +677,10 @@
         * 安装`libosi`: `https://github.com/panda-re/libosi/releases/download/v0.1.7/libosi_22.04.deb`
         * 问题: 
             * 无法解析`index.crates.io`域名(rust包的来源)
+    * 联网编译安装(运行`install_ubuntu.sh`脚本)
+        * 问题: 
+            * `can't find crate for inline_python_macros`
+                * 改python 3.8后无此问题. 
     * 可直接安装deb包(在release页面下载)
         * 安装后, 会在`/usr/local/bin/`目录下有`libpanda-<arch>.so`动态库, 而`panda-system-<arch>`使用了这些动态库. 
 * 插件

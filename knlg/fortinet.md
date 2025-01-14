@@ -12,6 +12,48 @@
         * `ping`
     * `fnsysctl`: 在完成证书认证后可用. 可以使用linux命令, 如`ls`, `ps`, `mv`, `df`等. 
 
+## 仿真
+* arm版固件仿真
+    * virt-manager: 
+        * 在创建虚拟机时勾选`customize configuration before install`
+        * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`UEFI aarch64: /usr/share/AAVMF/AAVMF_CODE.fd`
+    * 使用`qemu-system`:
+        ```sh
+            # 将qemu的arm efi固件复制到一个镜像文件中(大小须至少64M): 
+            truncate -s 64m efi.img
+            dd if=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd of=efi.img conv=notrunc
+
+            # 启动系统
+            qemu-system-aarch64 -M virt -cpu cortex-a72 -m 4G -hda fortios.qcow2 -drive if=pflash,format=raw,file=efi.img,readonly=on
+
+            # 之后在qemu监视窗口中找`view` -> `serial0`查看串口输出. 
+        ```
+* x64版固件仿真
+    * `qemu-system-x86_64 -m 4G -hda fortios.qcow2`
+* 配置网络:
+    * 创建tap网卡: `tunctl -t tap_fgt`
+    * 指定tap网卡的ip并启用网卡: `ifconfig tap_fgt 192.168.1.1 up`
+    * qemu启动时指定网卡: `-nic tap,id=net0,ifname=tap_fgt,script=no`
+    * fortigate中配置网卡: 
+
+    ```
+        config system interface
+        edit port1
+        set mode static
+        set ip 192.168.1.2 255.255.255.0
+        set allowaccess http ping https ssh telnet
+        end
+    ```
+
+    * 注意: 如果使用virt-manager仿真, 则指定IP为和宿主机的`virbr0`相同的网段. 
+    * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
+* 证书
+    * 可查看证书状态: 
+        > `get system status`
+        > `diagnose debug vm-print-license`
+* 调试
+    * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
+    
 # 逆向
 ## 提取固件
 * 从`.out`文件中提取文件系统: 
@@ -69,19 +111,21 @@
         * 附加`httpsd`进程: `smartctl kill -9 $(smartctl pidof telnetd) && gdbserver 0.0.0.0:23 --attach  $(smartctl pidof httpsd)`
             * `fortigate`固件可能有端口白名单机制, 因此只能用上面的方法绑定开放的23端口. 
 * 给`/bin/init`打补丁: 
-    * 绕过`do_halt`调用: 
-        * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
-        * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用`nop`或`jmp`绕过. 
-    * 绕过`/data/rootfs.gz.chk`检查
-        * 搜索字符串`/data/rootfs.gz`
-        * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
-        * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
-    * `init_set_epoll_handler`
-        * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
-        * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的`jnz`指令`nop`掉)
-    * 绕过白名单检查
-        * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
-        * 强制让if判断上方的函数调用返回1. (可将函数调用下方的`jnz`跳转`nop`掉)
+    * 7.0.0
+    * 7.4.1
+        * 绕过`do_halt`调用: 
+            * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
+            * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用`nop`或`jmp`绕过. 
+        * 绕过`/data/rootfs.gz.chk`检查
+            * 搜索字符串`/data/rootfs.gz`
+            * 在引用的函数中, 可看到一个rsa签名校验函数被调用了两次, 分别校验`/data/rootfs.gz`和`/data/flatkc`
+            * 在上述签名校验函数结尾修改`rax`的值(`xor rax, rax`), 强制让函数返回0. 
+        * `init_set_epoll_handler`
+            * 搜索字符串`init_set_epoll_handler`, 只有一处引用, 该处下方有一个`getpid`调用. 
+            * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的`jnz`指令`nop`掉)
+        * 绕过白名单检查
+            * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
+            * 强制让if判断上方的函数调用返回1. (可将函数调用下方的`jnz`跳转`nop`掉)
 * 给`flatkc`打补丁: 
     * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的`cpio`打包的`rootfs.gz`传入qcow2镜像. 
     * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
@@ -128,47 +172,6 @@
     * 将`/bin/smartctl`替换为`busybox`后, 运行`diagnose hardware smartctl ls`出现`applet not found`
         * 因运行上述指令时busybox接收的参数是`{"smartctl", "sh"}`
         * 解决: 另写一个程序替换`/bin/smartctl`, 在程序中通过`execvp("/bin/busybox", &argv[1])`运行`busybox`; 将busybox程序传入bin目录并打包`rootfs.gz`. 
-## 仿真
-* arm版固件仿真
-    * virt-manager: 
-        * 在创建虚拟机时勾选`customize configuration before install`
-        * 在`overview`中的`Hypervisor Details` -> `Firmware`, 下拉框选择`UEFI aarch64: /usr/share/AAVMF/AAVMF_CODE.fd`
-    * 使用`qemu-system`:
-        ```sh
-            # 将qemu的arm efi固件复制到一个镜像文件中(大小须至少64M): 
-            truncate -s 64m efi.img
-            dd if=/usr/share/qemu-efi-aarch64/QEMU_EFI.fd of=efi.img conv=notrunc
-
-            # 启动系统
-            qemu-system-aarch64 -M virt -cpu cortex-a72 -m 4G -hda fortios.qcow2 -drive if=pflash,format=raw,file=efi.img,readonly=on
-
-            # 之后在qemu监视窗口中找`view` -> `serial0`查看串口输出. 
-        ```
-* x64版固件仿真
-    * `qemu-system-x86_64 -m 4G -hda fortios.qcow2`
-* 配置网络:
-    * 创建tap网卡: `tunctl -t tap_fgt`
-    * 指定tap网卡的ip并启用网卡: `ifconfig tap_fgt 192.168.1.1 up`
-    * qemu启动时指定网卡: `-nic tap,id=net0,ifname=tap_fgt,script=no`
-    * fortigate中配置网卡: 
-
-    ```
-        config system interface
-        edit port1
-        set mode static
-        set ip 192.168.1.2 255.255.255.0
-        set allowaccess http ping https ssh telnet
-        end
-    ```
-
-    * 注意: 如果使用virt-manager仿真, 则指定IP为和宿主机的`virbr0`相同的网段. 
-    * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
-* 证书
-    * 可查看证书状态: 
-        > `get system status`
-        > `diagnose debug vm-print-license`
-* 调试
-    * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
 
 ## 文件分析
 * `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
