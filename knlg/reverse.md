@@ -1257,6 +1257,14 @@
     * 对于ida, 版本要对应. ida 7 就用bindiff 7. 
     * 置信度: 数值越高, 说明对比的结果越可信. 
 
+## angr
+* 基本信息
+    * 符号执行框架
+* angr-management: 图形界面, 近似ida
+    * 安装: `pip install angr-management`
+        * 需要: `apt-get install libxcb-cursor-dev`
+
+
 ## frida
 * 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
 * 例: 

@@ -53,9 +53,11 @@
         > `diagnose debug vm-print-license`
 * 调试
     * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
-    
+
 # 逆向
 ## 提取固件
+* 实体设备
+    * (这里)[https://bishopfox.com/blog/a-look-at-fortijump-cve-2024-47575]提到`flatkc`大概率页被混淆了. 
 * 从`.out`文件中提取文件系统: 
     * 固件解密
         * 工具: 
@@ -111,7 +113,11 @@
         * 附加`httpsd`进程: `smartctl kill -9 $(smartctl pidof telnetd) && gdbserver 0.0.0.0:23 --attach  $(smartctl pidof httpsd)`
             * `fortigate`固件可能有端口白名单机制, 因此只能用上面的方法绑定开放的23端口. 
 * 给`/bin/init`打补丁: 
+    * 6.4.13
+        * 直接植入文件后, 启动时会在`Starting system maintenance...`后打印`Done 2728`, 然后关机. 在init程序的main函数中, 可看到有一些通过`fork`和`waitfor`进行的检查, 失败就会跳到结尾打印`Done 2728`. 
+        * "System file integrity init check failed!\n"
     * 7.0.0
+        * 同6.4.13, 需要绕过`.fgtsum`校验. 
     * 7.4.1
         * 绕过`do_halt`调用: 
             * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
@@ -210,6 +216,7 @@
         * 基本信息
             * 文件类型: `Linux kernel ARM64 boot executable Image, little-endian, 4K pages`. 大小: 15M. 
             * 不是压缩的内核镜像. 对其使用`vmlinux-to-elf`, 会在文件开头加上elf头部和节头表, 在末尾会加上符号信息和程序头表. 
+
 * 内核版本(`fnsysctl cat /proc/version`)
 
     |固件版本|Linux内核版本|
