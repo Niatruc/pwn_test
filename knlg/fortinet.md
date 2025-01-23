@@ -2,6 +2,7 @@
 * 工具
     * https://github.com/rrrrrrri/fgt-gadgets
 * 参考
+    * [Fortigate Firewalls Hardware - CPU model and number, Memory (RAM) and hard disk size datasheet table](https://yurisk.info/2021/03/14/Fortigate-Firewalls-Hardware-CPU-model-and-number-Memory-size-datasheet-table/)
     * [Further Adventures in Fortinet Decryption](https://bishopfox.com/blog/further-adventures-in-fortinet-decryption): 新版本固件提取rootfs
     * [搭建 FortiGate 调试环境 (一)](https://wzt.ac.cn/2023/03/02/fortigate_debug_env1/)
     * [软件签名增强](https://handbook.fortinet.com.cn/%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/software_signature_enhance.html)
@@ -57,7 +58,7 @@
 # 逆向
 ## 提取固件
 * 实体设备
-    * (这里)[https://bishopfox.com/blog/a-look-at-fortijump-cve-2024-47575]提到`flatkc`大概率页被混淆了. 
+    * (这里)[https://bishopfox.com/blog/a-look-at-fortijump-cve-2024-47575]提到`flatkc`大概率也被混淆了. 
 * 从`.out`文件中提取文件系统: 
     * 固件解密
         * 工具: 
@@ -81,7 +82,7 @@
         * 对于较老的版本(比如`7.0.0`), 可直接进入后面的步骤; 对于新版本, 需分析flatkc中对rootfs的加解密过程: 
             * 使用ida加载flatkc文件(先用`vmlinux-to-elf`加上符号)
             * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
-            * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用32字节常量(`28+4`和`27+5`))
+            * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
         * `gzip -d rootfs.gz`
         * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
         * 解压压缩包: 老版本需要用fortinet自带的`xz`和`ftar`, 新版本可直接用公共的`xz`和`tar`
@@ -113,12 +114,17 @@
         * 附加`httpsd`进程: `smartctl kill -9 $(smartctl pidof telnetd) && gdbserver 0.0.0.0:23 --attach  $(smartctl pidof httpsd)`
             * `fortigate`固件可能有端口白名单机制, 因此只能用上面的方法绑定开放的23端口. 
 * 给`/bin/init`打补丁: 
-    * 6.4.13
+    * `6.4.13`
         * 直接植入文件后, 启动时会在`Starting system maintenance...`后打印`Done 2728`, 然后关机. 在init程序的main函数中, 可看到有一些通过`fork`和`waitfor`进行的检查, 失败就会跳到结尾打印`Done 2728`. 
-        * "System file integrity init check failed!\n"
-    * 7.0.0
-        * 同6.4.13, 需要绕过`.fgtsum`校验. 
-    * 7.4.1
+        * 分析: 
+            1. 
+                * 在`main`函数中: 失败后会有一处打印`"System file integrity init check failed!\n"`
+                * 会`fork`并在一个函数中对`/data/.db`和`/data/.db.x`作校验. 可直接在该函数的开头返回(设置`mov eax, 1`以返回1)
+            2. 
+                * 接着会`fork`并在一个函数中对`.fgtsum`作校验. 可直接在该函数的开头返回(设置`mov eax, 1`以返回1)
+    * `7.0.0`
+        * 同`6.4.13`, 需要绕过`.fgtsum`校验. 
+    * `7.4.1`
         * 绕过`do_halt`调用: 
             * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
             * 在`main`函数有四处判断后引用`do_halt`. 将这四处判断用`nop`或`jmp`绕过. 
@@ -131,7 +137,7 @@
             * 打补丁, 在`getpid()`后绕过判断, 强制运行之后的代码. (可将`getpid`函数调用下方的`jnz`指令`nop`掉)
         * 绕过白名单检查
             * 搜索字符串`System file integrity monitor check failed`, 其引用处位于一个if判断内部. 
-            * 强制让if判断上方的函数调用返回1. (可将函数调用下方的`jnz`跳转`nop`掉)
+            * 强制让if判断上方的函数返回1(这个函数校验了`/data/.db`文件). (可将函数调用下方的`jnz`跳转`nop`掉)
 * 给`flatkc`打补丁: 
     * 若要绕过rootfs解密, 可在`fgt_verify_initrd`函数开头直接返回, 并将一个未加密的`cpio`打包的`rootfs.gz`传入qcow2镜像. 
     * 若不想绕过解密, 则需要将`fgt_verify_initrd`中调用`fgt_verify_decrypt`函数前的判断绕过, 确保能执行到`fgt_verify_decrypt`. 
