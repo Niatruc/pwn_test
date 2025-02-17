@@ -1826,6 +1826,11 @@ typedef struct {
     * 参考
         * [arm64 linux+busybox 内核编译](https://blog.csdn.net/weiwenzem/article/details/139501481)
     * 问题记录
+        * 错误提示缺少`rpc.h`
+            * `sudo apt install libntirpc-dev`
+            * 在`make menuconfig`时, 找到`Build Options`下`CFLAGS`相关选项, 填入`-I/usr/include/tirpc/`
+        * `date.c(.text.rdate_main+0xe4): undefined reference to 'stime'`
+            * 从glibc 2.31 开始, 已不支持`stime()`
         * 在ubuntu22上交叉编译arm64版本: 
             * 1.21.1: 错误提示缺少`rpc.h`, 且通过`sudo apt install libntirpc-dev`安装对应库也未能解决此问题. 
             * 1.36.1: 可完成编译

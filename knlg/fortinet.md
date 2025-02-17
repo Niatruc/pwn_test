@@ -81,8 +81,19 @@
     * 提取文件系统: 
         * 对于较老的版本(比如`7.0.0`), 可直接进入后面的步骤; 对于新版本, 需分析flatkc中对rootfs的加解密过程: 
             * 使用ida加载flatkc文件(先用`vmlinux-to-elf`加上符号)
-            * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
-            * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
+            * 相关linux函数: 
+                * `int mpi_powm(MPI res, MPI base, MPI exp, MPI mod)`: RES = BASE ^ EXP mod MOD
+                * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个mpi(multi precision integer)读入缓冲区`buf`中. 
+                * `MPI mpi_read_raw_data(const void *xbuffer, size_t nbytes)`: 从`xbuffer`中读取字节流为一个整数. `nbytes`是要读取的字节数. 
+            * 7.4.1
+                * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
+                * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
+            * 7.6.1
+                * 同 7.4.1 , 但是用chacha20对`.data`节中一块长为`0x10E`的区域进行解密运算, 得到一个key. 
+                * 用`rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`从上述key中提取rsa公钥, 存到`rsa_key`
+                * 用sha256生成了初始16字节密钥和向量
+                * 循环, 每回解密16个字节: 
+                    * `aes_enc_blk(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in)`
         * `gzip -d rootfs.gz`
         * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
         * 解压压缩包: 老版本需要用fortinet自带的`xz`和`ftar`, 新版本可直接用公共的`xz`和`tar`

@@ -1,5 +1,6 @@
 * 参考
     * [arm 体系架构及其工作原理图_arm架构详解](https://cloud.tencent.com/developer/article/2151966)
+    * [深入了解ARM版本系列及家族成员梳理大全（超详细）](https://www.bilibili.com/opus/642668192949338120)
     * [Android逆向基础](https://github.com/JnuSimba/AndroidSecNotes/tree/master/Android%E9%80%86%E5%90%91%E5%9F%BA%E7%A1%80)
     * [A32 and T32 Instructions](https://developer.arm.com/documentation/dui0802/b/A32-and-T32-Instructions/)
     * [移动安全之Android逆向系列：ARM汇编&IDA动态分析源码](https://forum.butian.net/share/707)
