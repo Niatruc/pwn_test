@@ -252,7 +252,7 @@
 
         # 开始模拟执行. 
         #   `count`: 表示执行的指令条数. 默认为0, 表示无限
-        mu.emu_start(begin=0x0000000000401149, end=0x0000000000401169, timeout=10, count=10)
+        mu.emu_start(begin=0x0000000000401149, until=0x0000000000401169, timeout=10, count=10)
     ```
 * 内存映射
     ```py
@@ -1274,7 +1274,7 @@
 * 问题
     * 部分没有符号的函数识别不到
         * 参考: [Finding all the Functions](https://radare.org/advent/03.html)
-        * 使用`aap`
+        * 使用`aap`, 分析函数前序列(比如`push ebp; mov ebp, esp`), 以鉴别函数. 
 ## cutter
 * 要点
     * 基于radare2

@@ -9,8 +9,40 @@
     * 指定cpu架构: `export ARCH=x86`
     * `make x86_64_defconfig`: 根据`arch/x86`下的`defconfig`文件生成`.config`文件. 
     * `make menuconfig`: 使用图形界面添加配置项. 
+        ```sh
+            General setup  --->
+            ----> [*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
+            Device Drivers  --->
+            [*] Block devices  --->
+                    <*>   RAM block device support
+                    (65536) Default RAM disk size (kbytes)
+        ```
     * `make -j8`: 编译内核(8线程). 
-* 要点
+    * 编译成功后的内核位于: `arch/x86_64/boot/bzImage`
+* 问题
+    * `cc1: error: code model kernel does not support PIC mode`
+        * 在Makefile中加入几行: 
+            ```makefile
+                # force no-pie for distro compilers that enable pie by default
+                KBUILD_CFLAGS += $(call cc-option, -fno-pie)
+                KBUILD_CFLAGS += $(call cc-option, -no-pie)
+                KBUILD_AFLAGS += $(call cc-option, -fno-pie)
+                KBUILD_AFLAGS += $(call cc-option, -no-pie)
+
+                # optional, mute warnings on pointers signedness to speed up compilation
+                KBUILD_CFLAGS += $(call cc-option, -Wno-pointer-sign)
+            ```
+
+    * `include/linux/compiler-gcc.h:121:1: fatal error: linux/compiler-gcc7.h`
+        * 原因: 系统没有gcc-7编译器
+        * 解决: 
+            ```sh
+                sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 1 # 最后一个数字是优先级
+
+                update-alternatives --config gcc # 选择当前对话中的gcc为gcc-4.8
+
+                gcc -v
+            ```
 
 # 内核开发
 * 要点

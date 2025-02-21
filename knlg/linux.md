@@ -34,8 +34,10 @@
 * `/etc`
     * `/default`
         * `/grub`: 
-            * 修改该文件并运行`update-grub`, 将更新`/boot/grub/grub.cfg`
+            * 修改该文件并运行`update-grub`, 将更新`/boot/grub/grub.cfg`. 如果在centos中, 运行`grub2-mkconfig -o /boot/grub2/grub.cfg`. 
             * `GRUB_DEFAULT`对应默认启动项. 
+            * `GRUB_CMDLINE_LINUX`: 启动命令行. 
+                * `nokaslr`: 关闭内存地址随机化. 
 * `/usr`
     * `/local`: 存安装的软件. 
         * `/src`: 源码. 
@@ -1575,7 +1577,7 @@ typedef struct {
 * 重启网络
     * `service network-manager restart`
     * `nmcli networking on`
-    * 问题
+    * 问题: 
         * 复制虚拟机后, 无法识别网卡: 
             ```sh
                 sudo service NetworkManager stop

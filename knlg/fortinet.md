@@ -30,7 +30,7 @@
             # 之后在qemu监视窗口中找`view` -> `serial0`查看串口输出. 
         ```
 * x64版固件仿真
-    * `qemu-system-x86_64 -m 4G -hda fortios.qcow2`
+    * `qemu-system-x86_64 -m 4G -hda fortios.qcow2 -nic tap,id=net0,ifname=tap_fgt,script=no`
 * 配置网络:
     * 创建tap网卡: `tunctl -t tap_fgt`
     * 指定tap网卡的ip并启用网卡: `ifconfig tap_fgt 192.168.1.1 up`
@@ -85,6 +85,7 @@
                 * `int mpi_powm(MPI res, MPI base, MPI exp, MPI mod)`: RES = BASE ^ EXP mod MOD
                 * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个mpi(multi precision integer)读入缓冲区`buf`中. 
                 * `MPI mpi_read_raw_data(const void *xbuffer, size_t nbytes)`: 从`xbuffer`中读取字节流为一个整数. `nbytes`是要读取的字节数. 
+                * `void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)`: 从`cachep`中分配一个对象. 
             * 7.4.1
                 * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
                 * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
