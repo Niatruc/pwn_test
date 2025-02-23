@@ -127,7 +127,7 @@
             * `fortigate`固件可能有端口白名单机制, 因此只能用上面的方法绑定开放的23端口. 
 * 给`/bin/init`打补丁: 
     * `6.4.13`
-        * 直接植入文件后, 启动时会在`Starting system maintenance...`后打印`Done 2728`, 然后关机. 在init程序的main函数中, 可看到有一些通过`fork`和`waitfor`进行的检查, 失败就会跳到结尾打印`Done 2728`. 
+        * 直接植入文件后, 启动时会在`Starting system maintenance...`后打印`Done 2728`, 然后关机. 在`init`程序的`main`函数中, 可看到有一些通过`fork`和`waitfor`进行的检查, 失败就会跳到结尾打印`Done 2728`. 
         * 分析: 
             1. 
                 * 在`main`函数中: 失败后会有一处打印`"System file integrity init check failed!\n"`
