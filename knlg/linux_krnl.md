@@ -4,6 +4,9 @@
     * `nokaslr`: 若编译内核时设置了`CONFIG_RANDOMIZE_BASE`, 则此项可禁止内核和模块基地址随机化. 
 
 # 内核编译
+* 参考
+    * [手把手教你利用VS Code+Qemu+GDB调试Linux内核](https://zhuanlan.zhihu.com/p/105069730)
+    * [编译Linux内核及最小文件系统并运行(Linux+busybox+roootfs+qemu)](https://blog.csdn.net/anqi8955/article/details/121607026)
 * 步骤
     * 指定gcc: `export CC=/usr/bin/gcc-4.x`
     * 指定cpu架构: `export ARCH=x86`
