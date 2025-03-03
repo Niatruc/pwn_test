@@ -1127,6 +1127,45 @@
     * `No module named 'pkg_resources'`
         * 再使用嵌入式python的pip时有此问题. 
         * 在ida中的python命令行中打印`sys.path`, 可看到idapython的库路径. 将需要的pip包拷贝到其中一个路径下即可. 
+### IDA 9
+* teams
+    * 参考
+        * [\[原创\] IDA Pro 9 SP1 安装和插件配置](https://bbs.kanxue.com/thread-285604.htm)
+        * [Teams server](https://docs.hex-rays.com/admin-guide/teams-server)
+    * 使用
+        * 运行`hvui.exe`即可运行teams客户端
+        * 服务端
+            * 参考
+                * [\[分享\]hexvault server 90 食用方法](https://bbs.kanxue.com/thread-283783.htm)
+                * [Ubuntu 18.04 出现GLIBC_2.28 not found的解决方法](https://blog.csdn.net/glen_cao/article/details/129832834): 解决ubuntu18.04的libc版本(2.27)问题. 
+            * 升级libc版本到2.28
+                ```sh
+                    echo "deb http://security.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list
+                    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 112695A0E562B32A 54404762BBB6E853
+                    apt update
+                    apt install libc6 libc6-dev -y
+
+                    strings /lib/x86_64-linux-gnu/libc.so.6 | grep GLIBC_ # 看是否有`GLIBC_2.28`
+                ```
+            * 运行服务器(在ubuntu18.04上测试)
+                ```sh
+                    cd /opt/hexvault
+                    cp .../path/to/hexvault.crt .
+                    cp .../path/to/hexvault.key .
+                    cp .../path/to/hexvault.lic .
+                    chown hexvault:hexvault hexvault.crt hexvault.key hexvault.lic
+                    chmod 640 hexvault.crt hexvault.key hexvault.lic # 这一步很重要, 如果这些文件可被其他非授权用户访问, 则hexvault服务器会拒绝启动并提示"world-accessible" file, exits"
+
+                    ./vault_server --config-file hexvault.conf --vault-dir ./files --recreate-schema # 初始化数据库
+
+                    ./vault_server --config-file hexvault.conf --certchain-file vault_server.crt --privkey-file vault_server.key --license-file vault_server.lic --vault-dir ./files
+                ```
+            * 客户端
+                * 创建用户: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t info`
+                * 显示用户列表: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t users`
+* lumina
+    * 参考
+        * [Lumina Server v9.0搭建记录](https://nobb.site/2024/08/13/0x8E/)
 ## radare2
 * 参考
     * [Radare2手册](https://heersin.gitbook.io/radare2)
