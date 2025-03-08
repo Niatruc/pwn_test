@@ -428,6 +428,9 @@
 * `call_usermodehelper`: 用于在内核层中执行用户态程序或系统命令. 
 
 ## linux内核调试
+* 参考
+    * [crash分析linux内核崩溃转储文件vmcore](https://blog.csdn.net/weixin_42915431/article/details/105666507)
+    * [VMware上进行Linux Kernel调试](http://pwn4.fun/2017/06/24/VMware%E4%B8%8A%E8%BF%9B%E8%A1%8CLinux-Kernel%E8%B0%83%E8%AF%95/)
 * `oops`
     * 两种可能: `killed`, `panic`
     * 设置`panic`
@@ -496,6 +499,11 @@
 * 内核配置项
     * `CONFIG_DEBUG_KERNEL`: 用于使其它调试选项可用. 
 * `kprobe`
+* `crash`
+    * 需要文件: 
+        * 下载地址: https://linuxsoft.cern.ch/centos-debuginfo/7/x86_64/
+        * 找到名字类似`kernel-debug-debuginfo-2.6.32-358.el6.x86_64.rpm`和`kernel-debuginfo-common-x86_64-2.6.32-358.el6.x86_64.rpm`的包
+        * `rpm -ivh`安装这两个包
 
 ## linux内核数据结构
 * `file_operation`结构体: 是把系统调用和驱动程序关联起来的关键数据结构. 

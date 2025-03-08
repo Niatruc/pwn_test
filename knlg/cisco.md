@@ -12,6 +12,8 @@
 * RSP(route switch processor): 
 * `sup-bootflash`, `sup-bootdisk`: 位于引擎主板上. SP的flash, 一般200M以上, 适合存放ios. 
 * `bootflash`: 位于MSFC板卡上. RP的flash, 一般64M左右, 可更换. 
+* 命名规则
+    * 参考: [思科路由器维护指南：解析Cisco IOS命名规则\[7\]](https://xueba5.com/xw/45306.html)
 
 # Rommon(ROM Monitor)
 * 又称boot软件, boot镜像. 路由器通电后, rommon对路由器做初始化, 然后将控制权转给ios. 之后rommon就不再被使用. 
@@ -32,7 +34,7 @@
 # 思科操作系统
 * IOS
     * 特性
-        * 庞大单一(monolithic), 不支持外部模块(插件). 更新固件时需要全部更新. 
+        * 庞大单一(`monolithic`), 不支持外部模块(插件). 更新固件时需要全部更新. 
         * 压缩文件, 用的是改过的pkzip格式. 
         * 内存
             * 内存分为进程内存和IO内存. 内存分为堆块, 由双向链表管理. 
@@ -53,8 +55,7 @@
         * `disable`: 返回用户模式
         * `copy tftp: flash: `: 进入交互程序, 从tftp服务器下载文件到flash
         * `dir flash: `: 
-    * 全局模式
-        * `configure terminal`: 进入全局模式, 以修改运行配置
+    * 全局模式(`configure terminal`: 进入全局模式, 以修改运行配置)
         * `hostname <主机名>`
         * `enable password <密码>`: 设置进入特权模式用的密码(`running-config`文件中显示明文密码)
             * `no enable password`: 禁用口令
@@ -159,3 +160,7 @@
         * `ctrl + Z`: 结束配置模式, 返沪执行模式
 
     * `tclsh`
+
+# Dynamips
+* 参考
+    * [Dynamips / Dynagen Tutorial](https://www.iteasypass.com/Dynamips.htm)
