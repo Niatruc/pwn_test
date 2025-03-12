@@ -1160,9 +1160,9 @@
 
                     ./vault_server --config-file hexvault.conf --certchain-file vault_server.crt --privkey-file vault_server.key --license-file vault_server.lic --vault-dir ./files
                 ```
-            * 客户端
-                * 创建用户: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t info`
-                * 显示用户列表: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t users`
+        * 客户端
+            * 创建用户: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t info`
+            * 显示用户列表: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t users`
 * lumina
     * 参考
         * [Lumina Server v9.0搭建记录](https://nobb.site/2024/08/13/0x8E/)
