@@ -13,6 +13,13 @@
     * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
         * 第一个引号内为多个原vmdk文件所在路径+磁盘名称(去掉-s001之类).vmdk; 
         * 第二个引号内为生产单个文件的路径和名字。
+* 共享文件夹
+    * 在linux客户机里面执行: `sudo mount -t fuse.vmhgfs-fuse .host:/ /mnt/hgfs -o allow_other`, 之后可在`/mnt/hgfs`下看到共享目录. 
+* 添加虚拟磁盘(新的vmdk镜像)(参考: [详解VMware虚拟机中添加新硬盘并挂载的方法](https://blog.csdn.net/weixin_50464560/article/details/115714884))
+    * 添加之后, 在linux中通过`fdisk -l`可看到, 比如`/dev/sdb`
+    * `fdisk /dev/sdb`: 使用fdisk进行格式化
+    * `mkfs -t ext3 /dev/sdb`: 创建文件系统
+    * 挂载: `sudo mount /dev/sdb my_dir`
 * 网络
     * 使用桥接网卡后, 虚拟机并未得到路由器分配的地址: 
         * `编辑` -> `虚拟网络编辑器` -> `更改设置`, 找到桥接模式的网卡, 看`已桥接至(G)`的下拉列表中是否已选中正确的网卡. 

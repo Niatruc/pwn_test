@@ -164,3 +164,4 @@
 # Dynamips
 * 参考
     * [Dynamips / Dynagen Tutorial](https://www.iteasypass.com/Dynamips.htm)
+    * [Dynamips 使用手册](https://dn720001.ca.archive.org/0/items/manuallib-id-79886/79886.pdf#page=2.99)
