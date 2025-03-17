@@ -5,6 +5,7 @@
     * [Booting AArch64 Linux](https://docs.kernel.org/arch/arm64/booting.html)
     * [Arm64下Linux内核Image头的格式](https://blog.csdn.net/Roland_Sun/article/details/105144372)
     * [\[原创\]看雪2018峰会回顾_智能设备漏洞挖掘中几个突破点(内有十种固件提取方法和首次公开uboot提取固件方法) ](https://bbs.kanxue.com/thread-230095.htm)
+    * [嵌入式设备固件安全分析技术研究综述](http://cjc.ict.ac.cn/online/bfpub/yyc-2020818141436.pdf#page=8.09)
 
 * 存储介质
     * NOR闪存
@@ -19,3 +20,7 @@
         * NAND的写入速度比NOR快很多。
         * 用在8～128MB的产品当中，适用于数据存储。
         * 使用NAND器件时，必须先写入驱动程序，才能继续执行其他操作。
+
+* 研究
+    * FirmAE
+        * 参考: [FirmAE: Towards Large-Scale Emulation of IoT Firmware for Dynamic Analysis阅读笔记](https://zhuanlan.zhihu.com/p/540725241)
