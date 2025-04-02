@@ -1614,10 +1614,13 @@ typedef struct {
             * `ip[0] & 0x0f > 5`: ip头部第一个字节的后半部大于5
 * `ssh`
     * 反向代理: 让远端开启端口, 把远端端口数据转发到本地. 可用于让外网访问内网服务器. 
-        1. 在内网本地机中执行, `ssh -R HostC:PortC:HostB:PortB user@HostC`: 把 远端端口`HostC:PortC` 的数据转发到`HostB:PortB`端口
+        1. 在内网本地机中执行, `ssh -R HostC:PortC:HostB:PortB user@HostC`: 把 远端端口`HostC:PortC`的数据转发到`HostB:PortB`端口
             * 比如, 在虚拟机中, 执行`ssh -R 22222:localhost:22 user@myhost`, 把宿主机的22222端口的数据转发到虚拟机22端口. 
         2. 在远端机器执行`ssh -p PortC user@HostC`, 访问自己的`HostC:PortC`端口, 实际将访问`HostB:PortB`. 
             * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
+    * 问题
+        * 远程登录时提示`no matching host key type found. Their offer: ssh-dss`
+            * `ssh -oHostKeyAlgorithms=+ssh-dss root@192.168.8.109`
 * `tunctl`: 创建, 管理`TUN`/`TAP`接口(作为虚拟网络设备, `TAP`模拟数据链路层设备(有MAC地址, 更接近物理网卡), `TUN`模拟网络层设备). 
     * `-u <user>`: 指定用户
     * `-t <tapname>`: 指定接口名称
@@ -1634,8 +1637,6 @@ typedef struct {
 
             ip link set tun0 up # 启动tun0网卡
         ```
-
-
     * `netns`: 网络命名空间. 能创建多个隔离的网络空间, 它们有独自网络栈信息. 
         * `list`: 列出名称空间
         * `add NAME`: 添加名称空间

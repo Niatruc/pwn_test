@@ -165,3 +165,55 @@
 * 参考
     * [Dynamips / Dynagen Tutorial](https://www.iteasypass.com/Dynamips.htm)
     * [Dynamips 使用手册](https://dn720001.ca.archive.org/0/items/manuallib-id-79886/79886.pdf#page=2.99)
+
+# 系列
+## WSA (Web Secure Appliance)
+* 基本信息
+    * 账号: admin
+    * 密码: ironport
+* 仿真
+    * `qemu-system-x86_64 -hda coeus-11-7-1-006-S000V.qcow2 -m 4096M -smp 4 -nic tap,ifname=tap_zbh,script=no`
+* 网络配置
+    ```sh
+        ifconfig
+        #> edit
+        #> 1 # 选择接口
+        #> # 接下来按提示配置IP地址, 开启的服务等
+
+        setgateway
+        #> 设置网关IP
+
+        ping <网关IP>
+    ```
+
+    * 浏览器访问`http://<wsa的IP>:8080`
+        * 若提示`This website might not support the TLS 1.2 protocol`: 
+            * 在firefox: 访问`about:config`, 输入`security.tls.version`. 若`min`的数字是3, 改为1. 
+
+## WLC(Wireless LAN Controller)
+* 基本信息
+    * 需要至少两张网卡, 否则引导会失败. 
+    * 初始时会要求进行一系列配置: 
+        * `management-port`: 该网卡用于外部访问路由器
+        * `service-port`: 专用于带外管理的物理端口
+* 仿真: 
+    * `qemu-system-x86_64 -hda megasasa.qcow2 -m 4096M -smp 4 -nic tap,ifname=tap_zbh,script=no -nic tap,ifname=tap_z2,script=no`
+* 配置
+    * web服务: `config network webmode enable` (可再加: `config network secureweb enable`, `config certificate generate webadmin`(生成web证书))
+
+
+## WAAS(Wide Area Application Services)
+* 基本信息
+    * 账号: admin
+    * 密码: default
+* 配置网卡
+    ```sh
+        config
+
+        interface GigabitEthernet 1/1 ip address 192.168.2.2 255.255.255.0
+
+        # 退出config
+
+        # 显示网卡信息
+        show interface GigabitEthernet 1/1 detail
+    ```

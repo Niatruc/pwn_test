@@ -195,6 +195,8 @@
         * 将一个vdi文件转成qcow2文件: 
             > `VBoxManage clonehd --format RAW img.vdi img.raw`
             > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
+        * vmdk转qcow2
+            > `qemu-img convert -f vmdk -O qcow2 source-name.vmdk target-name.qcow2 `
         * 快照`qemu-img snapshot`
             * `-l <qcow2文件路径>`: 列出快照信息. 
             * `-c <快照名> <qcow2文件路径>`: 创建快照. 
@@ -213,6 +215,13 @@
     * 创建qcow2镜像
         * 方法一: 
             * `virt-make-fs --format=qcow2 --type=ext2 myfs myfs.ext2.qcow2`: 可将已有的目录`myfs`创建为qcow2镜像. 
+        * 方法二
+            * `qemu-img create -f qcow2 -o preallocation=off /root/q1.qcow2 10M`
+                * `preallocation`
+                    * `off`: 缺省预分配策略, 即不使用预分配策略. 
+                    * `metadata`: 分配qcow2的元数据, 预分配后的虚拟磁盘仍然属于稀疏映像类型. 
+                    * `full`: 分配所有磁盘空间并置零, 预分配后的虚拟磁盘属于非稀疏映像类型. 
+                    * `falloc`: 使用`posix_fallocate()`函数分配文件的块并标示它们的状态为未初始化, 相对`full`模式来说, 创建虚拟磁盘的速度要快很多. 
 * 运行
     * 运行一个linux内核
         ```sh
@@ -297,7 +306,7 @@
             ```
     * 端口转发
         * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
-    * TAP桥接
+    * TAP桥接: `-nic tap,ifname=tap-qemu,script=no`
 * 其他参数: 
     * 注: 在参数后加`help`可以列出可用的值. 
     * `-m <内存大小>`
