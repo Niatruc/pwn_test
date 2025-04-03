@@ -47,6 +47,7 @@
     * 特性
         * 基于Linux内核, 模块化. 可更新单独一个组件. 
         * IOS作为一个daemon运行于Linux内核上. 
+
 # 思科路由器终端操作
 * 模式
     * 用户模式
@@ -85,6 +86,8 @@
                     * `srec_info`
         * `tftp-server <文件>`: 配置tftp服务. 可从其他地方使用tftp客户端下载指定文件. 
             * 如, 在Windows中, 启用tftp客户端后, 在终端中执行`tftp -i <路由器IP> get <目标文件>`, 即可下载文件. 
+        * `ip http server`: 开启web服务
+        * `ip http secure-server`: 开启https
     * 子模式
         * 接口模式(interface mode)
             * `interface fa0/0`: 进入接口模式(fastEternet接口0/0)
@@ -217,3 +220,7 @@
         # 显示网卡信息
         show interface GigabitEthernet 1/1 detail
     ```
+
+## CDA(Context Directory Agent)
+* 基本信息
+    * 刚进系统时, 在`login`提示词后输入`setup`并回车, 进行初始配置. 

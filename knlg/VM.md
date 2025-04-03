@@ -170,6 +170,18 @@
 * 移除\<none\>镜像: 
     * `docker rmi $(docker images -f "dangling=true" -q)`
 
+# libvirt
+* 启动及启用`libvirtd`服务
+    > `systemctl start libvirtd`
+    > `systemctl enable libvirtd`
+* `virsh`: 命令行
+    * 安装: `sudo apt install libvirt-clients`
+    * 命令
+        * `list`
+            * `--all`: 列出所有虚拟机.
+* `virt-manager`: 图形界面程序
+    * `sudo apt install virt-manager`
+
 # Qemu
 * 参考
     * [Welcome to QEMU’s documentation!](https://www.qemu.org/docs/master/)
@@ -182,9 +194,7 @@
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
     * `sudo apt install qemu qemu-kvm virt-manager bridge-utils`
-    * 启动及启用`libvirtd`服务
-        > `systemctl start libvirtd`
-        > `systemctl enable libvirtd`
+    
 * 手动编译qemu
     * `configure`: 运行后生成`config-host.mak`文件. 
         * `--enable-debug`: 加入调试符号
@@ -368,11 +378,7 @@
             * `sudo ln -s /usr/arm-linux-gnueabihf/lib/ld-linux-armhf.so.3 /lib/ld-linux-armhf.so.3`
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
-* virsh
-    * 安装: `sudo apt install libvirt-clients`
-    * 命令
-        * `list`
-            * `--all`: 列出所有虚拟机. 
+
 
 ## 原理
 * 参考
