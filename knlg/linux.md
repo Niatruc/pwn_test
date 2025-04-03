@@ -1827,6 +1827,12 @@ typedef struct {
         ```
 
         * 默认不支持多会话, 若要远程登录, 需先注销原登录账户. 
+    * 系统装个tightvncserver
+* 桌面系统
+    * 参考
+        * [为云服务器添加图形化桌面并通过VNC连接](https://xdcsy.github.io/Text/Section0032.xhtml)
+        * [Ubuntu 20.04安装桌面XFCE](https://blog.csdn.net/qq_39879126/article/details/138459611)
+
 * busybox
     * 参考
         * [arm64 linux+busybox 内核编译](https://blog.csdn.net/weiwenzem/article/details/139501481)

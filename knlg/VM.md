@@ -29,6 +29,12 @@
 
 * 内核调试
     * 修改vmx文件, 加上`debugStub.listen.guest64="TRUE"`
+* 问题
+    * `系统找不到指定文件`
+        ```
+            scsi0:0.fileName = "deleted_disk.vmdk"
+            scsi0:0.present = "TRUE"
+        ```
 # cuckoo
 * Locker文件: 
     1. 有的在behavior的generic的每个进程的summary中占不少空间(可接受), 如文件操作, 操作大量文件(如生成一堆名为'HOW TO DECRYPT FILE.txt'的文件)
