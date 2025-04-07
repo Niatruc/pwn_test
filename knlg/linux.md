@@ -38,6 +38,7 @@
             * `GRUB_DEFAULT`对应默认启动项. 
             * `GRUB_CMDLINE_LINUX`: 启动命令行. 
                 * `nokaslr`: 关闭内存地址随机化. 
+    * `/resolv.conf`: 配置dns服务器. 
 * `/usr`
     * `/local`: 存安装的软件. 
         * `/src`: 源码. 

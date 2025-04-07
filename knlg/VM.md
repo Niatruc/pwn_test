@@ -141,7 +141,12 @@
     ```
 * `/var/docker/containers/<容器id>`目录下的`hostconfig.json`文件, 可改容器的某些配置:
     * `PortBindings`项可配置端口映射, 例如: `"23946/tcp":[{"HostIp":"","HostPort":"23946"}]`
-
+* 更换镜像源: 编辑(新建)`/etc/docker/daemon.json`文件: 
+    ```json
+        {
+            "registry-mirrors":["https://docker.1ms.run"]
+        }
+    ```
 ## 错误记录
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
     * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 

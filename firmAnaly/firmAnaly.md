@@ -31,16 +31,94 @@
 * 安装: 
     * 参考: [FACT installation](https://github.com/fkie-cad/FACT_core/blob/master/INSTALL.md)
     * 如果在miniconda环境下安装, 则修改`src/helperFunctions/install.py`中的`is_virtualenv`函数, 直接返回True. 
-    * 安装uwsgi时出错提示`undefined reference to 'SSL_get_peer_certificate'`, 疑似与ssl版本, 且在conda环境下才会有此问题. 
-        * 参考: https://github.com/unbit/uwsgi/issues/1516
-            ```sh
-                # 方法1: 
-                conda config --add channels conda-forge
-                conda install uwsgi
+    * 成功安装的日志: 
+        ```sh
+            [2025-04-07 01:04:16][install][INFO]: FACT Installer 1.2
+            [2025-04-07 01:04:16][common][INFO]: Updating system
+            [2025-04-07 01:04:19][install][INFO]: Installing apt-transport-https autoconf automake build-essential git gnupg2 libtool python3 python3-dev unzip wget libfuzzy-dev libmagic-dev
+            [2025-04-07 01:04:43][db][INFO]: Skipping PostgreSQL installation. Reason: Already installed.
+            [2025-04-07 01:04:46][db][INFO]: Initializing PostgreSQL database
+            [2025-04-07 01:04:46][install][INFO]: Installing nodejs papirus-icon-theme
+            [2025-04-07 01:05:07][frontend][INFO]: Skipping nodeenv installation (already exists)
+            [2025-04-07 01:05:11][frontend][INFO]: Creating directory for authentication
+            [2025-04-07 01:05:11][frontend][INFO]: Initializing docker container for radare
+            [2025-04-07 01:05:12][frontend][INFO]: Pulling pdf report container
+            [2025-04-07 01:05:14][install][INFO]: Installing libjpeg-dev libssl-dev redis binutils file openssl bison flex pkg-config
+            [2025-04-07 01:05:24][backend][INFO]: Skipping yara installation: Already installed and up to date
+            [2025-04-07 01:05:24][backend][INFO]: Installing checksec.sh
+            [2025-04-07 01:05:24][backend][INFO]: Pulling fact extraction container
+            [2025-04-07 01:05:26][backend][INFO]: Installing linter plugin.
+            [2025-04-07 01:05:50][backend][INFO]: Finished installing linter plugin.
 
-                # 方法2: 
-                pip install pyuwsgi
-            ```
+            [2025-04-07 01:05:50][backend][INFO]: Installing cve_lookup plugin.
+            [2025-04-07 01:07:49][backend][INFO]: Finished installing cve_lookup plugin.
+
+            [2025-04-07 01:07:49][backend][INFO]: Installing crypto_hints plugin.
+            [2025-04-07 01:07:50][backend][INFO]: Finished installing crypto_hints plugin.
+
+            [2025-04-07 01:07:50][backend][INFO]: Installing software_components plugin.
+            [2025-04-07 01:07:52][backend][INFO]: Finished installing software_components plugin.
+
+            [2025-04-07 01:07:52][backend][INFO]: Installing binwalk plugin.
+            [2025-04-07 01:08:02][backend][INFO]: Finished installing binwalk plugin.
+
+            [2025-04-07 01:08:02][backend][INFO]: Installing qemu_exec plugin.
+            [2025-04-07 01:08:06][backend][INFO]: Finished installing qemu_exec plugin.
+
+            [2025-04-07 01:08:06][backend][INFO]: Installing known_vulnerabilities plugin.
+            [2025-04-07 01:08:07][backend][INFO]: Finished installing known_vulnerabilities plugin.
+
+            [2025-04-07 01:08:07][backend][INFO]: Installing device_tree plugin.
+            [2025-04-07 01:08:07][backend][INFO]: Finished installing device_tree plugin.
+
+            [2025-04-07 01:08:07][backend][INFO]: Installing ipc plugin.
+            [2025-04-07 01:08:08][backend][INFO]: Finished installing ipc plugin.
+
+            [2025-04-07 01:08:08][backend][INFO]: Installing file_system_metadata plugin.
+            [2025-04-07 01:08:08][backend][INFO]: Finished installing file_system_metadata plugin.
+
+            [2025-04-07 01:08:08][backend][INFO]: Installing ip_and_uri_finder plugin.
+            [2025-04-07 01:08:16][backend][INFO]: Finished installing ip_and_uri_finder plugin.
+
+            [2025-04-07 01:08:16][backend][INFO]: Installing kernel_config plugin.
+            [2025-04-07 01:08:21][backend][INFO]: Finished installing kernel_config plugin.
+
+            [2025-04-07 01:08:21][backend][INFO]: Installing architecture_detection plugin.
+            [2025-04-07 01:08:23][backend][INFO]: Finished installing architecture_detection plugin.
+
+            [2025-04-07 01:08:23][backend][INFO]: Installing cwe_checker plugin.
+            [2025-04-07 01:08:25][backend][INFO]: Finished installing cwe_checker plugin.
+
+            [2025-04-07 01:08:25][backend][INFO]: Installing input_vectors plugin.
+            [2025-04-07 01:08:26][backend][INFO]: Finished installing input_vectors plugin.
+
+            [2025-04-07 01:08:26][backend][INFO]: Installing users_and_passwords plugin.
+            [2025-04-07 01:08:29][backend][INFO]: Finished installing users_and_passwords plugin.
+
+            [2025-04-07 01:08:29][backend][INFO]: Creating firmware directory
+            Create signature directory /home/zbh/Desktop/FACT_core/src/analysis/signatures
+            Compile signatures in /home/zbh/Desktop/FACT_core/src/plugins/analysis/crypto_material/signatures
+            Compile signatures in /home/zbh/Desktop/FACT_core/src/plugins/analysis/crypto_hints/signatures
+            Compile signatures in /home/zbh/Desktop/FACT_core/src/plugins/analysis/software_components/signatures
+            Compile signatures in /home/zbh/Desktop/FACT_core/src/plugins/analysis/known_vulnerabilities/signatures
+            [2025-04-07 01:08:29][install][INFO]: installation complete
+        ```
+    * 问题: 
+        * 安装uwsgi时出错提示`undefined reference to 'SSL_get_peer_certificate'`, 疑似与ssl版本, 且在conda环境下才会有此问题. 
+            * 参考: https://github.com/unbit/uwsgi/issues/1516
+                ```sh
+                    # 方法1: 
+                    conda config --add channels conda-forge
+                    conda install uwsgi
+
+                    # 方法2: 
+                    pip install pyuwsgi
+                ```
+        * `uwsgi: error while loading shared libraries: libcrypt.so.2: cannot open shared object file: No such file or directory`
+            * 解决: 用`pip install pyuwsgi`安装uwsgi
+        * `docker build -t fact/john:alpine-3.18 FACT_core/src/plugins/analysis/users_and_passwords/docker`时出现网络超时问题. 
+            * 分析: `FACT_core/src/plugins/analysis/users_and_passwords/docker/Dockerfile`文件中有`RUN curl -s https://raw.githubusercontent.com/danielmiessler/...`命令, 该网址大概被墙了. 
+            * 解决: 修改Dockerfile, 添加`ENV http_proxy=<代理地址>`, `ENV https_proxy=<代理地址>`, `ENV ftp_proxy=<代理地址>`
 * 任务
     * 软件识别
         * 识别OS
