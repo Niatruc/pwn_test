@@ -184,6 +184,11 @@
     * 命令
         * `list`
             * `--all`: 列出所有虚拟机.
+        * `define my_vm.xml`: 通过xml配置新虚拟机
+        * `undefine <虚拟机名称>`: 移除虚拟机
+        * `edit <虚拟机名称>`: 编辑虚拟机的xml
+        * `start <虚拟机名称>`: 启动虚拟机
+        * `console <虚拟机名称>`: 进入虚拟机的console
 * `virt-manager`: 图形界面程序
     * `sudo apt install virt-manager`
 
