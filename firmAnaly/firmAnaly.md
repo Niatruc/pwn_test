@@ -26,6 +26,7 @@
 
 # FirmAE
 * 参考: [FirmAE: Towards Large-Scale Emulation of IoT Firmware for Dynamic Analysis阅读笔记](https://zhuanlan.zhihu.com/p/540725241)
+
 # FACT
 * 参考: https://fkie-cad.github.io/FACT_core/index.html
 * 安装: 
@@ -119,6 +120,9 @@
         * `docker build -t fact/john:alpine-3.18 FACT_core/src/plugins/analysis/users_and_passwords/docker`时出现网络超时问题. 
             * 分析: `FACT_core/src/plugins/analysis/users_and_passwords/docker/Dockerfile`文件中有`RUN curl -s https://raw.githubusercontent.com/danielmiessler/...`命令, 该网址大概被墙了. 
             * 解决: 修改Dockerfile, 添加`ENV http_proxy=<代理地址>`, `ENV https_proxy=<代理地址>`, `ENV ftp_proxy=<代理地址>`
+* 启动服务
+    * 运行`src/start_fact.py`
+    * 访问`http://localhost:5000 `
 * 任务
     * 软件识别
         * 识别OS
