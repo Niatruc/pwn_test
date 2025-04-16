@@ -157,6 +157,14 @@
     ```sh
         # 利用strings, 从当前目录下所有文件搜索字符串
         find . -type f -print0 | xargs -0 -I {} sh -c 'strings "{}" | grep "要搜索的字符串" |  xargs -I _ echo -n "\"_\": " | tee /dev/tty | if [ $(wc -c) -gt 0 ]; then echo {}; fi'
+
+        # 方法二
+        # 递归扫描文件并处理
+        find . -type f -print0 | while IFS= read -r -d '' file; do
+            # 提取字符串并匹配模式，输出格式：文件名:匹配字符串
+            strings "$file" | grep -E --color=never "$pattern" | \
+            awk -v file="$file" '{print file ": " $0}'
+        done
     ```
 * 二进制文件对比
     * bindiff: 可对两个ida数据库文件进行对比, 从而获取两个原始二进制文件的代码差异. 
