@@ -845,6 +845,7 @@
     * 从7.4开始使用的是python3.
     * 参考资料
         * [官方文档](https://hex-rays.com/products/ida/support/idapython_docs/)
+        * [参考手册](https://python.docs.hex-rays.com/index.html)
         * [接口变化](https://hex-rays.com/products/ida/support/ida74_idapython_no_bc695_porting_guide.shtml)
         * https://github.com/ExpLife0011/IDAPython_Note
         * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
@@ -1121,6 +1122,20 @@
 
     * idaref
         * https://github.com/nologic/idaref
+        * 作用
+            * 提供汇编指令使用手册, 方便跳转查阅. 
+    * LazyIDA
+        * https://github.com/L4ys/LazyIDA
+        * 作用
+            * 
+    * deREferencing
+        * https://github.com/danigargu/deREferencing
+        * 作用
+            * 可递归解引用寄存器和栈的数据. 
+    * idacode
+        * https://github.com/ioncodes/idacode
+        * 作用
+            * 可在vscode中开发ida插件. 可方便地调试. 
 
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`

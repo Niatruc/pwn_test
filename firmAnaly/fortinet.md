@@ -250,3 +250,5 @@
     * [FortiGate SSLVPN CVE-2024-21762漏洞利用分析](https://research.qianxin.com/archives/1854)
 
 # CVE-2024-47575 (FortiJump)
+
+# FortiMail
