@@ -172,8 +172,7 @@
 # 系列
 ## WSA (Web Secure Appliance)
 * 基本信息
-    * 账号: admin
-    * 密码: ironport
+    * 账号密码: admin - ironport
 * 仿真
     * `qemu-system-x86_64 -hda coeus-11-7-1-006-S000V.qcow2 -m 4096M -smp 4 -nic tap,ifname=tap_zbh,script=no`
 * 网络配置
@@ -207,8 +206,7 @@
 
 ## WAAS(Wide Area Application Services)
 * 基本信息
-    * 账号: admin
-    * 密码: default
+    * 账号密码: admin - default
 * 配置网卡
     ```sh
         config
@@ -224,3 +222,26 @@
 ## CDA(Context Directory Agent)
 * 基本信息
     * 刚进系统时, 在`login`提示词后输入`setup`并回车, 进行初始配置. 
+
+## UCSPE(UCS Platform Emulator)
+* 基本信息
+    * 账号密码: ucspe - ucspe
+
+## IPS(Intrusion Prevention System)
+* 基本信息
+    * 账号密码: cisco - cisco
+    * 若忘记账号密码, 可进入串口, 按`v`选择模式2, 重置账号密码. 
+
+## DCNM(Data Center Network Manager)
+* 基本信息
+    * 账号密码: admin - cisco123
+    * 网络配置方法: 
+        ```sh
+        ip link set ens3 up # 启用网卡
+        ip address 192.168.122.2/24 dev ens3 # 设置IP
+        ip route 192.168.122.0/24 dev ens3 # 设置路由
+        ```
+
+## FireSIGHT
+* 基本信息
+    * 账号密码: admin - Sourcefire

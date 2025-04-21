@@ -194,6 +194,8 @@
         * ``
 * `virt-manager`: 图形界面程序
     * `sudo apt install virt-manager`
+* `virt-install`: 
+    * 参考: [虚拟化技术之kvm虚拟机创建工具virt-install](https://www.cnblogs.com/qiuhom-1874/p/13520939.html)
 
 # Qemu
 * 参考
