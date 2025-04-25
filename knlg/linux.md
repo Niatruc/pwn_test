@@ -463,7 +463,8 @@
             * `locals`: 显示所有局部变量
             * `registers`: 显示所有寄存器
             * `sh`: 显示所有共享库
-            * `inferior`: 可查看你调试的进程的信息, 包括pid和路径等. 
+            * `inferior`: 可查看调试的进程的信息, 包括pid和路径等. 
+            * `sharedlibrary`: 查看导入的库. 
         * `shell <bash命令>`: 可执行bash命令
     * 断点
         * `b` 

@@ -861,6 +861,7 @@
     * 开发
         * 参考
             * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
+            * [How to create a plugin?](https://docs.hex-rays.com/developer-guide/idapython/how-to-create-a-plugin)
         * ida提供的三个模块: 
             * `idc`
                 * 光标
@@ -1358,6 +1359,12 @@
     * 基于radare2
     * 逆向工具, 可以逆elf文件. 
     * 可以像od那样调试. 可以像ida那样反汇编, 反编译, 并查看各类信息. 
+
+## ghidra
+* 插件
+    * BinAbsInspector
+        * https://github.com/KeenSecurityLab/BinAbsInspector
+        * 用处: 扫描多种CWE类型漏洞
 
 ## bindiff
 * 要点

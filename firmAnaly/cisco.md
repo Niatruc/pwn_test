@@ -228,6 +228,9 @@
     * 账号密码: ucspe - ucspe
 
 ## IPS(Intrusion Prevention System)
+* 参考
+    * [cisco ips原理及console的初始化](https://blog.csdn.net/qq_43440135/article/details/121243323)
+    * Cisco IPS Initialization, Inline, & Managed
 * 基本信息
     * 账号密码: cisco - cisco
     * 若忘记账号密码, 可进入串口, 按`v`选择模式2, 重置账号密码. 
@@ -245,3 +248,38 @@
 ## FireSIGHT
 * 基本信息
     * 账号密码: admin - Sourcefire
+
+## IOS xr
+* 网络配置方法: 
+    * 注意: 虚拟机要求至少6G内存
+    ```sh
+    configure
+    interface MgmtEth 0/RP0/CPU0/0
+    ipv4 address 192.168.122.2 255.255.255.0
+    no shutdown # 开启网卡
+    commit
+    exit
+    ```
+
+    ```sh
+    configure
+    service ipv4 tcp-small-servers # 开启小型tcp服务(如echo服务)
+    service ipv4 udp-small-servers # 开启小型udp服务(如echo服务)
+    snmp-server community test # 开启snmp服务
+    snmp-server traps          # 启用陷阱通知
+    commit
+    exit
+    ```
+
+## ASA(Adaptive Security Appliance)
+* 网络配置方法: 
+    ```sh
+    configure terminal
+    interface Management 0/0
+    ip address 192.168.122.2 255.255.255.0
+    nameif outside # 给网卡命名. 这一步会同时设置默认安全级别(security-level)为0. 若缺少这一步, 会导致与外部无法相互ping通. 
+    no shutdown
+    exit
+    exit
+
+    ```
