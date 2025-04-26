@@ -810,30 +810,6 @@
         * 方法2: 修改字符串变量的声明, 加上关键字`volatile`或`const`
         * 方法3: 
             * `Edit` -> `Plugins` -> `Hex-Rays Decompiler` -> `Analysis options 1` -> `Print only constant string literals`, 去掉该选项的勾选. 
-* 用pycharm调试ida插件
-    * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
-    * 步骤
-        1. 使用ida安装路径下的python以及easy_install安装pycharm安装目录下的pydevd-pycharm.egg
-            ```sh
-            E:\zbh\disasm\IDA7_5\Python38\python.exe E:\zbh\disasm\IDA7_5\Python38\Scripts\easy_install.exe  "E:\PyCharm 2021.1.3\debug-eggs\pydevd-pycharm.egg"
-            ```
-        2. 在pycharm中新增`Python Debug Server`的配置, 填好服务IP地址和端口, 并F9启动调试服务.
-
-            <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg.jpg" width="70%" height="70%">
-
-            <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg2.jpg" width="70%" height="70%">
-
-        3. 在要调试的文件中插入如下代码, **在需要中断的地方的前面都需要插入`pydevd_pycharm.settrace`这行代码,** **可以把这行代码视为断点**.
-            ```py
-            import pydevd_pycharm
-            pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToServer=True)
-            ```
-        4. 启动IDA, 则将命中断点.
-    * 注意:
-        1. 使用的ida是7.5版本; 使用pycharm企业版才有python debug server
-        2. 确保没有安装pydevd, 否则会有path mapping没有正确匹配路径的问题.
-        3. 重新加载并调试插件需要重启IDA(仅仅关掉一个项目并重新打开行不通)
-
 * 调试
     * windows内核调试
         * 设置pdb符号路径: 在ida的`cfg`目录下的`pdb.cfg`文件, 有一个`_NT_SYMBOL_PATH`项, 赋值: `srv*D:\win_symbols*http://msdl.microsoft.com/download/symbols`
@@ -844,6 +820,7 @@
 * IDAPython
     * 从7.4开始使用的是python3.
     * 参考资料
+        * [idapython官方指导](https://docs.hex-rays.com/developer-guide/idapython/idapython-getting-started)
         * [官方文档](https://hex-rays.com/products/ida/support/idapython_docs/)
         * [参考手册](https://python.docs.hex-rays.com/index.html)
         * [接口变化](https://hex-rays.com/products/ida/support/ida74_idapython_no_bc695_porting_guide.shtml)
@@ -1101,6 +1078,29 @@
                         print("Bad passwd...")
             ```
 * 插件
+    * 用pycharm调试ida插件
+        * 参考: https://www.cnblogs.com/zknublx/p/7654757.html
+        * 步骤
+            1. 使用ida安装路径下的python以及easy_install安装pycharm安装目录下的pydevd-pycharm.egg
+                ```sh
+                E:\zbh\disasm\IDA7_5\Python38\python.exe E:\zbh\disasm\IDA7_5\Python38\Scripts\easy_install.exe  "E:\PyCharm 2021.1.3\debug-eggs\pydevd-pycharm.egg"
+                ```
+            2. 在pycharm中新增`Python Debug Server`的配置, 填好服务IP地址和端口, 并F9启动调试服务.
+
+                <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg.jpg" width="70%" height="70%">
+
+                <img alt="python_debug_server_cfg.jpg" src="./pic/python_debug_server_cfg2.jpg" width="70%" height="70%">
+
+            3. 在要调试的文件中插入如下代码, **在需要中断的地方的前面都需要插入`pydevd_pycharm.settrace`这行代码,** **可以把这行代码视为断点**.
+                ```py
+                import pydevd_pycharm
+                pydevd_pycharm.settrace('localhost', port=31235, stdoutToServer=True, stderrToServer=True)
+                ```
+            4. 启动IDA, 则将命中断点.
+        * 注意:
+            1. 使用的ida是7.5版本; 使用pycharm企业版才有python debug server
+            2. 确保没有安装pydevd, 否则会有path mapping没有正确匹配路径的问题.
+            3. 重新加载并调试插件需要重启IDA(仅仅关掉一个项目并重新打开行不通)
     * ipyida
         * https://github.com/eset/ipyida
         * 原理: 在ida中使用`qtconsole`库, 显示一个终端窗口, 这个窗口调用`ipykernel`以打开ipython会话. 
@@ -1137,6 +1137,19 @@
         * https://github.com/ioncodes/idacode
         * 作用
             * 可在vscode中开发ida插件. 可方便地调试. 
+        * 安装
+            * 需分别安装插件到ida和vscode
+        * 用法
+            * ida启动(并加载工程)后, 在插件选项中点击`IDACode`, 开启监听
+            * vscode中, `ctrl + shift + p`, 选`Connect and attach a debugger to IDA`
+            * 可在插件脚本中下断点: 
+                ```py
+                    name = idc.get_segm_name(segment)
+                    dbg.bp(name==".text", f"found {name} at {segment}") # 条件断点
+
+                    # 或者原始的
+                    breakpoint()
+                ```
 
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`

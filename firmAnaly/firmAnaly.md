@@ -122,7 +122,7 @@
             * 解决: 修改Dockerfile, 添加`ENV http_proxy=<代理地址>`, `ENV https_proxy=<代理地址>`, `ENV ftp_proxy=<代理地址>`
 * 启动服务
     * 运行`src/start_fact.py`
-    * 访问`http://localhost:5000 `
+    * 访问`http://localhost:5000`
 * 任务
     * 软件识别
         * 识别OS
