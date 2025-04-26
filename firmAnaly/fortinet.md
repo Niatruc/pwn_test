@@ -197,6 +197,15 @@
         * 因运行上述指令时busybox接收的参数是`{"smartctl", "sh"}`
         * 解决: 另写一个程序替换`/bin/smartctl`, 在程序中通过`execvp("/bin/busybox", &argv[1])`运行`busybox`; 将busybox程序传入bin目录并打包`rootfs.gz`. 
 
+## 提权后使用
+* `netstat -ant`: 查看所有tcp连接
+* gdbserver
+    ```sh
+        ps -ef | grep <要调试的进程>
+
+        killllall telnetd && gdbserver localhost:23 --attach 2024 # 使用23端口作为远程调试用的端口
+    ```
+
 ## 文件分析
 * `extlinux.conf`: 引导时用到该配置文件, 其中指出内核文件为`flatkc`, initrd为`rootfs.gz`. 
     * 注: 在arm版本中没有该文件, 可修改`boot/grub/grub.cfg`. 
