@@ -1150,7 +1150,7 @@
                     # 或者原始的
                     breakpoint()
                 ```
-
+    * lighthouse
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`
         * 这是在导入文件时报的错.
@@ -1409,7 +1409,8 @@
         # 追踪库中的函数. 会在当前目录下新建一个`msv1_0.DLL/__handlers__`目录, 目录下各个js文件对应被hook的函数, 其中的onEnter和onLeave回调函数在被修改后会立刻生效. 
         frida-trace lsass.exe -I msv1_0.DLL
     ```
-
+* 分析
+    * 观察到frida注入到目标进程的模块有: `frida-agent.dll`, `ole32.dll`, `psapi.dll`, `shell32.dll`, `shlwapi.dll`, `winmm.dll`
 
 ## api monitor
 

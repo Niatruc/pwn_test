@@ -26,7 +26,36 @@
 
 # FirmAE
 * 参考: [FirmAE: Towards Large-Scale Emulation of IoT Firmware for Dynamic Analysis阅读笔记](https://zhuanlan.zhihu.com/p/540725241)
+* 使用
+    ```sh
+        ./download.sh # 下载文件到`binaries/` (linux内核文件, busybox, console, libnvram, gdb, gdbserver, strace)
+        
+        # 导入数据库
+        # 安装必要软件(docker, binwalk, qemu等)
+        ./install.sh
+        
+        ./init.sh # 启动postgresql服务
+        
+        # 检查仿真. 
+        # 会在`images/`目录下生成`<IID>.kernel`和`<IID>.tar.xz`, 在`scratch/<IID>`目录下生成`image.raw`以及多个记录固件信息的文本文件
+        sudo ./run.sh -c <brand> <firmware> 
 
+        sudo ./run.sh -a <brand> <firmware> # 分析模式
+        sudo ./run.sh -r <brand> <firmware> # 运行模式, 
+        sudo ./run.sh -d <brand> <firmware> # 调试模式, 
+    ```
+    * 例: `./run.sh -d dlink ../DIR-615_REVE_FIRMWARE_5.00.ZIP 4`
+    * 清理缓存: `./scripts/delete.sh 4`
+    * 挂载: `./scripts/mount.sh <IID>`, 然后cd到`./scratch/<IID>/image`
+    * 卸载: `./scripts/umount.sh <IID>`
+    * telnet连接: `telnet 192.168.0.1 31338`
+* 注: 
+    * 需要先安装`bash-static`, `makeImage.sh`中会把此程序拷贝到固件镜像目录中. 
+    * 不能直接进入`scratch/<IID>`目录下执行`run.sh`, 有路径问题. 但可以这样执行: `sudo scratch/<IID>/run.sh`
+    * 离线安装
+        * binwalk: 手动安装`yaffshiv`, `sasquatch`, `jefferson`, `cramfstools` (`ubi_reader`可以pip直接安装)
+            * sasquatch(`https://github.com/devttys0/sasquatch`)
+                * 需要对补丁文件`patches/patch0.txt`打补丁(参考`https://github.com/devttys0/sasquatch/issues/48`中`jacopotediosi`的说法, 下载`https://github.com/devttys0/sasquatch/pull/51.patch`)
 # FACT
 * 参考: https://fkie-cad.github.io/FACT_core/index.html
 * 安装: 

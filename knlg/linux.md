@@ -1508,6 +1508,15 @@ typedef struct {
     * `of=<输出文件>`
     * `bs=bytes`: 同时设置读入/输出的块大小为`bytes`个字节. 
     * `skip=blocks`: 从输入文件开头跳过blocks个块后再开始复制. 
+    * 例
+        * 连接两个文件为新文件: 
+            ```sh
+                # 步骤1：写入file1的前8KB
+                dd if=file1 of=output bs=8K count=1
+
+                # 步骤2：从output的8KB位置开始写入file2
+                dd if=file2 of=output bs=8K seek=1 conv=notrunc
+            ```
 * `mount <设备路径> <目标目录>`
     * `-o loop=/dev/<loop设备>`: 
         * 如果要访问img文件中的内容, 可使用该选项. 其将loop设备指向img文件, 然后mount该loop设备到目标目录

@@ -203,7 +203,7 @@
     ```sh
         ps -ef | grep <要调试的进程>
 
-        killllall telnetd && gdbserver localhost:23 --attach 2024 # 使用23端口作为远程调试用的端口
+        killall telnetd && gdbserver localhost:23 --attach <进程id> # 使用23端口作为远程调试用的端口
     ```
 
 ## 文件分析
