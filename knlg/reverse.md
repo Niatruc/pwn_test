@@ -1105,6 +1105,8 @@
         * https://github.com/eset/ipyida
         * 原理: 在ida中使用`qtconsole`库, 显示一个终端窗口, 这个窗口调用`ipykernel`以打开ipython会话. 
         * 问题: 使用ida7.5, 按官网安装步骤可能不成功, 最后会出现`[WARN] Could not load IpyIDA plugin`. 
+        * 联网安装: 
+            * 打开ida后, 在python命令行中执行: `import urllib.request; exec(urllib.request.urlopen('https://github.com/eset/ipyida/raw/stable/install_from_ida.py').read())`
         * 手动安装: 
             * 首先自己装一个python3.8(可用虚拟环境, 如conda). 
             * `pip install ipyida`
@@ -1150,6 +1152,9 @@
                     # 或者原始的
                     breakpoint()
                 ```
+            * 注意:
+                * 不能在VSCode工作环境中打开多个目录. 
+
     * lighthouse
 * 问题
     * `Unexpected entries in the plt stub. The file might been modified after linking.`
@@ -1203,6 +1208,11 @@
 * lumina
     * 参考
         * [Lumina Server v9.0搭建记录](https://nobb.site/2024/08/13/0x8E/)
+* 问题
+    * `failed to load Python runtime: skipping IDAPython plugin`
+        * 可能原因
+            * 系统装的是虚拟环境(如miniconda), 双击`ida.exe`运行可能识别不到
+        * 方法一: 用`idapyswitch.exe --force-path <python.dll路径>`指定python后, 在cmd中运行`ida.exe`打开. 
 ## radare2
 * 参考
     * [Radare2手册](https://heersin.gitbook.io/radare2)
