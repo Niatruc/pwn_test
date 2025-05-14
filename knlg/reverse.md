@@ -851,8 +851,11 @@
                     * `get_next_seg(ea)`: 获取`ea`所在段的下一个段的起始地址. 
                 * 函数
                     * `get_name_ea_simple(name)`: 根据所给符号名, 获取其地址. 
-                    * `set_name(ea, name, SN_CHECK)`: 设置`ea`地址处函数的名称. 
+                    * `set_name(ea, name, flags=idc.SN_CHECK)`: 设置`ea`地址处函数的名称. (原`MakeName`)
                         * `flags`: `GENDSM_flags`或0. 
+                    * `create_insn(ea, out=None)`: 在指定地址创建一条指令. (原`MakeCode`)
+                    * `add_func(ea1, ea2=idc.BADADDR)`: 在指定地址新建一个函数. 若`ea2`为`BADADDR`, 则其内部会调用`find_func_bounds`来决定函数的结束地址. (原`MakeFunction`)
+                    * `del_func(ea)`: 
                 * 指令
                     * `generate_disasm_line(ea, flags)`: 反汇编`ea`地址处的指令. 
                     * `print_insn_mnem(ea)`: 打印`ea`地址处的指令的助记符. 
