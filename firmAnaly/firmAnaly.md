@@ -22,7 +22,10 @@
         * 使用NAND器件时，必须先写入驱动程序，才能继续执行其他操作。
 
 * 固件提取
-    
+
+# Firmadyne
+* 参考
+    * [\[原创\]firmadyne源码解析-揭开固件模拟的黑盒面纱](https://bbs.kanxue.com/thread-286135.htm)
 
 # FirmAE
 * 参考: [FirmAE: Towards Large-Scale Emulation of IoT Firmware for Dynamic Analysis阅读笔记](https://zhuanlan.zhihu.com/p/540725241)

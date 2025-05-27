@@ -1857,6 +1857,11 @@ typedef struct {
             * 1.21.1: 错误提示缺少`rpc.h`, 且通过`sudo apt install libntirpc-dev`安装对应库也未能解决此问题. 
             * 1.36.1: 可完成编译
             * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
+
+* musl
+    * 问题
+        * 报错: `./configure: error: unsupported long double type`
+            * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
 # 设置
 * `sudo`
     * 运行`visudo`(将会编辑`/etc/sudoers`)

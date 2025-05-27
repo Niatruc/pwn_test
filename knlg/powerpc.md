@@ -9,7 +9,8 @@
         * http://class.ece.iastate.edu/arun/CprE281_F05/lab/labw10b/Labw10b_Files/PowerPC%20Assembly%20Quick%20Reference.htm
 
 * 对齐: 4字节对齐. 分析中发现, 数据区中的字符串也会以4字节对齐, 对齐部分填0. 
-
+* 安装交叉编译器
+    * `apt install gcc-powerpc-linux-gnu`
 # 寄存器
 * 通用寄存器(`gpr`)
     * `r0`: 在函数开始(function prologs)时使用. 

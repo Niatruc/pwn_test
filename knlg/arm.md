@@ -32,6 +32,8 @@
         * 处理器接受一条IRQ干预时进入的特权模式. 
     * Hyp 模式
         * `armv7a`为`cortex-A15`处理器提供硬件虚拟化引进的管理模式. 
+* 安装交叉编译器
+    * `sudo apt-get install gcc-arm-linux-gnueabihf`
 # 寄存器
 * arm
     * 未备份寄存器(`r0` ~ `r7`)
