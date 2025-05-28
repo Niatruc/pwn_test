@@ -46,7 +46,17 @@
 
                 gcc -v
             ```
+## 交叉编译
+* powerpc
+    ```sh
+        make ARCH=powerpc mrproper # 清除原有文件
 
+        mkdir -p build/powerpc # 新建目录
+        cp arch/powerpc/configs/mpc85xx_defconfig build/powerpc/.config # 将配置模板拷过来
+
+        make ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- O=./build/powerpc -j8
+        # make ARCH=powerpc CROSS_COMPILE=/home/cmtest/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc -j8
+    ```
 # 内核开发
 * 要点
     * 不能访问C库和标准C头文件

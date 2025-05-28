@@ -1859,9 +1859,24 @@ typedef struct {
             * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
 
 * musl
-    * 问题
-        * 报错: `./configure: error: unsupported long double type`
-            * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
+    * [musl-cross-make](https://github.com/richfelker/musl-cross-make)
+        * 安装
+            ```sh
+                TARGET=powerpc-linux-musl make # 会下载相关文件, 所以需要联网
+            ```
+        * 问题
+            * 编译ppc交叉编译工具链时报错: `./configure: error: unsupported long double type`
+                * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
+            * `0.9.0`版本
+                * `error: use of an operand of type ‘bool’ in ‘operator++’ is forbidden in C++17`
+                    * 编译`0.9.0`版本(gcc 5)时出现此问题. 
+                    * 解决: 在`config.mak`中加一行`COMMON_CONFIG += CFLAGS="-std=c11" CXXFLAGS="-std=c++11"`, 以使用c++11. 
+                * `const char* libc_name_p(const char*, unsigned int)’ redeclared inline with ‘gnu_inline’ attribute`
+                    * 参考`https://gcc.gnu.org/git/?p=gcc.git;a=commitdiff;h=ec1cc0263f156f70693a62cf17b254a0029f4852#patch4`, 保存补丁文件为`a.patch`
+                    * 在`gcc-5.3.0`下应用补丁: `patch -p0 < a.patch`
+                * `cc1: internal compiler error: Segmentation fault`
+                    * `ulimit -a`查看资源限制. `ulimit -n 65536`将文件句柄限制改大. 
+                    * 若不生效, 重启系统. 
 # 设置
 * `sudo`
     * 运行`visudo`(将会编辑`/etc/sudoers`)
