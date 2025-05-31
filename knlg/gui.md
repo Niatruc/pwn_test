@@ -750,4 +750,4 @@
     * 在另一个线程中动态添加新建的控件时, 新控件要以`new`的形式创建, 不能是局部作用域中的变量. 
     * `Cannot send events to objects owned by a different thread. `
     * 屏幕分辨率过大, `designer`窗口中的组件和文字都太大. 
-        * 设置环境变量: `set QT_SCALE_FACTOR=0.8`, 该数字可适当缩小. 
+        * 设置环境变量: `set QT_SCALE_FACTOR=0.8`, 该数字可适当缩小. (注: 如果设置为用户环境变量, 会影响到所有使用QT做图形界面的程序)

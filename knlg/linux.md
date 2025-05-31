@@ -1859,14 +1859,29 @@ typedef struct {
             * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
 
 * musl
+    * musl
+        * 编译, 安装
+            * 参考: https://wiki.musl-libc.org/getting-started.html
+            ```sh
+                ./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64" --prefix=$HOME/musl --exec-prefix=$HOME/musl/bin -syslibdir=$HOME/musl/lib # 会产生`config.mak`文件
+
+                make && make install
+            ```
+            * 注
+                * 编译得到的musl-gcc的版本和`powerpc-linux-gnu-gcc`的版本一致. 
+        * 问题
+            * 编译ppc交叉编译工具链时报错: `./configure: error: unsupported long double type`
+                * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
     * [musl-cross-make](https://github.com/richfelker/musl-cross-make)
-        * 安装
+        * 编译, 安装
+            * 需联网, make会下载相关文件
+            * 可拷贝`config.mak.dist`为`config.mak`, 并在里面加配置项. 
+            * 默认安装在`output`目录. 
             ```sh
                 TARGET=powerpc-linux-musl make # 会下载相关文件, 所以需要联网
             ```
         * 问题
-            * 编译ppc交叉编译工具链时报错: `./configure: error: unsupported long double type`
-                * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
+            
             * `0.9.0`版本
                 * `error: use of an operand of type ‘bool’ in ‘operator++’ is forbidden in C++17`
                     * 编译`0.9.0`版本(gcc 5)时出现此问题. 
@@ -1877,6 +1892,8 @@ typedef struct {
                 * `cc1: internal compiler error: Segmentation fault`
                     * `ulimit -a`查看资源限制. `ulimit -n 65536`将文件句柄限制改大. 
                     * 若不生效, 重启系统. 
+                    * 依然不生效. 有人提到是多核引起的问题. 
+                    * `https://stackoverflow.com/questions/44286265/g-internal-compiler-error-segmentation-fault-program-cc1plus-where-do-i`提到一种解决方案, 升级g++. (没试过, 应该没用)
 # 设置
 * `sudo`
     * 运行`visudo`(将会编辑`/etc/sudoers`)
