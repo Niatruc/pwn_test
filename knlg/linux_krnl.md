@@ -46,13 +46,17 @@
 
                 gcc -v
             ```
+    * `mkimage command not found – U-Boot images will not be built`
+        * `sudo apt-get install u-boot-tools`
 ## 交叉编译
 * powerpc
     ```sh
         make ARCH=powerpc mrproper # 清除原有文件
 
         mkdir -p build/powerpc # 新建目录
-        cp arch/powerpc/configs/mpc85xx_defconfig build/powerpc/.config # 将配置模板拷过来
+
+        # cp arch/powerpc/configs/mpc85xx_defconfig build/powerpc/.config # 将配置模板拷过来
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc/ mpc85xx_defconfig menuconfig # 使用powerpc的配置模板
 
         make ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- O=./build/powerpc -j8
         # make ARCH=powerpc CROSS_COMPILE=/home/cmtest/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc -j8

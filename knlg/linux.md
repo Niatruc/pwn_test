@@ -1872,6 +1872,16 @@ typedef struct {
         * 问题
             * 编译ppc交叉编译工具链时报错: `./configure: error: unsupported long double type`
                 * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
+    * [musl-cross](https://github.com/GregorR/musl-cross)
+        * 使用
+            * 修改`config.sh`:
+                ```sh
+                    GCC_VERSION=4.9.3
+                    GCC_BUILTIN_PREREQS=yes # 加上这行才会下载GMP, MPFR, MPC 
+                ```
+            * 构建: `ARCH=powerpc ./build.sh`
+            * 注
+                * 每次构建新交叉编译器, 需先执行: `./clean.sh`
     * [musl-cross-make](https://github.com/richfelker/musl-cross-make)
         * 编译, 安装
             * 需联网, make会下载相关文件
@@ -1881,7 +1891,7 @@ typedef struct {
                 TARGET=powerpc-linux-musl make # 会下载相关文件, 所以需要联网
             ```
         * 问题
-            
+            * **该版本不支持gcc4, 需使用musl-cross.**
             * `0.9.0`版本
                 * `error: use of an operand of type ‘bool’ in ‘operator++’ is forbidden in C++17`
                     * 编译`0.9.0`版本(gcc 5)时出现此问题. 
