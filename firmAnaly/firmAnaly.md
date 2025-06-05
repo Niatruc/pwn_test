@@ -52,6 +52,93 @@
     * 挂载: `./scripts/mount.sh <IID>`, 然后cd到`./scratch/<IID>/image`
     * 卸载: `./scripts/umount.sh <IID>`
     * telnet连接: `telnet 192.168.0.1 31338`
+* 项目文件:
+    * `binaries/`: 
+        * `console.<arch>`: 
+            * 该程序将stdin和stdout重定向到`/firmadyne/ttyS1`(即com2串口), 然后用`execl`执行`/bin/sh`
+            * 内核中执行`execve`时, 会运行console程序. (`drivers/firmadyne/hooks.c:execve_hook`)
+        * `libnvram.so.<arch>`: 这个库模拟NVRAM外围设备, 方法是将键值对存储在`tmpfs`(默认挂载在`/firmadyne/libnvram`目录)
+        * `vmlinux.<arch>`, `zImage.<arch>`: 内核文件
+    * `database/`: 
+    * `Dockerfile`: 
+    * `download.sh`: 下载`binaries/`目录下的文件
+    * `example_analysis.sh`: 
+    * `firmadyne.config`: `scripts/`下的脚本用到. 定义了一些`get_xxx`, `check_xxx`函数. 
+    * `images/`: 存放制作的qemu镜像
+    * `LICENSE.txt`: 
+    * `paper/`: 
+    * `README.md`: 
+    * `scratch/`: 仿真时使用的目录, 每个固件对应一个`<id>`目录. 
+    * `scripts/`: 
+        * `delete.sh`: 用法`./scripts/delete.sh <id>`, 删除某个固件及其数据
+        * `fixImage.sh`
+        * `getArch.sh`: 获取cpu架构, 写入数据库. (用法: `getArch.sh ./images/<解压得到的tar包>`)
+        * `inferNetwork.sh`: 调用`makeNetwork.py`
+        * `makeImage.sh`: 在`scratch/<ID>`目录下, 制作镜像
+            * 
+                ```sh
+                    # 新建`scratch/<ID>`目录
+
+                    qemu-img create -f raw "scratch/<ID>image.raw" # 生成qemu镜像
+
+                    # 用`fdisk`对镜像分区:
+                        # o, n, p, 1, <回车>, <回车>, w
+                    
+                    kpartx -a -s -v "${IMAGE}" # kpartx挂载qemu镜像文件, 之后可在`/dev/mapper`下看到设备loop9p1
+
+                    mkfs.ext2 "${DEVICE}" # 在设备上创建文件系统
+
+                    mount "${DEVICE}" "${IMAGE_DIR}" # 挂载设备到`${IMAGE_DIR}`
+                    
+                    # 拷贝
+                    cp "${CONSOLE}" "${IMAGE_DIR}/firmadyne/console"
+                    cp "${LIBNVRAM}" "${IMAGE_DIR}/firmadyne/libnvram.so"
+                    mknod -m 666 "${IMAGE_DIR}/firmadyne/ttyS1" c 4 65
+                    cp "${SCRIPT_DIR}/preInit.sh" "${IMAGE_DIR}/firmadyne/preInit.sh"
+                    cp -r "${IMAGE_DIR}" "${FIRMWARE_DIR}/../image_${IID}" # 将目录拷贝到`image_${IID}`
+
+                    # 卸载
+                    umount "${DEVICE}"
+                    kpartx -d "${IMAGE}" # 卸载
+                    losetup -d "${DEVICE}" &>/dev/null
+                    dmsetup remove $(basename "$DEVICE") &>/dev/null
+                ```
+
+                ```
+                    [debug] WORK_DIR: /home/cmtest/FirmAFL/firmadyne//scratch//2/
+                    [debug] IMAGE: /home/cmtest/FirmAFL/firmadyne//scratch//2//image.raw
+                    [debug] IMAGE_DIR: /home/cmtest/FirmAFL/firmadyne//scratch//2//image/
+                    [debug] CONSOLE: /home/cmtest/FirmAFL/firmadyne//binaries//console.mipsel
+                    [debug] LIBNVRAM: /home/cmtest/FirmAFL/firmadyne//binaries//libnvram.so.mipsel
+                    [debug] DEVICE: /dev/mapper/loop9p1
+                ```
+        * `makeNetwork.py`
+        * `mount.sh`
+        * `preInit.sh`
+        * `run.sh`
+        * `run-debug.sh`    
+        * `run.<arch>.sh`
+        * `run.<arch>-debug.sh`
+        * `tar2db.py`
+        * `umount.sh`
+    * `setup.sh`: 
+    * `sources/`: 
+        * `console/`: 在系统启动时, 在字符设备`/dev/firmadyne`中启动一个控制台, 以便于与仿真的qemu固件交互(因为有些固件不会在串口控制台启动一个终端, 所以需要这么做). 
+        * `extractor/`: 固件提取工具, 用于从基于Linux的固件镜像中提取内核镜像或压缩的文件系统. 
+            * 依赖
+                * `fakeroot`: 用于模仿sudo操作, 以访问需要root权限的文件或目录. 
+                * `psycopg2`: 用于操作postgresql
+                * `binwalk`: 
+                    * 依赖
+                        * `jefferson`
+                        * `sasquatch`：包含了许多对`unsquashfs`的补丁, 以支持各供应商自行实现的SquashFS. (SquashFS可以高效地压缩文件系统, 同时保持文件系统结构不变, 支持随机访问和快速加载. SquashFS常被用作Linux发行版的安装介质, 也被用于嵌入式系统的根文件系统)
+                * `python-magic`: 用于识别文件类型
+            * 用法
+                * 会暂时将文件释放到`/tmp`目录. 因为有些文件比较多, 所以最好挂载为`tmpfs`, 即只将文件释放在内存中. (在`extractor.sh`中, 会用docker的`--tmpfs`选项)
+                * `fakeroot python3 ./extractor.py -np <infile> <outdir>`
+        * `libnvram/`: 用以模拟NVRAM设备的动作. 
+        * `scraper/`
+    * `startup.sh`: 
 * 注: 
     * 需要先安装`bash-static`, `makeImage.sh`中会把此程序拷贝到固件镜像目录中. 
     * 不能直接进入`scratch/<IID>`目录下执行`run.sh`, 有路径问题. 但可以这样执行: `sudo scratch/<IID>/run.sh`
@@ -59,6 +146,7 @@
         * binwalk: 手动安装`yaffshiv`, `sasquatch`, `jefferson`, `cramfstools` (`ubi_reader`可以pip直接安装)
             * sasquatch(`https://github.com/devttys0/sasquatch`)
                 * 需要对补丁文件`patches/patch0.txt`打补丁(参考`https://github.com/devttys0/sasquatch/issues/48`中`jacopotediosi`的说法, 下载`https://github.com/devttys0/sasquatch/pull/51.patch`)
+                
 # FACT
 * 参考: https://fkie-cad.github.io/FACT_core/index.html
 * 安装: 
