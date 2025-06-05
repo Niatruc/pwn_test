@@ -1521,6 +1521,10 @@ typedef struct {
     * `-o loop=/dev/<loop设备>`: 
         * 如果要访问img文件中的内容, 可使用该选项. 其将loop设备指向img文件, 然后mount该loop设备到目标目录
         * 可以直接`-o loop`, 则系统会使用一个空闲的loop设备. 
+    * `-t tmpfs -o size=128M tmpfs /mnt/my_vfs`: 
+        * `tmpfs`即内存文件系统类型
+        * `size=128M`表示分配128M内存空间
+        * `/mnt/my_vfs`前的`tmpfs`表示tmpfs设备(对应`<设备路径>`). 
 * `losetup`: 设置及操作loop设备. 
 * `kpartx <设备文件>`: 从`partx`发展来的. 从指定设备中读取分区表, 并为所有检测到的分区创建映射的设备. 
     * `-a`: 添加分区映射. 
@@ -1666,6 +1670,9 @@ typedef struct {
         * `add 192.168.10.0/24 via 172.17.0.1 dev <DEVICE> [src <IP_ADDR>]`: 目的地址段为`192.168.10.0/24`(非直连网络)的数据包将通过`<DEVICE>`网卡发出, 且下一跳为`172.17.0.1`. 
         * `ip r add default via 172.17.0.1`: 指定默认网关为`172.17.0.1`. 
     * `link`, `l`: 网卡操作(链路层)
+        * `add`: 添加网卡
+            * `<INTNAME>`: 指定新增网卡的名称
+            * `link <DEVICE>`: 链接到已有的网卡
         * `set <DEVICE>`
             * `up`: 开启网卡. 
             * `down`: 关闭网卡. 
