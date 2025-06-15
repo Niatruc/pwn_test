@@ -43,15 +43,21 @@
         # 会在`images/`目录下生成`<IID>.kernel`和`<IID>.tar.xz`, 在`scratch/<IID>`目录下生成`image.raw`以及多个记录固件信息的文本文件
         sudo ./run.sh -c <brand> <firmware> 
 
-        sudo ./run.sh -a <brand> <firmware> # 分析模式
-        sudo ./run.sh -r <brand> <firmware> # 运行模式, 
-        sudo ./run.sh -d <brand> <firmware> # 调试模式, 
+        sudo ./run.sh -a <brand> <firmware> # 分析模式(调用`analyses/analyses_all.sh`扫描漏洞)
+        sudo ./run.sh -r <brand> <firmware> # 运行模式
+        sudo ./run.sh -d <brand> <firmware> # 调试模式(调用`debug.py`, 仿真成功后将出现一个菜单, 可调用socat, shell, tcpdump, gdbserver, 文件传输等功能)
     ```
     * 例: `./run.sh -d dlink ../DIR-615_REVE_FIRMWARE_5.00.ZIP 4`
     * 清理缓存: `./scripts/delete.sh 4`
     * 挂载: `./scripts/mount.sh <IID>`, 然后cd到`./scratch/<IID>/image`
     * 卸载: `./scripts/umount.sh <IID>`
     * telnet连接: `telnet 192.168.0.1 31338`
+* 运行流程(`run.sh`)
+    * 用`extractor.py`从固件中提取出根文件系统和内核镜像. 通过判断`./images/$IID.tar.gz`是否存在, 确认是否解压成功.
+    * 用`getArch.py`获取架构和字节序. 
+    * 用`inferKernel.py`从内核镜像中获取`Linux Version ...`信息和`init=`信息(如, `init=/sbin/preinit`). 
+    * 用`makeImage.sh`制作qemu镜像. 
+    * 用`makeNetwork.py`, 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置. 结果记录到`makeNetwork.log`
 * 项目文件:
     * `binaries/`: 
         * `console.<arch>`: 
@@ -70,10 +76,26 @@
     * `README.md`: 
     * `scratch/`: 仿真时使用的目录, 每个固件对应一个`<id>`目录. 
     * `scripts/`: 
-        * `delete.sh`: 用法`./scripts/delete.sh <id>`, 删除某个固件及其数据
+        * `delete.sh`: 用法`./scripts/delete.sh <id>`, 删除某个固件及其数据. 
         * `fixImage.sh`
-        * `getArch.sh`: 获取cpu架构, 写入数据库. (用法: `getArch.sh ./images/<解压得到的tar包>`)
-        * `inferNetwork.sh`: 调用`makeNetwork.py`
+        * `preInit.sh`: 作为Linux内核命令行中initrd启动用的脚本(`rdinit=/firmadyne/preInit.sh`)
+        * `getArch.sh`: 获取cpu架构, 写入数据库. 
+            * 用法: `getArch.sh ./images/<解压得到的tar包>`
+            * 基本原理: 获取文件系统中的二进制可执行文件, 比如`/bin`和`/sbin`目录下的文件, 执行`file`命令. 
+            * 在`run.sh`中调用, 并讲结果写入数据库和`scratch/<ID>/architecture`文件. 
+        * `inferDefault.py`:
+            * 从`qemu.initial.serial.log`中解析出现的nvram键值对, 记录到`nvram_keys`文件中
+            * 搜索整个根文件系统, 记录所有与nvram相关的文件(判断依据: nvram键名有一半出现在文件中). 
+            * 该文件在`makeNetwork.py`中被调用
+        * `inferFile.sh`: 
+        * `network.sh`: 配置网卡(IP地址等)
+        * `makeNetwork.py`
+            * 运行仿真, 获得系统运行日志`qemu.initial.serial.log`
+            * 根据运行日志, 搜集信息: 
+                * 协议, 地址, 端口
+                * 找到所有非lo网卡及其IP地址(内核中钩了`__inet_insert_ifa`并打印了网卡信息)
+                * 总结得到信息: (ip, dev, vlan_id, mac, br)
+        * `test_emulation.sh`: 运行仿真, 检查网络是否可ping通以及web服务是否可用, 结果写入到`time_ping`和`time_web`. 在`makeNetwork.py`中被调用. 
         * `makeImage.sh`: 在`scratch/<ID>`目录下, 制作镜像
             * 
                 ```sh
@@ -112,7 +134,6 @@
                     [debug] LIBNVRAM: /home/cmtest/FirmAFL/firmadyne//binaries//libnvram.so.mipsel
                     [debug] DEVICE: /dev/mapper/loop9p1
                 ```
-        * `makeNetwork.py`
         * `mount.sh`
         * `preInit.sh`
         * `run.sh`
@@ -137,6 +158,7 @@
                 * 会暂时将文件释放到`/tmp`目录. 因为有些文件比较多, 所以最好挂载为`tmpfs`, 即只将文件释放在内存中. (在`extractor.sh`中, 会用docker的`--tmpfs`选项)
                 * `fakeroot python3 ./extractor.py -np <infile> <outdir>`
         * `libnvram/`: 用以模拟NVRAM设备的动作. 
+            * 
         * `scraper/`
     * `startup.sh`: 
 * 注: 

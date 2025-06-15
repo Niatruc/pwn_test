@@ -88,4 +88,6 @@
                 * `mtc0 s, $12, 1`: 把CPU通用寄存器s的值写入CP0寄存器12.1中
         * 读CP0寄存器: 
             * `mfc0 d, <n>`: 从CP0寄存器n取值写入CPU通用寄存器d中
-     
+    
+# MIPS64
+* 平台: malta, octeon

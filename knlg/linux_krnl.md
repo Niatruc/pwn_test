@@ -57,9 +57,9 @@
 
         # cp arch/powerpc/configs/mpc85xx_defconfig build/powerpc/.config # 将配置模板拷过来
         make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc/ mpc85xx_defconfig menuconfig # 使用powerpc的配置模板
-
-        make ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- O=./build/powerpc -j8
-        # make ARCH=powerpc CROSS_COMPILE=/home/cmtest/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc -j8
+    
+        # make ARCH=powerpc CROSS_COMPILE=powerpc-linux-gnu- O=./build/powerpc -j8
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-make-0.9.10/output/bin/powerpc-linux-musl- O=./build/powerpc -j8 # 交叉编译
     ```
 # 内核开发
 * 要点
