@@ -205,6 +205,7 @@
     * [qemu user mode速记](https://wangzhou.github.io/qemu-user-mode%E9%80%9F%E8%AE%B0/)
     * [KVM虚拟化技术之使用Qemu-kvm创建和管理虚拟机 ](https://www.cnblogs.com/memphise/articles/6759043.html)
     * [基于qemu从0开始构建嵌入式linux系统](https://quard-star-tutorial.readthedocs.io/zh-cn/latest/index.html)
+    * https://gist.github.com/sergev/1cb8abf6d64c63378cca1bed00bdd4d2 : 安装mips64的debian虚拟机
 * 在Ubuntu中安装qemu
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`

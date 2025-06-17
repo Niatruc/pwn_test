@@ -7,7 +7,9 @@
     * 助记符参考:
         * https://www.ibm.com/docs/en/aix/7.1?topic=reference-appendix-f-powerpc-instructions
         * http://class.ece.iastate.edu/arun/CprE281_F05/lab/labw10b/Labw10b_Files/PowerPC%20Assembly%20Quick%20Reference.htm
-
+* 资讯
+    * IBM已在2019年8月将PowerPC架构和指令集开源. 
+    * 苏州国芯科技基于PowerPC开发嵌入式C*Core CPU(较新的cpu是C9000)
 * 对齐: 4字节对齐. 分析中发现, 数据区中的字符串也会以4字节对齐, 对齐部分填0. 
 * 安装交叉编译器
     * `apt install gcc-powerpc-linux-gnu`

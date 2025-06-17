@@ -61,7 +61,7 @@
 * 项目文件:
     * `binaries/`: 
         * `console.<arch>`: 
-            * 该程序将stdin和stdout重定向到`/firmadyne/ttyS1`(即com2串口), 然后用`execl`执行`/bin/sh`
+            * 该程序将stdin和stdout重定向到`/firmadyne/ttyS1`(即com2串口, 该设备在`makeImage.sh`中通过`mknod`生成), 然后用`execl`执行`/bin/sh`
             * 内核中执行`execve`时, 会运行console程序. (`drivers/firmadyne/hooks.c:execve_hook`)
         * `libnvram.so.<arch>`: 这个库模拟NVRAM外围设备, 方法是将键值对存储在`tmpfs`(默认挂载在`/firmadyne/libnvram`目录)
         * `vmlinux.<arch>`, `zImage.<arch>`: 内核文件
