@@ -416,6 +416,7 @@
         * `gdb --args <程序路径> <程序参数>`
         * 在进入gdb后, 可以`run <程序参数>`
         * 在进入gdb后, 可以`set args <程序参数>`
+    * 预先执行命令: 如, `gdb-multiarch -ex "set architecture mips" -ex "set endian big"`
 * `coredump`: 
     * 设置coredump文件限制大小为无限大: `ulimit -c unlimited`
     * 设置coredump文件生成路径(以root身份): `echo "/my_dir/core-%e-%t-%s-%p" > /proc/sys/kernel/core_pattern`, 其中: 
