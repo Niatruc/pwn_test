@@ -170,7 +170,16 @@
     * bindiff: 可对两个ida数据库文件进行对比, 从而获取两个原始二进制文件的代码差异. 
     * `cmp 1.bin 2.bin`: 可获知差异位置
     * `diff <(hexdump -C 1.bin) <(hexdump -C 2.bin)`: 可获知差异位置和差异数据
-
+* 按名字快速结束进程: `( ps aux | grep <进程名> | grep -v 'grep' | awk '{print $2}' ) | xargs kill -9`
+* 定时查询指定进程信息: 
+    ```sh
+        while [ 1 ]; do
+            clear
+            ps aux | grep 进程名 | grep -v 'grep' | awk '{print NR, $0}'
+            sleep 2
+        done
+    ```
+* 查找涉及80端口的进程: `netstat -anop | grep -E "(\.((2(5[0-5]|[0-4][0-9]))|[0-1]?[0-9]{1,2})){3}\:80" | awk '{print $7}'`
 # 固件
 * 参考
     * [看雪2018峰会回顾_智能设备漏洞挖掘中几个突破点(内有十种固件提取方法和首次公开uboot提取固件方法)](https://bbs.kanxue.com/thread-230095.htm)

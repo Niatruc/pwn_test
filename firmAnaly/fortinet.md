@@ -50,7 +50,7 @@
     * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
 * 证书
     * 可查看证书状态: 
-        > `get system status`
+        > `get system status`: 也可看到系统版本. 
         > `diagnose debug vm-print-license`
 * 调试
     * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
@@ -183,9 +183,9 @@
             # 将新的压缩文件填到flatkc的压缩数据空间中
             dd if=vmlinux.gz of=flatkc bs=1 seek=$((0x41B4)) conv=notrunc
         ```
-* `bin`等目录打包成`.tar.xz`文件
-    * `sudo chroot . /sbin/ftar -cf /bin.tar bin`
-    * `sudo chroot . /sbin/xz --check=sha256 -e /bin.tar`
+* `bin`等目录打包成`.tar.xz`文件(root权限)
+    * `cp -r bin rootfs && chroot rootfs /sbin/ftar -cf /bin.tar bin && rm -rf rootfs/bin`
+    * `chroot rootfs /sbin/xz --check=sha256 -e /bin.tar`
 * `rootfs`打包成`rootfs.gz`
     * 切换到`rootfs`目录, 然后执行`find . | cpio -H newc -o > ../rootfs.raw`, 打包当前目录为`rootfs.raw`
     * `cat rootfs.raw | gzip > rootfs.gz`: 把`rootfs.raw`压缩为`rootfs.gz`
@@ -199,7 +199,7 @@
 
 ## 提权后使用
 * `netstat -ant`: 查看所有tcp连接
-* gdbserver
+* 运行`gdbserver`: 
     ```sh
         ps -ef | grep <要调试的进程>
 

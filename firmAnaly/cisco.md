@@ -283,3 +283,25 @@
     exit
 
     ```
+
+## Viptela SD-WAN
+* 参考
+    * [Cisco SD-WAN on EVE-NG](https://www.networkacademy.io/ccie-enterprise/sdwan/cisco-sd-wan-on-eve-ng)
+* 基本信息
+    * 默认账号密码: admin - admin
+    * vmanage: 
+    * vsmart: 
+    * vbond: 
+    * vedge: 
+
+## UCSPE(ucspe-3.1.2e)
+* 基本信息
+    * 账号密码: ucspe - ucspe
+* 网络配置: 
+    1. 进入系统菜单后, 按`n`, 进行网络配置
+    2. `VIP`的地址设置为`192.168.122.2`, `FIA`和`FIB`可随意设, 不和`VIP`相同即可. `GATEWAY`的地址设置为`192.168.122.1`. 
+
+
+## ACS (5.6.0.22) 
+* 配置
+    * 进入终端后, 输入`setup`开始根据提示配置. (口令可设置为`Root123`)

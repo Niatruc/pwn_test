@@ -451,7 +451,7 @@
                 * `d`: 十进制
                 * `u`: 无符号十进制
                 * `t`: 二进制
-                * `f`: 浮点   
+                * `f`: 浮点
                 * `a`: 地址
                 * `i`: 指令
                 * `c`: 字符
@@ -1656,6 +1656,12 @@ typedef struct {
     * 创建完成后, 即可像其他网络接口一样配置: 
         * `ifconfig tap0 192.168.1.100 up`: 为`tap0`设置ip地址并启动
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
+* `brctl`: 管理以太网网桥. (安装: `apt-get install bridge-utils`)
+    * `addbr <bridge_name>`: 添加网桥
+    * `addif <bridge_name> <interface_name>`: 将一个物理接口添加到网桥中
+    * `delif <bridge_name> <interface_name>`: 将物理接口从网桥中移除
+    * `stp <bridge_name> on`: 开启stp(Spanning Tree Protocol (生成树协议, 用于防止在桥接网络中出现环路))
+    * `showmacs <bridge_name>`: 显示网桥的学习到的MAC地址表
 * `ip`:
     * `tuntap`:
         ```sh

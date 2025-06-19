@@ -23,6 +23,21 @@
 
 * 固件提取
 
+* 固件解包
+    * squashfs
+        ```sh
+            # 安装
+            apt install -y squashfs-tools
+
+            # 解压
+            unsquashfs squashfs.img
+
+            # 也可以直接挂载: mount squashfs.img my_dir/
+
+            # 重新打包
+            mksquashfs squashfs-root/ squashfs.img -comp xz -Xbcj x86 -e boot
+        ```
+
 # Firmadyne
 * 参考
     * [\[原创\]firmadyne源码解析-揭开固件模拟的黑盒面纱](https://bbs.kanxue.com/thread-286135.htm)

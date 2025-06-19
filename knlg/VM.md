@@ -191,7 +191,7 @@
         * `shutdown <虚拟机名称>`: 关闭虚拟机
         * `destroy <虚拟机名称>`: 强制关机
         * `console <虚拟机名称>`: 进入虚拟机的console
-        * ``
+        * `dumpxml <虚拟机名称> > my_machine.xml`: 导出虚拟机的xml
 * `virt-manager`: 图形界面程序
     * `sudo apt install virt-manager`
 * `virt-install`: 
@@ -327,18 +327,23 @@
                 # dns=addr: 指定GuestOS可见的dns服务器地址; 默认为GuestOS网络中的第三个地址, 即x.x.x.3; 
                 # tftp=dir: 激活内置的tftp服务器, 并使用指定的dir作为tftp服务器的默认根目录; 
                 # bootfile=file: BOOTP文件名称, 用于实现网络引导GuestOS; 如: qemu -hda linux.img -boot n -net user,tftp=/tftpserver/pub,bootfile=/pxelinux.0
-        ```
-        * 注: 在较新的QEMU版本中`-net`已被`-netdev`取代. 
-        * 示例: 
-            ```sh
-                qemu-system-x86_64 -netdev user,id=n1,ipv6=off -device e1000,netdev=n1,mac=52:54:98:76:54:32
 
-                # 简化写法: 
-                qemu-system-x86_64 -nic user,ipv6=off,model=e1000,mac=52:54:98:76:54:32
-            ```
+            -net bridge,br=br0 # 使用网桥br0
+        ```
+        * 注: 
+            * 在较新的QEMU版本(2.12开始)中`-net`已被`-netdev`取代(参考`https://zhuanlan.zhihu.com/p/41258581`), 需与`-device`配合使用. 简化写法是使用`-nic`
+            * 示例: 
+                ```sh
+                    qemu-system-x86_64 -netdev user,id=n1,ipv6=off -device e1000,netdev=n1,mac=52:54:98:76:54:32
+
+                    # 简化写法: 
+                    qemu-system-x86_64 -nic user,ipv6=off,model=e1000,mac=52:54:98:76:54:32
+                ```
     * 端口转发
         * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
     * TAP桥接: `-nic tap,ifname=tap-qemu,script=no`
+    * 使用网桥: 
+        * 若报错`bridge helper failed`, 则需创建文件`/etc/qemu/bridge.conf`(没有`/etc/qemu/`目录则先创建该目录), 在其中写入`allow <网桥名>`
 * 其他参数: 
     * 注: 在参数后加`help`可以列出可用的值. 
     * `-m <内存大小>`
@@ -395,7 +400,25 @@
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
 
-
+* debian qemu虚拟机
+    * [Debian ppc64el Installation](https://wiki.debian.org/ppc64el/Installation)
+        * 流程
+            0. 需下载内核镜像(`https://ftp.debian.org/debian/pool/main/l/linux/`, 找`linux-image-...`), `initrd.gz`
+            1. 生成文件系统镜像, 进行格式化, 挂载, 然后用debootstrap对该镜像制作文件系统. 
+            运行: 
+            ```sh
+                qemu-system-ppc64 \
+                    -enable-kvm \
+                    -M pseries -smp cores=1,threads=1 -m 2G \
+                    -nographic -nodefaults -monitor pty -serial stdio \
+                    -device spapr-vscsi -drive file=rootfs.ext4 \
+                    -kernel vmlinux -append 'root=/dev/sda devtmpfs.mount=1'
+                    -initrd initrd
+            ```
+    * 使用官方提供的qcow2镜像
+        0. 安装`openbios-ppc`
+        1. 从`https://people.debian.org/~aurel32/qemu/powerpc/`下载qcow2镜像. 
+        2. 参考`https://wiki.qemu.org/Documentation/Platforms/PowerPC#Debian_10_(Buster)`: `qemu-system-ppc -L pc-bios -boot c -M mac99,via=pmu -m 1024 -hda debian_wheezy_powerpc_desktop.qcow2 -g 1024x768x32`
 ## 原理
 * 参考
     * [QEMU internals](https://airbus-seclab.github.io/qemu_blog/)
