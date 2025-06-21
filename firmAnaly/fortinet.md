@@ -257,7 +257,18 @@
 # CVE-2024-21762
 * 参考: 
     * [FortiGate SSLVPN CVE-2024-21762漏洞利用分析](https://research.qianxin.com/archives/1854)
-
+    * [CVE-2024-21762漏洞分析](https://blog.csdn.net/zgz67611/article/details/144616138)
+    * [【隧道篇 / SSL】(6.0) ❀ 02. 通过 SSL 访问 IPsec (中) ❀ FortiGate 防火墙](https://blog.csdn.net/meigang2012/article/details/87903878)
+        * 需要按该教程配置ssl vpn: 配置用户, 用户组, IP地址对象, ssl vpn, 防火墙策略. 
+* 基本信息
+    * ssl vpn其他配置: 
+        ```sh
+            config vpn ssl setting
+            set login-attempt-limit <次数>//设置允许的登录失败次数
+            set login-block-time <秒数>//设置锁定时间
+            end
+        ```
+    * 目标进程: `sslvpnd`
 # CVE-2024-47575 (FortiJump)
 
 # FortiMail

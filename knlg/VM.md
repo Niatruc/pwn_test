@@ -182,7 +182,7 @@
 * `virsh`: 命令行
     * 安装: `sudo apt install libvirt-clients`
     * 命令
-        * `list`
+        * `list`: 列出正在运行的虚拟机
             * `--all`: 列出所有虚拟机
         * `define my_vm.xml`: 通过xml配置新虚拟机
         * `undefine <虚拟机名称>`: 移除虚拟机

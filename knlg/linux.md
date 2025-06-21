@@ -1650,6 +1650,7 @@ typedef struct {
         * 远程登录时提示`no matching host key type found. Their offer: ssh-dss`
             * `ssh -oHostKeyAlgorithms=+ssh-dss root@192.168.8.109`
 * `tunctl`: 创建, 管理`TUN`/`TAP`接口(作为虚拟网络设备, `TAP`模拟数据链路层设备(有MAC地址, 更接近物理网卡), `TUN`模拟网络层设备). 
+    * 安装: `sudo apt install uml-utilities`
     * `-u <user>`: 指定用户
     * `-t <tapname>`: 指定接口名称
     * `-d <tapname>`: 将网卡设置为非持续的
