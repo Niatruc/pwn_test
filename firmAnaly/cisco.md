@@ -272,6 +272,10 @@
     ```
 
 ## ASA(Adaptive Security Appliance)
+* 参考
+    * [Cisco ASA series part three: Debugging Cisco ASA firmware](https://www.nccgroup.com/us/research-blog/cisco-asa-series-part-three-debugging-cisco-asa-firmware/)
+    * https://github.com/nccgroup/asatools: 工具集
+        * https://github.com/nccgroup/asafw: 可解包asav镜像以及开启gdb调试(植入gdbserver)
 * 网络配置方法: 
     ```sh
     configure terminal

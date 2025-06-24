@@ -1577,7 +1577,7 @@ typedef struct {
         * `-f`: 强制删除
         * `-r`: 删
 * `e4defrag`
-    * `sudo e4defrag /`: 整理
+    * `sudo e4defrag /dev/sda1`: 整理磁盘分区碎片
 * `dd`
     * `if=<文件名>`: 输入文件名. 
     * `of=<文件名>`: 输出文件名. 
