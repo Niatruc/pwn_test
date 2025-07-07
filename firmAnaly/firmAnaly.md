@@ -72,7 +72,11 @@
     * 用`getArch.py`获取架构和字节序. 
     * 用`inferKernel.py`从内核镜像中获取`Linux Version ...`信息和`init=`信息(如, `init=/sbin/preinit`). 
     * 用`makeImage.sh`制作qemu镜像. 
-    * 用`makeNetwork.py`, 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置. 结果记录到`makeNetwork.log`
+    * 用`makeNetwork.py`, 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置; 再运行一次仿真(`test_emulation.sh`), 判断是否可ping通以及web是否可用. 结果记录到`makeNetwork.log`. 
+    * 根据选择的操作模式(`analyze`, `debug`, `run`, `boot`)进行下一步操作: 
+        * `analyze`: 
+            * `run_analyze.sh`
+            * `analyses_all.sh`
 * 项目文件:
     * `binaries/`: 
         * `console.<arch>`: 

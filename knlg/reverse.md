@@ -835,6 +835,7 @@
         * [接口变化](https://hex-rays.com/products/ida/support/ida74_idapython_no_bc695_porting_guide.shtml)
         * https://github.com/ExpLife0011/IDAPython_Note
         * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
+        * [IDA系列教程：IDA Python](https://www.yunyawu.com/2020/06/28/ida-python%E5%AD%A6%E4%B9%A0/#5_%E6%8C%87%E4%BB%A4)
     * 安装目录下有一个`idapyswitch.exe`程序, 运行会检查系统中可用的python, 并让用户选择要用哪个python. (测试时不成功, 出现`No Python installations were found`)
     * 设置所使用的python的几种方法: 
         1. 设置环境变量, 添加`PYTHONHOME`, 值为要使用的python所在的目录. 
@@ -849,7 +850,7 @@
             * https://gist.github.com/icecr4ck/7a7af3277787c794c66965517199fc9c
             * [How to create a plugin?](https://docs.hex-rays.com/developer-guide/idapython/how-to-create-a-plugin)
         * ida提供的三个模块: 
-            * `idc`
+            * `idc`: 提供原idc脚本使用的接口. 
                 * 光标
                     * `here()`: 获取光标当前所在文件虚拟地址偏移. 
                     * `jumpto(ea)`: 使光标跳转到地址偏移. 
@@ -1089,6 +1090,9 @@
                     else:
                         print("Bad passwd...")
             ```
+        * 节点图
+            * 参考
+                * [GraphViewer Class Reference](https://python.docs.hex-rays.com/8.4/d5/d64/classida__graph_1_1_graph_viewer.html#a531f62f82e360cbb85429cf82c2c27ed)
 * 插件
     * 用pycharm调试ida插件
         * 参考: https://www.cnblogs.com/zknublx/p/7654757.html

@@ -466,6 +466,9 @@
             * `sh`: 显示所有共享库
             * `inferior`: 可查看调试的进程的信息, 包括pid和路径等. 
             * `sharedlibrary`: 查看导入的库. 
+            * `proc`
+                * `mappings`: 地址空间映射信息
+
         * `shell <bash命令>`: 可执行bash命令
     * 断点
         * `b` 
@@ -1490,7 +1493,7 @@ typedef struct {
         * `@`: 符号链接
         * `=>`: 目录
         * `|`: 目录
-* `lsof <文件路径>`: list opened files, 可以查看打开该文件的进程. 
+* `lsof <文件路径>`: list opened files, 可以查看打开(占用)该文件的进程. 
     * 在查找`fork`产生的孤儿进程时有用. 
     * `-p <pid>`: 可以查看进程中打开的文件描述符的详细信息, 包括大小, 类型等. 
 * `ln <参数> <源文件或目录> <软链接名字>`
@@ -1642,8 +1645,8 @@ typedef struct {
             * `ip[0] & 0x0f > 5`: ip头部第一个字节的后半部大于5
 * `ssh`
     * 反向代理: 让远端开启端口, 把远端端口数据转发到本地. 可用于让外网访问内网服务器. 
-        1. 在内网本地机中执行, `ssh -R HostC:PortC:HostB:PortB user@HostC`: 把 远端端口`HostC:PortC`的数据转发到`HostB:PortB`端口
-            * 比如, 在虚拟机中, 执行`ssh -R 22222:localhost:22 user@myhost`, 把宿主机的22222端口的数据转发到虚拟机22端口. 
+        1. 在内网本地机中执行, `ssh -R HostC:PortC:HostB:PortB user@HostC`: 把 远端端口`HostC:PortC`的数据转发到`HostB:PortB`端口. 
+            * 比如, 在虚拟机中, 执行`ssh -R 22222:localhost:22 user@myhost`, 把宿主机的22222端口的数据转发到虚拟机22端口. 接下来只需`访问宿主机的22222端口`. 
         2. 在远端机器执行`ssh -p PortC user@HostC`, 访问自己的`HostC:PortC`端口, 实际将访问`HostB:PortB`. 
             * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
     * 问题

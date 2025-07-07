@@ -247,7 +247,7 @@
     * 创建qcow2镜像
         * 方法一: 
             * `virt-make-fs --format=qcow2 --type=ext2 myfs myfs.ext2.qcow2`: 可将已有的目录`myfs`创建为qcow2镜像. 
-        * 方法二
+        * 方法二:
             * `qemu-img create -f qcow2 -o preallocation=off /root/q1.qcow2 10M`
                 * `preallocation`
                     * `off`: 缺省预分配策略, 即不使用预分配策略. 
