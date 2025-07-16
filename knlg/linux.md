@@ -145,6 +145,8 @@
         * `-xc xxx`: 以编译C语言代码的方式编译xxx文件. 
         * `-T`: 指定链接器脚本. 
         * `-shared`: 产生一个共享object, 这个对象后面可以跟其他对象链接以组成一个可执行文件. 
+        * `-E`: 在完成预处理后就停止. 
+        * `-dM`: 打印预处理阶段所有`#define`的宏. (配合`-E`)
         * 安全相关的编译选项
             * `NX(DEP)`: 将数据所在内存页标识为不可执行. 
                 * `-z execstack`: 禁用NX保护
@@ -409,6 +411,8 @@
     * 源码: http://ftp.gnu.org/gnu/gdb
     * 安装过程中可能会更新系统自带的python, 导致与原有gdb使用的python不同, 会造成不少问题. 需要在更新python后, 使用gdb的源码重新编译和构建gdb.
     * 安装过程中会自动下载相关pip包, 可以先按 https://www.runoob.com/w3cnote/pip-cn-mirror.html 设置指定默认的pip源. 
+* 已编译的二进制文件(多种架构): 
+    * https://github.com/guyush1/gdb-static/releases
 * 远程调试: `target remote 172.17.0.2:12345`
 * 启动参数: 
     * `-tui`: 同时打开源程序

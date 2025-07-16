@@ -1093,6 +1093,10 @@
         * 节点图
             * 参考
                 * [GraphViewer Class Reference](https://python.docs.hex-rays.com/8.4/d5/d64/classida__graph_1_1_graph_viewer.html#a531f62f82e360cbb85429cf82c2c27ed)
+                * 范例: https://github.com/pfalcon/idapython/blob/master/examples/ex_graph.py
+        * `ida_kernwin`
+            * 参考
+                * API: https://nvwo.github.io/idapython_docs/ida_kernwin-module.html
 * 插件
     * 用pycharm调试ida插件
         * 参考: https://www.cnblogs.com/zknublx/p/7654757.html

@@ -63,7 +63,7 @@
         sudo ./run.sh -d <brand> <firmware> # 调试模式(调用`debug.py`, 仿真成功后将出现一个菜单, 可调用socat, shell, tcpdump, gdbserver, 文件传输等功能)
     ```
     * 例: `./run.sh -d dlink ../DIR-615_REVE_FIRMWARE_5.00.ZIP 4`
-    * 清理缓存: `./scripts/delete.sh 4`
+    * 清理缓存: `./scripts/delete.sh <IID>`
     * 挂载: `./scripts/mount.sh <IID>`, 然后cd到`./scratch/<IID>/image`
     * 卸载: `./scripts/umount.sh <IID>`
     * telnet连接: `telnet 192.168.0.1 31338`
@@ -187,7 +187,9 @@
         * binwalk: 手动安装`yaffshiv`, `sasquatch`, `jefferson`, `cramfstools` (`ubi_reader`可以pip直接安装)
             * sasquatch(`https://github.com/devttys0/sasquatch`)
                 * 需要对补丁文件`patches/patch0.txt`打补丁(参考`https://github.com/devttys0/sasquatch/issues/48`中`jacopotediosi`的说法, 下载`https://github.com/devttys0/sasquatch/pull/51.patch`)
-                
+* 问题
+    * libnvram和strace在交叉编译时出现`''PATH_MAX'' undeclared`    
+        * `#include <linux/limits.h>`
 # FACT
 * 参考: https://fkie-cad.github.io/FACT_core/index.html
 * 安装: 
