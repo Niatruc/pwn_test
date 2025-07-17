@@ -146,11 +146,11 @@
                 ```
 
                 ```
-                    [debug] WORK_DIR: /home/cmtest/FirmAFL/firmadyne//scratch//2/
-                    [debug] IMAGE: /home/cmtest/FirmAFL/firmadyne//scratch//2//image.raw
-                    [debug] IMAGE_DIR: /home/cmtest/FirmAFL/firmadyne//scratch//2//image/
-                    [debug] CONSOLE: /home/cmtest/FirmAFL/firmadyne//binaries//console.mipsel
-                    [debug] LIBNVRAM: /home/cmtest/FirmAFL/firmadyne//binaries//libnvram.so.mipsel
+                    [debug] WORK_DIR: /home/zbh/FirmAFL/firmadyne//scratch//2/
+                    [debug] IMAGE: /home/zbh/FirmAFL/firmadyne//scratch//2//image.raw
+                    [debug] IMAGE_DIR: /home/zbh/FirmAFL/firmadyne//scratch//2//image/
+                    [debug] CONSOLE: /home/zbh/FirmAFL/firmadyne//binaries//console.mipsel
+                    [debug] LIBNVRAM: /home/zbh/FirmAFL/firmadyne//binaries//libnvram.so.mipsel
                     [debug] DEVICE: /dev/mapper/loop9p1
                 ```
         * `mount.sh`

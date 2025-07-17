@@ -271,7 +271,7 @@
     * `-drive`
         * `file=/kvm/images/winxp.qcow2,if=ide,meida=disk,format=qcow2`: 挂一个qcow2文件, 作为磁盘
         * `file=/root/winxp_ghost.iso,media=cdrom`: 挂一个CDROM
-        * `if=ide,format=raw,file=/home/cmtest/image.raw`
+        * `if=ide,format=raw,file=/home/zbh/image.raw`
     * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
     * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
     * `-cdrom file`: 使用指定`file`作为`CD-ROM`镜像, 需要注意的是`-cdrom`和`-hdc`不能同时使用; 将`file`指定为`/dev/cdrom`可以直接使用物理光驱. 

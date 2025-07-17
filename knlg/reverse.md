@@ -260,7 +260,7 @@
         mu.mem_map(STACK_ADDR, STACK_SIZE)
 
         # 设置 RIP 和 RSP
-        mu.mem_write(BASE_ADDRESS, read("/home/cmtest/Desktop/ctest/t2"))
+        mu.mem_write(BASE_ADDRESS, read("/home/zbh/Desktop/ctest/t2"))
         mu.reg_write(UC_X86_REG_RSP, STACK_ADDR + STACK_SIZE - 1)
 
         # 注册hook函数

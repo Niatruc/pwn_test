@@ -32,7 +32,7 @@
         * (ex交换机)配置vlan, 并将端口加入vlan中
             ```sh
                 # 新建vlan接口(ifconfig中显示为vlan.10)
-                set vlans "vlan_cmtest" vlan_id 10
+                set vlans "vlan_test" vlan_id 10
 
                 # 对PC连接的接口进行修改: family由inet改为ethernet-switching; 将其加入id为10的vlan
                 set interfaces ge-0/0/1  unit 0 family ethernet-switching port-mode access vlan members 10

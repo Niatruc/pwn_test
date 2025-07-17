@@ -1476,6 +1476,19 @@ typedef struct {
         * `%desc`: 文件描述符相关调用, 如`write`, `read`, `select`, `epoll`
         * `%ipc`: 进程通信相关调用, 如`shmget`等. 
     * `-e read=3`: 查看读入到文件描述符3中的所有数据. 
+    * 交叉编译strace: 
+        * 
+            ```sh
+                ./configure --disable-werror --enable-mpers=no --host=powerpc-linux --with-sysroot=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/powerpc-linux-musl/ --prefix=/home/zbh/Desktop/strace/strace-6.15/out CC=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl-gcc
+            ```
+        * 问题: `PATH_MAX`和`IOV_MAX`未声明
+            * 解决: 在`def.h`中加入: 
+                ```cpp
+                    #include <linux/limits.h> 
+                    #ifndef IOV_MAX
+                    #define IOV_MAX 1024
+                    #endif
+                ```
 * `pidof <程序名>`: 列出正在运行的该程序的进程号. 
 * `pmap <进程id>`
     * `-x`: 加上该选项, 展示更多信息. 
