@@ -1094,6 +1094,7 @@
             * 参考
                 * [GraphViewer Class Reference](https://python.docs.hex-rays.com/8.4/d5/d64/classida__graph_1_1_graph_viewer.html#a531f62f82e360cbb85429cf82c2c27ed)
                 * 范例: https://github.com/pfalcon/idapython/blob/master/examples/ex_graph.py
+                * [mutable_graph_t Class Reference](https://python.docs.hex-rays.com/8.4/dc/d6f/classida__graph_1_1mutable__graph__t.html)
         * `ida_kernwin`
             * 参考
                 * API: https://nvwo.github.io/idapython_docs/ida_kernwin-module.html
