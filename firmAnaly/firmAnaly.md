@@ -67,6 +67,7 @@
     * 挂载: `./scripts/mount.sh <IID>`, 然后cd到`./scratch/<IID>/image`
     * 卸载: `./scripts/umount.sh <IID>`
     * telnet连接: `telnet 192.168.0.1 31338`
+    * 直接使用已有iid运行仿真: `./scripts/run.sh <IID> <ARCH>`
 * 运行流程(`run.sh`)
     * 用`extractor.py`从固件中提取出根文件系统和内核镜像. 通过判断`./images/$IID.tar.gz`是否存在, 确认是否解压成功.
     * 用`getArch.py`获取架构和字节序. 
@@ -187,6 +188,8 @@
         * binwalk: 手动安装`yaffshiv`, `sasquatch`, `jefferson`, `cramfstools` (`ubi_reader`可以pip直接安装)
             * sasquatch(`https://github.com/devttys0/sasquatch`)
                 * 需要对补丁文件`patches/patch0.txt`打补丁(参考`https://github.com/devttys0/sasquatch/issues/48`中`jacopotediosi`的说法, 下载`https://github.com/devttys0/sasquatch/pull/51.patch`)
+* 内核部分
+    
 * 问题
     * libnvram和strace在交叉编译时出现`''PATH_MAX'' undeclared`    
         * `#include <linux/limits.h>`

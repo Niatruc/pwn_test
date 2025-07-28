@@ -358,6 +358,7 @@
     * `-enable-kvm`
     * `-s`: 相当于`-gdb tcp::1234`, 即在tcp端口1234上开启gdbserver服务. 
     * `-S`: 在启动时不运行CPU(需要在控制台按下`c`才会继续运行). 
+    * `-L <路径>`: 指定BIOS, VGA BIOS 和 keymaps的寻找路径. 
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`
@@ -401,7 +402,7 @@
         * 解决问题: `error while loading shared libraries: libc.so.6`
             * 在目标程序的前面加上: `LD_LIBRARY_PATH=<动态链接库目录>`
 
-* debian qemu虚拟机
+* debian qemu虚拟机(ppc)
     * [Debian ppc64el Installation](https://wiki.debian.org/ppc64el/Installation)
         * 流程
             0. 需下载内核镜像(`https://ftp.debian.org/debian/pool/main/l/linux/`, 找`linux-image-...`), `initrd.gz`

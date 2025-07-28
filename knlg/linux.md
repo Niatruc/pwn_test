@@ -1626,7 +1626,7 @@ typedef struct {
     * `service network-manager restart`
     * `nmcli networking on`
     * 问题: 
-        * 复制虚拟机后, 无法识别网卡: 
+        * 复制虚拟机后, 无法识别网卡(异常关机并重启后无法识别到网卡也可用此法): 
             ```sh
                 sudo service NetworkManager stop
                 sudo rm /var/lib/NetworkManager/NetworkManager.state
@@ -1904,7 +1904,15 @@ typedef struct {
             * 1.21.1: 错误提示缺少`rpc.h`, 且通过`sudo apt install libntirpc-dev`安装对应库也未能解决此问题. 
             * 1.36.1: 可完成编译
             * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
-
+        * 在ubuntu20交叉编译ppc版本
+            * 1.36.1
+                * `make menuconfig`进入配置: 
+                    * `Settings` -> 
+                        * `Build static binary`, 勾选 
+                        * `Cross compiler prefix`, 填`powerpc-linux-gnu-`
+                        * `Path to sysroot`, 填`/usr/powerpc-linux-gnu`
+                * `make`
+                * `make CONFIG_PREFIX=install/ppc install`
 * musl
     * musl
         * 编译, 安装
@@ -1919,7 +1927,7 @@ typedef struct {
         * 问题
             * 编译ppc交叉编译工具链时报错: `./configure: error: unsupported long double type`
                 * `./configure --target=powerpc-linux-gnu CFLAGS="-mlong-double-64"`
-    * [musl-cross](https://github.com/GregorR/musl-cross)
+    * [musl-cross](https://github.com/GregorR/musl-cross)(可在源码的hashes目录下看到支持的gcc版本)
         * 使用
             * 修改`config.sh`:
                 ```sh
@@ -1929,7 +1937,7 @@ typedef struct {
             * 构建: `ARCH=powerpc ./build.sh`
             * 注
                 * 每次构建新交叉编译器, 需先执行: `./clean.sh`
-    * [musl-cross-make](https://github.com/richfelker/musl-cross-make)
+    * [musl-cross-make](https://github.com/richfelker/musl-cross-make)(这是新版的musl-cross, )
         * 编译, 安装
             * 需联网, make会下载相关文件
             * 可拷贝`config.mak.dist`为`config.mak`, 并在里面加配置项. 
@@ -1938,7 +1946,7 @@ typedef struct {
                 TARGET=powerpc-linux-musl make # 会下载相关文件, 所以需要联网
             ```
         * 问题
-            * **该版本不支持gcc4, 需使用musl-cross.**
+            * **该版本不支持gcc4, 需使用musl-cross(其4.9.3版本的gcc可用).**
             * `0.9.0`版本
                 * `error: use of an operand of type ‘bool’ in ‘operator++’ is forbidden in C++17`
                     * 编译`0.9.0`版本(gcc 5)时出现此问题. 
