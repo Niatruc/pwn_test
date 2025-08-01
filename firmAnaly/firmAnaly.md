@@ -116,7 +116,7 @@
                 * 找到所有非lo网卡及其IP地址(内核中钩了`__inet_insert_ifa`并打印了网卡信息)
                 * 总结得到信息: (ip, dev, vlan_id, mac, br)
         * `test_emulation.sh`: 运行仿真, 检查网络是否可ping通以及web服务是否可用, 结果写入到`time_ping`和`time_web`. 在`makeNetwork.py`中被调用. 
-        * `makeImage.sh`: 在`scratch/<ID>`目录下, 制作镜像
+        * `makeImage.sh`: 在`scripts`目录下, 制作镜像. 
             * 
                 ```sh
                     # 新建`scratch/<ID>`目录
@@ -189,7 +189,26 @@
             * sasquatch(`https://github.com/devttys0/sasquatch`)
                 * 需要对补丁文件`patches/patch0.txt`打补丁(参考`https://github.com/devttys0/sasquatch/issues/48`中`jacopotediosi`的说法, 下载`https://github.com/devttys0/sasquatch/pull/51.patch`)
 * 内核部分
-    
+    * 基本信息
+        * 包含了一个内核模块`firmadyne`
+        | Parameter | Default   | Values | Description |
+        | --------- | --------- | ------ | ----------- |
+        | devfs     | 1 (on)    | 0, 1   | Create stubs in devfs and emulate behavior |
+        | execute   | 1 (on)    | 0 - 5  | Counter to execute `/firmadyne/console` after 4th `execve()` syscall (requires syscall hooks), 0 to disable |
+        | reboot    | 1 (on)    | 0, 1   | Attempt to emulate system reboot by re-executing `/sbin/init` |
+        | procfs    | 1 (on)    | 0, 1   | Create stubs in procfs and emulate behavior |
+        | syscall   | 255 (all) | 0 - 16 | Output log bitmask for hooking system calls using the `kprobe` framework, 0 to disable |
+    * 编译
+        ```sh
+            mkdir -p build/armel
+            cp config.armel build/armel/.config
+            make ARCH=arm CROSS_COMPILE=/opt/cross/arm-linux-musleabi/bin/arm-linux-musleabi- O=./build/armel zImage -j8
+
+            # 最终生成的内核镜像位置: build/armel/arch/arm/boot/zImage
+        ```
+
+        * 自己编译: 
+            * 需要找到`device drivers`的最后一项`firmadyne`, 把它勾上. 
 * 问题
     * libnvram和strace在交叉编译时出现`''PATH_MAX'' undeclared`    
         * `#include <linux/limits.h>`

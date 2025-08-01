@@ -1905,14 +1905,17 @@ typedef struct {
             * 1.36.1: 可完成编译
             * 1.37.0: 错误提示`‘sha1_process_block64_shaNI’ undeclared`
         * 在ubuntu20交叉编译ppc版本
-            * 1.36.1
-                * `make menuconfig`进入配置: 
-                    * `Settings` -> 
-                        * `Build static binary`, 勾选 
-                        * `Cross compiler prefix`, 填`powerpc-linux-gnu-`
-                        * `Path to sysroot`, 填`/usr/powerpc-linux-gnu`
-                * `make`
-                * `make CONFIG_PREFIX=install/ppc install`
+            * 1.36.1 
+                * 用`powerpc-linux-gnu-`编译: 
+                    * `make menuconfig`进入配置: 
+                        * `Settings` -> 
+                            * `Build static binary`, 勾选 
+                            * `Cross compiler prefix`, 填`powerpc-linux-gnu-`
+                            * `Path to sysroot`, 填`/usr/powerpc-linux-gnu`
+                    * `make`
+                    * `make CONFIG_PREFIX=install/ppc install`
+                    * 问题: 
+                        * 执行命令(如`ls`)时, 出现`*** stack smashing detected ***: terminated`
 * musl
     * musl
         * 编译, 安装

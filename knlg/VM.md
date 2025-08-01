@@ -207,6 +207,7 @@
     * [基于qemu从0开始构建嵌入式linux系统](https://quard-star-tutorial.readthedocs.io/zh-cn/latest/index.html)
     * https://gist.github.com/sergev/1cb8abf6d64c63378cca1bed00bdd4d2 : 安装mips64的debian虚拟机
     * [交叉编译Linux Kernel并基于QEMU仿真运行](https://zhuanlan.zhihu.com/p/697597960)
+    * [嵌入式Linux：制作ramdisk并启动](https://blog.csdn.net/zzy570384336/article/details/122228928)
 * 在Ubuntu中安装qemu
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`

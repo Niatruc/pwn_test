@@ -111,3 +111,51 @@
 # 编译
 * 安装gcc: `apt install gcc-powerpc-linux-gnu binutils-powerpc-linux-gnu`
 * 编译: 使用`powerpc-linux-gnu-gcc`, 用法同gcc. 
+
+# 型号
+* MPC8544DS
+    * 参考
+        * https://www.nxp.com/docs/en/fact-sheet/MPC8544DSFS.pdf
+    * 基本信息
+        * 测试发现无法支持virtio(内核启动过程中会卡住)
+    * 编译
+    ```sh
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl- O=./build/powerpc_corenet32/ mpc85xx_defconfig menuconfig 
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl- O=./build/powerpc -j8
+    ```
+    * 仿真运行
+    ```sh
+        qemu-system-ppc -M mpc8544ds -m 1024 -kernel /home/zbh/Desktop/FirmAE/sources/kernel-v4.1-firmadyne-v4.1.17/build/powerpc_mpc85xx/vmlinux -initrd ramdisk_ppc_busybox_1_36_1.img
+    ```
+* ppce500
+    * 参考: 
+        * [PowerPC e500](https://en.wikipedia.org/wiki/PowerPC_e500)
+        * [ppce500 generic platform (ppce500)](https://www.qemu.org/docs/master/system/ppc/ppce500.html)
+    * 编译
+    ```sh
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl- O=./build/powerpc_corenet32/ corenet32_smp_defconfig menuconfig 
+
+        # Platform Support
+        #   Freescale Book-E Machine Type 
+        #       找到qemu支持(PPC_QEMU_E500, 对应配置项CONFIG_PPC_QEMU_E500) 
+
+        # 先确保.config中CONFIG_VIRTIO已选上(因为该项在munuconfig中没有显示. 或者到`drivers/virtio/KConfig`文件中修改`VIRTIO`项, 在其`tristate`后加点文字, 让其显现出来)
+        # Device Drivers
+            # Block devices
+                # Virtio block driver
+            # Virtio drivers 里的子项都勾上
+
+        make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl- O=./build/powerpc -j8
+    ```
+    * 仿真运行
+    ```sh
+        qemu-system-ppc -M ppce500 -cpu e500mc -m 1024 -kernel /home/zbh/Desktop/FirmAE/sources/kernel-v4.1-firmadyne-v4.1.17/build/powerpc_corenet32/vmlinux -drive if=virtio,file=ramdisk_ppc_busybox_1_36_1.img,format=raw -append "console=ttyS0 root=/dev/vda loglevel=8"
+    ```
+* prep
+    * 参考: 
+        * [PowerPC Reference Platform](https://en.wikipedia.org/wiki/PowerPC_Reference_Platform)
+    * 基本信息
+        * powerpc的标准系统架构
+* pseries
+    * 基本信息
+        * ppc64
