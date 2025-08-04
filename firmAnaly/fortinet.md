@@ -29,6 +29,11 @@
 
             # 之后在qemu监视窗口中找`view` -> `serial0`查看串口输出. 
         ```
+
+        ```sh
+            # 也可直接用qemu-efi-aarch64带的AAVMF_CODE.fd: 
+            qemu-system-aarch64 -M virt -cpu cortex-a72 -m 4G -hda fortios.qcow2 -drive if=pflash,format=raw,file=/usr/share/AAVMF/AAVMF_CODE.fd,readonly=on
+        ```
 * x64版固件仿真
     * `qemu-system-x86_64 -m 4G -hda fortios.qcow2 -nic tap,id=net0,ifname=tap_fgt,script=no`
 * 配置网络:

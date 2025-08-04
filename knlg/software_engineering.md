@@ -63,8 +63,16 @@
 * 用例图
 * 状态机图
 #### 交互类型
-* 序列图
-* 时序图
+* 时序图(序列图)
+    * 要素
+        * 角色(Actor): 人或者其他系统和子系统. 
+        * 对象(Object): 位于时序图的顶部, 一个矩形. 
+        * 生命线(LifeLine): 竖的虚线, 对应一个对象. 
+        * 活动(Activation): 竖的矩形
+        * 消息(Message)
+            * 同步消息(Synchronous Message): 实线实心箭头
+            * 异步消息(Asynchronous Message): 实线和大于号箭头
+            * 返回消息(Return Message): 虚线和小于号箭头
 * 通讯图
 * 交互概览图
 
