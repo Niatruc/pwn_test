@@ -635,6 +635,15 @@
     * `f10`: 单步执行
     * `f11`: 单步步入
 
+* 手动下载pdb符号文件
+    * 方法一: `symchk.exe <PE文件路径> /s <PDB文件路径>`
+    * 方法二: 
+        * 使用PEStudio(或者dumpbin, 但其只支持32位程序)打开目标PE文件. 
+        * 找到`debug`数据目录, 查看guid和age值. 
+        * 拼接下载路径: `https://msdl.microsoft.com/download/symbols/<PDB文件名>/<GUID><Age>/<PDB文件名>`
+        * 下载: `curl -L -O <下载路径>`
+        * 可用`pdbripper.exe`查看pdb文件是否为可用的数据. 
+
 * 使用经验记录
     * 调试物理机应用层程序时不能下断点: 
         * 方法: 以管理员运行windbg

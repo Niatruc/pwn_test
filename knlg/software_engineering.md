@@ -73,6 +73,11 @@
             * 同步消息(Synchronous Message): 实线实心箭头
             * 异步消息(Asynchronous Message): 实线和大于号箭头
             * 返回消息(Return Message): 虚线和小于号箭头
+        * 组合
+            * if else
+            * loop
+            * opt
+            * par(并行)
 * 通讯图
 * 交互概览图
 
