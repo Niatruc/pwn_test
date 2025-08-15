@@ -1871,6 +1871,41 @@ typedef struct {
     * `-c`: 查看导出函数表
     * `-D`: 查看动态库的符号
 
+### 加解密
+* `openssl`
+    * 功能: 
+        * 创建和管理 SSL 证书
+        * 加密/解密文件
+        * 生成密钥对
+        * 测试 SSL 连接
+        * 计算哈希值
+        * 数字签名验证
+    * 用法
+        * `genrsa`: 生成rsa密钥
+            * `-out private.key 2048`: 密钥有2048位
+        * `rsa`: 从私钥中提取公钥
+            * `-in private.key -pubout -out public.key`: 
+        * `req`: 
+            * `-new -key private.key -out cert.csr`: 生成CSR(证书签名请求)
+            * `-x509 -new -key private.key -days 365 -out cert.crt`: 生成自签名证书(有效期365天)
+        * `enc`: 加解密
+            * `-aes-256-cbc -salt -in plaintext.txt -out encrypted.enc`: aes-256-cbc加密(自动生成随机 Salt 值​​(通常8字节), 生成的密文开头有`Salted__`, 紧接着的应该就是salt值). 会要求用户输入密码. 
+                * `-kfile <密钥文件>`
+                * `-K <密钥>`: 可直接指定密钥
+            * `enc -d -aes-256-cbc -in encrypted.enc -out decrypted.txt`: aes-256-cbc解密. 会要求用户输入密码. 
+            * `OPENSSL_CONF=/dev/null OPENSSL_CRYPTO_MODE=legacy openssl enc -des-ecb -iter 512 -d -kfile k_tmp -in encrypted.enc -out decrypted.txt -provider legacy -provider default`: 通过设置环境变量降低安全级别, 使用弱算法des
+        * `dgst`: 计算文件哈希值
+            * `-sha256 filename.txt`: 
+            * `-md5 filename.txt`: 
+        * `s_client`: 测试远程服务器的ssl证书
+            * `-connect example.com:443 -showcerts`: 
+        * `pkcs12` 
+            * `-export -in cert.crt -inkey private.key -out cert.p12`: 将证书和私钥打包为 PKCS#12 文件
+        * `x509` 
+            * `-in cert.crt -text -noout`: 查看证书详细信息
+        * `verify`: 
+            * `-CAfile ca.crt cert.crt`: 
+
 ### 其他
 * `bc`
     * `obase=16; 65536`: 输出65536的十六进制格式
