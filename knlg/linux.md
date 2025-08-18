@@ -1641,12 +1641,13 @@ typedef struct {
         * `-l`: 表示监听
         * `-k`: 表示保持开启(可接收)
     * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
-    * `-U <unix套接字文件>`
+    * `-lk -U <unix套接字文件>`: 会创建unix套接字文件并监听. 
     * 注意: 
         * Linux和Windows下netcat参数不同. 
         * 每次请求连接建立后都会关闭(单次连接). 
 * `socat`: netcat加强版, 可称为`nc++`. 
     * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
+    * `socat - UNIX-CONNECT:<unix套接字文件>`: 连接套接字文件进行通信. 
 * `ncat`: 连接, 重定向套接字
     * `ncat --sh-exec "ncat <目的地址> <目的端口>" -l <本机端口> --keep-open`: 端口转发
 * `tcpdump`

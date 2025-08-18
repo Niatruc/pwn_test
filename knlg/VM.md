@@ -12,7 +12,7 @@
 * 合并vmdk
     * vmware-vdiskmanager.exe -r win7_x64.vmdk -t 0 win7_x64_1.vmdk
         * 第一个引号内为多个原vmdk文件所在路径+磁盘名称(去掉-s001之类).vmdk; 
-        * 第二个引号内为生产单个文件的路径和名字。
+        * 第二个引号内为生产单个文件的路径和名字. 
 * 共享文件夹
     * 在linux客户机里面执行: `sudo mount -t fuse.vmhgfs-fuse .host:/ /mnt/hgfs -o allow_other`, 之后可在`/mnt/hgfs`下看到共享目录. 
 * 添加虚拟磁盘(新的vmdk镜像)(参考: [详解VMware虚拟机中添加新硬盘并挂载的方法](https://blog.csdn.net/weixin_50464560/article/details/115714884))
@@ -343,6 +343,11 @@
                 ```
     * 端口转发
         * `-redir tcp:10023::23`: 将虚拟机的tcp 23端口映射到物理机的10023端口. 
+        * `hostfwd=<protocol>::<host_port>-:<guest_ip>:<guest_port>`: 主机端口转发
+            * `<protocol>`: 协议类型, 通常是 tcp 或 udp. 
+            * `<host_port>`: 主机上的端口号, QEMU将监听这个端口. 
+            * `<guest_ip>`: 虚拟机的IP地址, 可以是虚拟机的内部IP地址或省略(表示虚拟机的默认IP地址). 
+            * `<guest_port>`: 虚拟机上的端口号, QEMU将转发到这个端口. 
     * TAP桥接: `-nic tap,ifname=tap-qemu,script=no`
     * 使用网桥: 
         * 若报错`bridge helper failed`, 则需创建文件`/etc/qemu/bridge.conf`(没有`/etc/qemu/`目录则先创建该目录), 在其中写入`allow <网桥名>`
@@ -360,6 +365,7 @@
     * `-s`: 相当于`-gdb tcp::1234`, 即在tcp端口1234上开启gdbserver服务. 
     * `-S`: 在启动时不运行CPU(需要在控制台按下`c`才会继续运行). 
     * `-L <路径>`: 指定BIOS, VGA BIOS 和 keymaps的寻找路径. 
+    * `-serial <dev>`: 将虚拟串口重定向到宿主机的字符设备`<dev>`. 图形模式下默认重定向到`vc`, 非图形模式则重定向到`stdio`
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`

@@ -61,6 +61,10 @@
         sudo ./run.sh -a <brand> <firmware> # 分析模式(调用`analyses/analyses_all.sh`扫描漏洞)
         sudo ./run.sh -r <brand> <firmware> # 运行模式
         sudo ./run.sh -d <brand> <firmware> # 调试模式(调用`debug.py`, 仿真成功后将出现一个菜单, 可调用socat, shell, tcpdump, gdbserver, 文件传输等功能)
+
+        # 另一种手动运行的方法
+        ./scratch/<IID>/run.sh
+        python ./debug.py <IID> # 另开shell窗口
     ```
     * 例: `./run.sh -d dlink ../DIR-615_REVE_FIRMWARE_5.00.ZIP 4`
     * 清理缓存: `./scripts/delete.sh <IID>`
@@ -73,7 +77,7 @@
     * 用`getArch.py`获取架构和字节序. 
     * 用`inferKernel.py`从内核镜像中获取`Linux Version ...`信息和`init=`信息(如, `init=/sbin/preinit`). 
     * 用`makeImage.sh`制作qemu镜像. 
-    * 用`makeNetwork.py`, 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置; 再运行一次仿真(`test_emulation.sh`), 判断是否可ping通以及web是否可用. 结果记录到`makeNetwork.log`. 
+    * 执行`makeNetwork.py`: 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置; 再运行一次仿真(`test_emulation.sh`), 判断是否可ping通以及web是否可用. 结果记录到`makeNetwork.log`. 
     * 根据选择的操作模式(`analyze`, `debug`, `run`, `boot`)进行下一步操作: 
         * `analyze`: 
             * `run_analyze.sh`
@@ -115,18 +119,18 @@
                 * 协议, 地址, 端口
                 * 找到所有非lo网卡及其IP地址(内核中钩了`__inet_insert_ifa`并打印了网卡信息)
                 * 总结得到信息: (ip, dev, vlan_id, mac, br)
-        * `test_emulation.sh`: 运行仿真, 检查网络是否可ping通以及web服务是否可用, 结果写入到`time_ping`和`time_web`. 在`makeNetwork.py`中被调用. 
+        * `test_emulation.sh`: 运行仿真, 检查网络是否可ping通以及web服务是否可用, 结果写入到`ping`, `ip`, `web`, `time_ping`和`time_web`. 在`makeNetwork.py`中被调用. 
         * `makeImage.sh`: 在`scripts`目录下, 制作镜像. 
             * 
                 ```sh
                     # 新建`scratch/<ID>`目录
 
-                    qemu-img create -f raw "scratch/<ID>image.raw" # 生成qemu镜像
+                    qemu-img create -f raw "${IMAGE}" 1G # 生成qemu镜像
 
                     # 用`fdisk`对镜像分区:
                         # o, n, p, 1, <回车>, <回车>, w
                     
-                    kpartx -a -s -v "${IMAGE}" # kpartx挂载qemu镜像文件, 之后可在`/dev/mapper`下看到设备loop9p1
+                    DEVICE=`add_partition ${IMAGE}` # 将img文件和一个loop设备关联. DEVICE表示第一个分区, 形如`/dev/loop1p1`.
 
                     mkfs.ext2 "${DEVICE}" # 在设备上创建文件系统
 
@@ -166,6 +170,8 @@
     * `sources/`: 
         * `console/`: 在系统启动时, 在字符设备`/dev/firmadyne`中启动一个控制台, 以便于与仿真的qemu固件交互(因为有些固件不会在串口控制台启动一个终端, 所以需要这么做). 
         * `extractor/`: 固件提取工具, 用于从基于Linux的固件镜像中提取内核镜像或压缩的文件系统. 
+            * 要点
+                * 不完全支持多文件系统固件. 工具**仅识别第一个看起来像unix文件系统的根文件系统并将其提取**. 
             * 依赖
                 * `fakeroot`: 用于模仿sudo操作, 以访问需要root权限的文件或目录. 
                 * `psycopg2`: 用于操作postgresql
@@ -177,6 +183,16 @@
             * 用法
                 * 会暂时将文件释放到`/tmp`目录. 因为有些文件比较多, 所以最好挂载为`tmpfs`, 即只将文件释放在内存中. (在`extractor.sh`中, 会用docker的`--tmpfs`选项)
                 * `fakeroot python3 ./extractor.py -np <infile> <outdir>`
+            * `extractor.py`
+                * `Extractor.extract` -> `ExtractionItem.extract`: 
+                    * 调用`tempfile.mkdtemp()`创建临时目录, 并切换工作目录为该目录. 
+                    * 调用`binwalk.scan`, 然后对扫描出来的每一项执行: 
+                        * `_check_firmware`: 检查是否为已知的固件类型, 若是则用`ExtractionItem.extract`分别提取内核和根文件系统. 
+                        * `_check_rootfs`: 检查binwalk描述中是否有`filesystem`, `archive`或`compressed`, 有则进行: 
+                            * `Extractor.io_find_rootfs(dir_name)`: 递归检查`dir_name`目录, 找长得像unix文件系统的目录. 最后会返回找到的第一个目录的路径. 
+                            * 用`shutil.make_archive`将上一步得到的目录做成tar包. 
+                        * `_check_kernel`: 检查是否为内核文件(只支持`Linux`内核). 
+                        * `_check_recursive`: 递归调用`ExtractionItem.extract`, 
         * `libnvram/`: 用以模拟NVRAM设备的动作. 
             * 
         * `scraper/`

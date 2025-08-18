@@ -1095,9 +1095,70 @@
                 * [GraphViewer Class Reference](https://python.docs.hex-rays.com/8.4/d5/d64/classida__graph_1_1_graph_viewer.html#a531f62f82e360cbb85429cf82c2c27ed)
                 * 范例: https://github.com/pfalcon/idapython/blob/master/examples/ex_graph.py
                 * [mutable_graph_t Class Reference](https://python.docs.hex-rays.com/8.4/dc/d6f/classida__graph_1_1mutable__graph__t.html)
+            * 例子
+                ```py
+                    from ida_graph import GraphViewer
+
+                    class MyGraphViewer(GraphViewer):
+                        def __init__(self, parent, title):
+                            super().__init__(title)
+                            self.parent = parent  # 保存父窗口引用
+                        
+                        def OnRefresh(self):
+                            # 在此构建图数据（节点/边）
+                            self.AddNode("Start")
+                            self.AddNode("End")
+                            self.AddEdge(0, 1)
+                            return True
+                        
+                        def OnGetText(self, node_id):
+                            return f"Node {node_id}"  # 自定义节点文本
+                        
+                        def OnCommand(self, cmd_id):
+                            if cmd_id == self.cmd_refresh:
+                                self.Refresh()
+                                idaapi.refresh_idaview_anyway()
+                                
+                        def Show(self):
+                            if not idaapi.GraphViewer.Show(self): # 显示图
+                                return False
+
+                            self.cmd_refresh = self.AddCommand("Refresh", "Ctrl+R") # 添加命令
+                            return True
+                    
+                    mg = MyGraphViewer()
+                    mg.show()
+                ```
         * `ida_kernwin`
             * 参考
                 * API: https://nvwo.github.io/idapython_docs/ida_kernwin-module.html
+            * 要点
+                * ida中的原生组件都属于`TWidget`类, 可通过`ida_kernwin.PluginForm.TWidgetToPyQtWidget`转为`QWidget`实例. 
+            * 例子
+                * 插件窗口
+                    ```py
+                        class MyForm(idaapi.PluginForm):
+                            def OnCreate(self, form):
+                                # 将IDA窗口句柄转换为PyQt控件
+                                self.parent = self.FormToPyQtWidget(form)
+                                # self.form = form
+
+                                layout = QVBoxLayout(self.parent)
+                                layout.addWidget(QLabel("嵌入IDA窗口的组件"))
+                            
+                            def OnClose(self, form):
+                                pass  # 清理资源
+                    ```
+                * 其他
+                    ```py
+                        mg = MyGraphViewer()
+                        mg.show()
+                        mgq = ida_kernwin.PluginForm.TWidgetToPyQtWidget(mg.GetWidget()) # 获取原始Qt组件, 比如这里得到的是`PyQt5.QtWidgets.QAbstractScrollArea`实例
+                        
+                        # 设置窗口的停靠位置. 
+                        ida_kernwin.set_dock_pos("源窗口标题", "目标窗口标题", idaapi.DP_RIGHT)
+                    ```
+
 * 插件
     * 用pycharm调试ida插件
         * 参考: https://www.cnblogs.com/zknublx/p/7654757.html

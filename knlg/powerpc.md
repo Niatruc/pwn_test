@@ -144,6 +144,19 @@
             # Block devices
                 # Virtio block driver
             # Virtio drivers 里的子项都勾上
+        # General 
+            # KProbes
+        # Networking support
+            # Networking options
+                # Network packet filtering framework (Netfilter)
+                # 802.1d Ethernet Bridging
+                # 802.1Q/802.1ad VLAN Support
+        # Kernel hacking
+            # printk and dmesg options
+                # Show timing information on printks
+            # Panic on Oops
+            # Tracers
+                # Kernel Function Tracer
 
         make ARCH=powerpc CROSS_COMPILE=/home/zbh/musl/musl-cross-master/build/powerpc-linux-musl/bin/powerpc-linux-musl- O=./build/powerpc -j8
     ```
