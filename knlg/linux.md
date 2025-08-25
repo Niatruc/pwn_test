@@ -1444,6 +1444,14 @@ typedef struct {
 * `chroot <新的根目录> <启动的程序>`
     * 在 linux 系统中, 系统默认的目录结构都是以/, 即是以根 (root) 开始的. 而在使用 chroot 之后, 系统的目录结构将以指定的位置作为/位置
     * 例: `chroot /home/test //home/test/busybox`
+    * 在chroot前先执行mount操作, 确保运行时不会缺失文件: 
+        ```sh
+            mount -t proc /proc proc/
+            mount -t sysfs /sys sys/
+            mount --rbind /dev dev/ # 也可以是: mount -o bind /dev dev/
+
+            # mount --rbind olddir newdir
+        ```
 ### 进程
 * `ps`: 查看进程信息. 
     * `-ef`: 查看所有进程. (使用标准语法)
@@ -1503,6 +1511,12 @@ typedef struct {
 * `nautilus`: 打开文件管理器(gnome)
 * `zip`
     * `zip -q -r mypack.zip .`: 将当前目录打包为`mypack.zip`
+* `tar`
+    * `-zcvf tarame.tar.gz <dir>`: 压缩
+    * `-zxvf tarname.tar.gz -C <目录>`: 解压
+* `gzip`
+    * `-c fileName > fileName.gz`: 压缩
+    * `-d <gz压缩包>`: 解压
 * `ls`
     * `-F`: 后缀表示文件类型
         * `/`: 目录
@@ -1521,6 +1535,7 @@ typedef struct {
         * `f`: 普通文件
         * `l`: 符号链接
     * `-xtype l`: 列出指向不存在的文件的符号链接
+    * `-o`: 表示or
 * `truncate`: 用于将文件缩小或扩展到指定的大小. 
     * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
     * 扩展文件: `truncate -s +200k file.txt`
@@ -1642,6 +1657,9 @@ typedef struct {
         * `-k`: 表示保持开启(可接收)
     * `-nvv 192.168.x.x 80`: 连到 192.168.x.x 的 TCP 80 端口
     * `-lk -U <unix套接字文件>`: 会创建unix套接字文件并监听. 
+    * `-vz 192.168.x.x 80`: 检测远程端口的可连接性. `-z`表示不发送数据. 
+    * `-u 192.168.x.x 8080`: 检测udp端口. 
+    * `-vv -w2 -z 192.168.x.x 20-500`: 扫描范围端口. `-w2`表示2秒超时. 
     * 注意: 
         * Linux和Windows下netcat参数不同. 
         * 每次请求连接建立后都会关闭(单次连接). 

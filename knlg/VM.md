@@ -366,6 +366,10 @@
     * `-S`: 在启动时不运行CPU(需要在控制台按下`c`才会继续运行). 
     * `-L <路径>`: 指定BIOS, VGA BIOS 和 keymaps的寻找路径. 
     * `-serial <dev>`: 将虚拟串口重定向到宿主机的字符设备`<dev>`. 图形模式下默认重定向到`vc`, 非图形模式则重定向到`stdio`
+        * `udp [<remote_host>]:<remote_port>[@[<src_ip>]:<src_port>]`
+        * `unix:<path>[,server][,nowait][,reconnect=<seconds>]`
+            * `server`: 表示这是一个监听套接字
+            * `nowait`: 表示qemu在等待客户端连接时不会阻塞住
 * user模式
     * 参数: 
         * `-L <路径>`: 设置ELF解释器路径, 默认是`/etc/qemu-binfmt/%M`

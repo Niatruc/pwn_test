@@ -37,7 +37,10 @@
             # 重新打包
             mksquashfs squashfs-root/ squashfs.img -comp xz -Xbcj x86 -e boot
         ```
-
+* U-boot
+    * 参考
+        * [U-Boot源码解析](https://people.umass.edu/tongping/book/ubootframework.pdf)
+        
 # Firmadyne
 * 参考
     * [\[原创\]firmadyne源码解析-揭开固件模拟的黑盒面纱](https://bbs.kanxue.com/thread-286135.htm)
@@ -111,7 +114,31 @@
             * 从`qemu.initial.serial.log`中解析出现的nvram键值对, 记录到`nvram_keys`文件中
             * 搜索整个根文件系统, 记录所有与nvram相关的文件(判断依据: nvram键名有一半出现在文件中). 
             * 该文件在`makeNetwork.py`中被调用
-        * `inferFile.sh`: 
+        * `inferKernel.py`: 被`run.sh`调用, 用`strings`从提取的kernel文件中读取字符串: 
+            * 读取linux内核版本信息, 记录到`scratch/<ID>/kernelVersion`
+            * 找到包含`init=/`的字符串(识别为linux内核命令行), 记录到`scratch/<ID>/kernelCmd`
+            * 将`kernelCmd`记录的内核命令行按空格分隔, 找到`init=/xxx`项, 记录到`scratch/<ID>/kernelInit`
+        * `inferFile.sh`: 由`makeImage.sh`调用, 且是通过chroot调用(切换到`scratch/<IID>/image`目录)
+            * 从`kernelInit`文件提取每一行的`=`右侧的服务路径, 记到`arr`中
+            * 若有`/init`, 加入`$arr`中
+            * 寻找`preinitMT`, `preinit`, `rcS`文件, 加入`$arr`中
+            * 读取`$arr`的每一项: 从`/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`中找到同名文件, 然后创建符号链接指向该文件. 将软链接文件路径写入`/firmadyne/init`. 
+            * `echo /firmadyne/preInit.sh >> /firmadyne/init`
+            * 将以下各项写入到`/firmadyne/service`(前提是这些文件存在)
+                * `/etc/init.d/uhttpd start`
+                * `/usr/bin/httpd`
+                * `/usr/sbin/httpd`
+                * `/bin/goahead`
+                * `/bin/alphapd`
+                * `/bin/boa`
+                * `/usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf`
+            * 将以下各项写入到`/firmadyne/service_name`
+                * `uhttpd`
+                * `httpd`
+                * `goahead`
+                * `alphapd`
+                * `boa`
+                * `lighttpd`
         * `network.sh`: 配置网卡(IP地址等)
         * `makeNetwork.py`
             * 运行仿真, 获得系统运行日志`qemu.initial.serial.log`
@@ -135,7 +162,13 @@
                     mkfs.ext2 "${DEVICE}" # 在设备上创建文件系统
 
                     mount "${DEVICE}" "${IMAGE_DIR}" # 挂载设备到`${IMAGE_DIR}`
+
+                    tar -xf "${WORK_DIR}/$IID.tar.gz" -C "${IMAGE_DIR}" # 将根文件系统压缩包释放到目录中
                     
+                    FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /bash-static /inferFile.sh
+                    
+                    FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /busybox ash /fixImage.sh
+
                     # 拷贝
                     cp "${CONSOLE}" "${IMAGE_DIR}/firmadyne/console"
                     cp "${LIBNVRAM}" "${IMAGE_DIR}/firmadyne/libnvram.so"

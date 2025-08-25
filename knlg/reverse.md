@@ -7,6 +7,10 @@
 # 网站
 * https://opensecuritytraining.info/MalwareDynamicAnalysis.html
 * https://github.com/topics/bypass-antivirus
+* https://www.shielder.com/
+* https://bishopfox.com/
+* https://wzt.ac.cn/ : Catalpa, 研究固件
+* https://www.iotsec-zone.com : 
 
 # 机器码笔记
 * `mov`
@@ -180,6 +184,12 @@
         done
     ```
 * 查找涉及80端口的进程: `netstat -anop | grep -E "(\.((2(5[0-5]|[0-4][0-9]))|[0-1]?[0-9]{1,2})){3}\:80" | awk '{print $7}'`
+# 文件解析
+* exiftool
+    * 基本信息
+        * https://exiftool.org/
+        * 支持多种文件类型
+
 # 固件
 * 参考
     * [看雪2018峰会回顾_智能设备漏洞挖掘中几个突破点(内有十种固件提取方法和首次公开uboot提取固件方法)](https://bbs.kanxue.com/thread-230095.htm)
@@ -940,6 +950,7 @@
                 * `get_name(ea)`: 获取`ea`地址所属函数的名称
                 * `get_func(ea)`: 获取`ea`地址所属函数
                 * `get_name_ea(_from, name)`: 从`_from`地址开始, 搜索名为`name`的函数. 
+                * `decompile(ea)`: 反编译所给地址的所在函数. 可用`print`打印返回的伪代码. 
         * 插件的主文件需要定义`PLUGIN_ENTRY`函数. ida启动时加载插件时会寻找这个函数. 在该函数中, 返回一个实例(比如下面定义的`MyPlugin`类的实例)
         * 自定义插件
             ```py
