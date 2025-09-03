@@ -1228,6 +1228,8 @@ typedef struct {
     * `-e`: 是否存在
     * `-x`: 是否可执行
 * `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
+    * `[ -f "$file" ]`: 文件存在则true. 
+    * `[ -d "$dir" ]`: 目录存在则true. 
     * `[ -z "$HOME" ]`: 字符串为空则true. 
     * `[ -e "$HOME" ]`: 文件存在则true. 
     * `[ 10 -gt 3 ]`: 数字大小比较. 有`-eq`, `-lt`, `-le`, `-gt`, `-ge`, `-ne`等. 
@@ -1513,6 +1515,7 @@ typedef struct {
     * `zip -q -r mypack.zip .`: 将当前目录打包为`mypack.zip`
 * `tar`
     * `-zcvf tarame.tar.gz <dir>`: 压缩
+        * 解决压缩多一层目录的问题: 使用`-C`选项(相当于先切换到目标目录): `tar -czvf archive.tar.gz -C my_directory .`
     * `-zxvf tarname.tar.gz -C <目录>`: 解压
 * `gzip`
     * `-c fileName > fileName.gz`: 压缩
@@ -1945,6 +1948,22 @@ typedef struct {
         * [为云服务器添加图形化桌面并通过VNC连接](https://xdcsy.github.io/Text/Section0032.xhtml)
         * [Ubuntu 20.04安装桌面XFCE](https://blog.csdn.net/qq_39879126/article/details/138459611)
 
+* glibc
+    * 2.28
+        ```sh
+            sudo apt-get install build-essential
+            wget http://ftp.gnu.org/gnu/libc/glibc-2.28.tar.gz
+            tar -xvf glibc-2.28.tar.gz
+            cd glibc-2.28
+            mkdir build
+            cd build
+            ../configure --prefix=/usr/local/glibc-2.28 # 注意换成别的安装路径
+            make -j4
+            sudo make install
+            export LD_LIBRARY_PATH=/usr/local/glibc-2.28/lib:$LD_LIBRARY_PATH
+        ```
+        * 注
+            * 在ubuntu20上编译失败, 在ubuntu18上编译成功. 
 * busybox
     * 参考
         * [arm64 linux+busybox 内核编译](https://blog.csdn.net/weiwenzem/article/details/139501481)
@@ -1963,9 +1982,9 @@ typedef struct {
                 * 用`powerpc-linux-gnu-`编译: 
                     * `make menuconfig`进入配置: 
                         * `Settings` -> 
-                            * `Build static binary`, 勾选 
-                            * `Cross compiler prefix`, 填`powerpc-linux-gnu-`
-                            * `Path to sysroot`, 填`/usr/powerpc-linux-gnu`
+                            * `Build static binary`, 勾选(静态链接)
+                            * `Cross compiler prefix`, 填`powerpc-linux-gnu-`(或其他交叉编译器的路径前缀)
+                            * `Path to sysroot`, 填`/usr/powerpc-linux-gnu`(或其他交叉编译器的构建路径)
                     * `make`
                     * `make CONFIG_PREFIX=install/ppc install`
                     * 问题: 

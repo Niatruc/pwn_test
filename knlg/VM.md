@@ -61,7 +61,7 @@
         * `-i`: 表示交互式操作
         * `-t`: 表示终端
         * `-v <宿主机目录>:<容器目录>`: 指定挂载目录. 
-        * `-d`: 可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入. 
+        * `-d`: 可使容器进入后台运行, 之后用`docker exec -it <容器id> /bin/bash`进入容器的shell. 
         * `--privileged=true`: 赋予容器内进程以下权限/能力: 
             * 访问主机上所有设备的权限. 
             * 使用主机的所有内核功能. 
@@ -100,18 +100,25 @@
         ```sh
             FROM centos # 指定原始镜像
             RUN yum install vim -y # `docker build`时运行bash命令 # RUN每执行一次都会新建一层. 要避免过多使用, 尽量合成一条命令
-            COPY myfile /home/ # 拷贝文件到镜像 中
+            COPY myfile /home/ # 拷贝文件到镜像中
+            WORKDIR /home # 切换到指定目录
             ENV <key1>=<value1> <key2>=<value2> # 设置环境变量
             ARG <参数名>[=<默认值>] # 
 
             CMD ["<executeable>","<param1>","<param2>",...] # `docker run`时运行bash命令
 
-            ENTRYPOINT ["<executeable>","<param1>","<param2>",...] # 类似`CMD`, 但不会被`docker run`的命令行参数指定的指令所覆盖. 如果运行`docke    r run`时使用了`--entrypoint`选项, 将覆盖`ENTRYPOINT`指令指定的程序
+            ENTRYPOINT ["<executeable>","<param1>","<param2>",...] # 类似`CMD`, 但不会被`docker run`的命令行参数指定的指令所覆盖. 如果运行`docker run`时使用了`--entrypoint`选项, 将覆盖`ENTRYPOINT`指令指定的程序
             CMD ["<param1>","<param2>",...]  # 该写法是为 ENTRYPOINT 指令指定的程序提供默认参数
 
             EXPOSE <端口1> [<端口2>...] # `docker run -P`时, 会自动随机映射这些端口
         ```
-    * 之后运行`docker build -t <镜像名> .`
+    * 之后运行`docker build . -t <镜像名> .`
+    * 注
+        * `RUN`和`CMD`的区别: `RUN`指令在镜像构建过程中执行, `CMD`指令在容器启动时执行. 
+        * 使用代理: 
+            * 首先确保bash环境中已设置了`http_proxy`和`https_proxy`环境变量. 
+            * build时加参数: `--network host`
+        * build时加`--build-arg`参数可临时指定环境变量. 
 * `save`, `load`, `import`, `export`
     ```sh
         docker save -o my_image.tar <镜像名>

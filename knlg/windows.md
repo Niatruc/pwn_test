@@ -629,6 +629,9 @@
 * `services.exe`
     * 即SCM(service control manager). `svchost.exe`进程一般都会以其子进程的形式出现. 
 
+* `sshd`
+    * 启动: `net start sshd`
+
 ## svchost
 * svchost.exe本身并不实现任何服务功能, 需要成为服务的dll可由svchost加载成为服务. 这些dll内部需要实现`ServiceMain`函数, 并且**要把它导出**. 
 * svchost.exe根据注册表项`HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost`下面的键值分组管理DLL申请的服务, 每一键值对应一个独立的Svchost.exe进程. 
@@ -643,6 +646,7 @@
 * 调试: 
     * 调试主函数`ServiceMain`: 
         * 如果有源码, 可以在函数开头放一个`Sleep`, 睡眠比较长一段时间. 启动服务后, 记录下进程id, 并在其睡眠结束前通过windbg附加到进程, 在`Sleep`后设置断点. 
+
 
 # 用户, 授权机制
 * 修改用户名和用户目录名
@@ -823,6 +827,11 @@
             * `if(hMod) {MYFUNC myFunc = (MYFUNC)GetProcess(hMod, "fnMyFunc"); myFunc();}`
             * 注意  
                 * 如果dll是cpp编译, 注意`name mangling`(c++为支持函数重载, 会改函数名), 这时直接使用原名会拿不到函数. 需要在dll的源文件的函数声明头部加`extern "C"`, 告诉编译器不要改名.
+# 恶意软件
+## RDP服务相关
+* 
+
+
 ## VS
 * 编译选项
     * `/sdl`: 安全开发生命周期检查. (vs2012以后). 要求严格按SDL的要求编译代码. 会有如下行为: 

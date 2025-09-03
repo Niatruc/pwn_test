@@ -80,11 +80,15 @@
     * 用`getArch.py`获取架构和字节序. 
     * 用`inferKernel.py`从内核镜像中获取`Linux Version ...`信息和`init=`信息(如, `init=/sbin/preinit`). 
     * 用`makeImage.sh`制作qemu镜像. 
-    * 执行`makeNetwork.py`: 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置; 再运行一次仿真(`test_emulation.sh`), 判断是否可ping通以及web是否可用. 结果记录到`makeNetwork.log`. 
+    * 执行`makeNetwork.py`: 运行仿真, 获得串口日志, 根据日志中的信息推测网络配置; 再运行一次仿真(`test_emulation.sh`), 判断是否可ping通以及web是否可用(`check_network`). 结果记录到`makeNetwork.log`. 
     * 根据选择的操作模式(`analyze`, `debug`, `run`, `boot`)进行下一步操作: 
         * `analyze`: 
             * `run_analyze.sh`
             * `analyses_all.sh`
+        * `debug`: 
+            * `./scratch/$IID/run_debug.sh &`: 在后台运行仿真. 
+            * `check_network ${IP} true`: IP是从`${WORK_DIR}/ip`文件读取来. 这一步使用curl和ping检查web服务及网络的可用性. 
+            * `./debug.py ${IID}`: 运行交互程序, 可用于通过shell访问仿真. 
 * 项目文件:
     * `binaries/`: 
         * `console.<arch>`: 
@@ -101,23 +105,27 @@
     * `LICENSE.txt`: 
     * `paper/`: 
     * `README.md`: 
-    * `scratch/`: 仿真时使用的目录, 每个固件对应一个`<id>`目录. 
+    * `scratch/`: 仿真时使用的目录, 每个固件对应一个`<IID>`目录. 
+        * `<IID>/`
+            * `image/`: 用于挂载`image.raw`镜像
+            * `init`: 在`makeImage.sh`运行时由`image/firmadyne/init`移过来, 其中的内容由`inferFile.sh`写入. 
+            * ``: 
     * `scripts/`: 
-        * `delete.sh`: 用法`./scripts/delete.sh <id>`, 删除某个固件及其数据. 
+        * `delete.sh`: 用法`./scripts/delete.sh <IID>`, 删除某个固件及其数据. 
         * `fixImage.sh`
         * `preInit.sh`: 作为Linux内核命令行中initrd启动用的脚本(`rdinit=/firmadyne/preInit.sh`)
         * `getArch.sh`: 获取cpu架构, 写入数据库. 
             * 用法: `getArch.sh ./images/<解压得到的tar包>`
             * 基本原理: 获取文件系统中的二进制可执行文件, 比如`/bin`和`/sbin`目录下的文件, 执行`file`命令. 
-            * 在`run.sh`中调用, 并讲结果写入数据库和`scratch/<ID>/architecture`文件. 
+            * 在`run.sh`中调用, 并讲结果写入数据库和`scratch/<IID>/architecture`文件. 
         * `inferDefault.py`:
             * 从`qemu.initial.serial.log`中解析出现的nvram键值对, 记录到`nvram_keys`文件中
             * 搜索整个根文件系统, 记录所有与nvram相关的文件(判断依据: nvram键名有一半出现在文件中). 
             * 该文件在`makeNetwork.py`中被调用
         * `inferKernel.py`: 被`run.sh`调用, 用`strings`从提取的kernel文件中读取字符串: 
-            * 读取linux内核版本信息, 记录到`scratch/<ID>/kernelVersion`
-            * 找到包含`init=/`的字符串(识别为linux内核命令行), 记录到`scratch/<ID>/kernelCmd`
-            * 将`kernelCmd`记录的内核命令行按空格分隔, 找到`init=/xxx`项, 记录到`scratch/<ID>/kernelInit`
+            * 读取linux内核版本信息, 记录到`scratch/<IID>/kernelVersion`
+            * 找到包含`init=/`的字符串(识别为linux内核命令行), 记录到`scratch/<IID>/kernelCmd`
+            * 将`kernelCmd`记录的内核命令行按空格分隔, 找到`init=/xxx`项, 记录到`scratch/<IID>/kernelInit`
         * `inferFile.sh`: 由`makeImage.sh`调用, 且是通过chroot调用(切换到`scratch/<IID>/image`目录)
             * 从`kernelInit`文件提取每一行的`=`右侧的服务路径, 记到`arr`中
             * 若有`/init`, 加入`$arr`中
@@ -150,7 +158,9 @@
         * `makeImage.sh`: 在`scripts`目录下, 制作镜像. 
             * 
                 ```sh
-                    # 新建`scratch/<ID>`目录
+                    # 新建`scratch/<IID>`目录
+                    # IMAGE即为`image.raw`
+                    # IMAGE_DIR即为`scratch/<IID>/image/`
 
                     qemu-img create -f raw "${IMAGE}" 1G # 生成qemu镜像
 
@@ -164,23 +174,36 @@
                     mount "${DEVICE}" "${IMAGE_DIR}" # 挂载设备到`${IMAGE_DIR}`
 
                     tar -xf "${WORK_DIR}/$IID.tar.gz" -C "${IMAGE_DIR}" # 将根文件系统压缩包释放到目录中
+                    mkdir "${IMAGE_DIR}/firmadyne/"
+                    mkdir "${IMAGE_DIR}/firmadyne/libnvram/"
+                    mkdir "${IMAGE_DIR}/firmadyne/libnvram.override/"
                     
-                    FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /bash-static /inferFile.sh
-                    
+                    # 将系统的busybox和bash-static拷贝过来, 然后执行以下, 之后删除busybox和bash-static
+                    FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /bash-static /inferFile.sh # 执行`inferFile.sh`
+                    FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /busybox ash /fixImage.sh # 执行`fixImage.sh`
+
+                    mv ${IMAGE_DIR}/firmadyne/init ${WORK_DIR}
+                    cp ${IMAGE_DIR}/firmadyne/service ${WORK_DIR}
+
                     FIRMAE_BOOT=${FIRMAE_BOOT} FIRMAE_ETC=${FIRMAE_ETC} chroot "${IMAGE_DIR}" /busybox ash /fixImage.sh
 
-                    # 拷贝
-                    cp "${CONSOLE}" "${IMAGE_DIR}/firmadyne/console"
-                    cp "${LIBNVRAM}" "${IMAGE_DIR}/firmadyne/libnvram.so"
                     mknod -m 666 "${IMAGE_DIR}/firmadyne/ttyS1" c 4 65
                     cp "${SCRIPT_DIR}/preInit.sh" "${IMAGE_DIR}/firmadyne/preInit.sh"
-                    cp -r "${IMAGE_DIR}" "${FIRMWARE_DIR}/../image_${IID}" # 将目录拷贝到`image_${IID}`
+                    cp "${SCRIPT_DIR}/network.sh" "${IMAGE_DIR}/firmadyne/network.sh"
+                    cp "${SCRIPT_DIR}/run_service.sh" "${IMAGE_DIR}/firmadyne/run_service.sh"
+                    cp "${SCRIPT_DIR}/injectionChecker.sh" "${IMAGE_DIR}/bin/a"
+                    touch "${IMAGE_DIR}/firmadyne/debug.sh"
+
+                    if (! ${FIRMAE_ETC}); then
+                        sed -i 's/sleep 60/sleep 15/g' "${IMAGE_DIR}/firmadyne/network.sh"
+                        sed -i 's/sleep 120/sleep 30/g' "${IMAGE_DIR}/firmadyne/run_service.sh"
+                        sed -i 's@/firmadyne/sh@/bin/sh@g' ${IMAGE_DIR}/firmadyne/{preInit.sh,network.sh,run_service.sh}
+                        sed -i 's@BUSYBOX=/firmadyne/busybox@BUSYBOX=@g' ${IMAGE_DIR}/firmadyne/{preInit.sh,network.sh,run_service.sh}
+                    fi
 
                     # 卸载
-                    umount "${DEVICE}"
-                    kpartx -d "${IMAGE}" # 卸载
-                    losetup -d "${DEVICE}" &>/dev/null
-                    dmsetup remove $(basename "$DEVICE") &>/dev/null
+                    umount "${IMAGE_DIR}"
+                    del_partition ${DEVICE:0:$((${#DEVICE}-2))}
                 ```
 
                 ```

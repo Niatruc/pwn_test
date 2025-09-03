@@ -1275,7 +1275,7 @@
                 * [Ubuntu 18.04 出现GLIBC_2.28 not found的解决方法](https://blog.csdn.net/glen_cao/article/details/129832834): 解决ubuntu18.04的libc版本(2.27)问题. 
             * 升级libc版本到2.28
                 ```sh
-                    echo "deb http://security.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list
+                    echo "deb http://archive.debian.org/debian-security buster/updates main" >> /etc/apt/sources.list
                     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 112695A0E562B32A 54404762BBB6E853
                     apt update
                     apt install libc6 libc6-dev -y
@@ -1289,7 +1289,7 @@
                     cp .../path/to/hexvault.key .
                     cp .../path/to/hexvault.lic .
                     chown hexvault:hexvault hexvault.crt hexvault.key hexvault.lic
-                    chmod 640 hexvault.crt hexvault.key hexvault.lic # 这一步很重要, 如果这些文件可被其他非授权用户访问, 则hexvault服务器会拒绝启动并提示"world-accessible" file, exits"
+                    chmod 640 hexvault.conf hexvault.crt hexvault.key hexvault.lic # 这一步很重要, 如果这些文件可被其他非授权用户访问, 则hexvault服务器会拒绝启动并提示"world-accessible" file, exits"
 
                     ./vault_server --config-file hexvault.conf --vault-dir ./files --recreate-schema # 初始化数据库
 

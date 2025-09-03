@@ -162,7 +162,7 @@
     ```
     * 仿真运行
     ```sh
-        qemu-system-ppc -M ppce500 -cpu e500mc -m 1024 -kernel /home/zbh/Desktop/FirmAE/sources/kernel-v4.1-firmadyne-v4.1.17/build/powerpc_corenet32/vmlinux -drive if=virtio,file=ramdisk_ppc_busybox_1_36_1.img,format=raw -append "console=ttyS0 root=/dev/vda loglevel=8"
+        qemu-system-ppc -M ppce500 -cpu e500mc -m 1024 -kernel /home/zbh/Desktop/FirmAE/sources/kernel-v4.1-firmadyne-v4.1.17/build/powerpc_corenet32/vmlinux -drive if=virtio,file=ramdisk_ppc_busybox_1_36_1.img,format=raw -append "console=ttyS0 root=/dev/vda loglevel=8" -nic tap,ifname=tap0,script=no,downscript=no,model=e1000 # 注: 使用`model=e1000`后, 在虚拟机中`ip a`时才能看到`eth0`网卡. 
     ```
 * prep
     * 参考: 
