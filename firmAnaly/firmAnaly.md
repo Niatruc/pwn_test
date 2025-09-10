@@ -40,6 +40,7 @@
 * U-boot
     * 参考
         * [U-Boot源码解析](https://people.umass.edu/tongping/book/ubootframework.pdf)
+        * [Reversing embedded device bootloader (U-Boot) - p.1](https://www.shielder.com/blog/2022/03/reversing-embedded-device-bootloader-u-boot-p.1/)
         
 # Firmadyne
 * 参考

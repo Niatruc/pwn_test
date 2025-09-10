@@ -1288,7 +1288,7 @@
                     cp .../path/to/hexvault.crt .
                     cp .../path/to/hexvault.key .
                     cp .../path/to/hexvault.lic .
-                    chown hexvault:hexvault hexvault.crt hexvault.key hexvault.lic
+                    # chown hexvault:hexvault hexvault.crt hexvault.key hexvault.lic
                     chmod 640 hexvault.conf hexvault.crt hexvault.key hexvault.lic # 这一步很重要, 如果这些文件可被其他非授权用户访问, 则hexvault服务器会拒绝启动并提示"world-accessible" file, exits"
 
                     ./vault_server --config-file hexvault.conf --vault-dir ./files --recreate-schema # 初始化数据库
@@ -1296,8 +1296,12 @@
                     ./vault_server --config-file hexvault.conf --certchain-file vault_server.crt --privkey-file vault_server.key --license-file vault_server.lic --vault-dir ./files
                 ```
         * 客户端
-            * 创建用户: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t info`
-            * 显示用户列表: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t users`
+            * 登录: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t info`
+                * 第一个用户将拥有管理员权限
+            * 显示用户列表: `hv.exe -h192.168.14.128:65433 -ujane -psecr3t users` (在一台机器上首次执行此命令, 将创建`jane`用户)
+            * 创建用户: `./hv user add fred "Fred Bloggs" fred@acme.com 0 ""` (参数分别对应 `user_name` `realname` `email` `is_admin` `notes`)
+            * 设置用户密码: `./hv passwd stea1thy fred`
+            * 编辑用户信息: `./hv -hhexvault.acme.com -ujane -psecr3t user edit jane "Jane Smith" jane@acme.com 1 "" 48-XXXX-XXXX-XX`
 * lumina
     * 参考
         * [Lumina Server v9.0搭建记录](https://nobb.site/2024/08/13/0x8E/)

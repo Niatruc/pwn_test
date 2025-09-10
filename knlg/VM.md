@@ -237,7 +237,7 @@
             > `VBoxManage clonehd --format RAW img.vdi img.raw`
             > `qemu-img convert -f raw ubuntu.img -O qcow2 ubuntu.qcow`
         * vmdk转qcow2
-            > `qemu-img convert -f vmdk -O qcow2 source-name.vmdk target-name.qcow2 `
+            > `qemu-img convert -f vmdk -O qcow2 source-name.vmdk target-name.qcow2` (可以加上`-c`参数压缩)
         * 快照`qemu-img snapshot`
             * `-l <qcow2文件路径>`: 列出快照信息. 
             * `-c <快照名> <qcow2文件路径>`: 创建快照. 
@@ -245,8 +245,10 @@
             * `-d <快照名> <qcow2文件路径>`: 删除快照. 
     * 挂载qcow2镜像
         * `guestmount`
-            * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
-            * `guestunmount myfs`: 卸载
+            * 安装: `sudo apt install libguestfs-tools`
+            * 使用
+                * `-a myfs.qcow2 -m /dev/sda1 ./myfs`: 挂载
+                * `guestunmount myfs`: 卸载
         * `qemu-nbd`
             * `sudo modprobe nbd max_part=8`: 确保加载了`nbd`(network block device)内核模块. 
             * `-c /dev/nbd0 myfs.qcow2`: 将qcow2镜像与设备`/dev/nbd0`连接. 

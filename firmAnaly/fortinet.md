@@ -50,7 +50,7 @@
         set allowaccess http ping https ssh telnet
         end
     ```
-
+    * 对于dhcp的网卡, 获取网卡ip地址: `get system interface physical port1`
     * 注意: 如果使用virt-manager仿真, 则指定IP为和宿主机的`virbr0`相同的网段. 
     * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
 * 证书
