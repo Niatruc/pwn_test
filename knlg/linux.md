@@ -1690,7 +1690,7 @@ typedef struct {
             * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
     * 问题
         * 远程登录时提示`no matching host key type found. Their offer: ssh-dss`
-            * `ssh -oHostKeyAlgorithms=+ssh-dss root@192.168.8.109`
+            * `ssh -oHostKeyAlgorithms=+ssh-dss -oPubkeyAcceptedKeyTypes=+ssh-rsa root@192.168.8.109`
 * `tunctl`: 创建, 管理`TUN`/`TAP`接口(作为虚拟网络设备, `TAP`模拟数据链路层设备(有MAC地址, 更接近物理网卡), `TUN`模拟网络层设备). 
     * 安装: `sudo apt install uml-utilities`
     * `-u <user>`: 指定用户

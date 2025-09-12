@@ -1,3 +1,6 @@
+* 参考链接
+    * https://github.com/hegdepavankumar/Cisco-Images-for-GNS3-and-EVE-NG?tab=readme-ov-file : 下载思科固件镜像
+
 # 思科路由器固件
 * 路由器用的两种镜像
     * 系统镜像(system image)
@@ -276,10 +279,12 @@
     * [Cisco ASA series part three: Debugging Cisco ASA firmware](https://www.nccgroup.com/us/research-blog/cisco-asa-series-part-three-debugging-cisco-asa-firmware/)
     * https://github.com/nccgroup/asatools: 工具集
         * https://github.com/nccgroup/asafw: 可解包asav镜像以及开启gdb调试(植入gdbserver)
+* 基本信息
+    * 可用ASA提供的客户端程序`ASDM`(Adaptive Security Device Manager)代替CLI进行配置. 
 * 网络配置方法: 
     ```sh
     configure terminal
-    interface Management 0/0
+    interface Management 0/0 # 有些功能可能因受限于许可证无法用. 所以最好配两张网卡, 在GigabitEthernet网卡进行操作. 
     ip address 192.168.122.2 255.255.255.0
     nameif outside # 给网卡命名. 这一步会同时设置默认安全级别(security-level)为0. 若缺少这一步, 会导致与外部无法相互ping通. 
     no shutdown
@@ -287,7 +292,42 @@
     exit
 
     ```
+* 开启http
+    ```sh
+        http server enable
+        http 0.0.0.0 0.0.0.0 outside
+    ```
+    * 
+* 配置webvpn
+    * 参考: 
+        * [在ASA 上配置无客户端 SSL VPN (WebVPN)](https://www.cisco.com/c/zh_cn/support/docs/security-vpn/webvpn-ssl-vpn/119417-config-asa-00.html)
+    * 注意必须为网卡配置webvpn. 等效命令: 
+        ```sh
+            configure terminal
+            webvpn
+            enable outside
+        ```
+* 配置ikev1
+    * 参考: [Configure IKEv1 IPsec Site-to-Site Tunnels with the ASDM or CLI on the ASAv](https://www.cisco.com/c/en/us/support/docs/security/asa-5500-x-series-next-generation-firewalls/119141-configure-asa-00.html#toc-hId-911794134)
 
+
+* 其他命令
+    ```sh
+        show asp table socket # 查看当前监听的端口
+    ```
+
+* 漏洞
+    * CVE-2016-1287
+        * 参考
+            * https://vulmon.com/vulnerabilitydetails?qid=CVE-2016-1287&sortby=byriskscore
+            * [Cisco ASA Software IKEv1 and IKEv2 Buffer Overflow Vulnerability](https://www.cisco.com/c/en/us/support/docs/csa/cisco-sa-20160210-asa-ike.html)
+            * [网络设备漏洞分析技术研究](http://www.ardsec.com/index/show/catid/65/id/41.html)
+            * [Cisco ASA IKE Buffer Overflow (CVE-2016-1287)](http://weizn.net/?p=174)
+        * 分析: 
+            * 问题函数`ikev2_add_rcv_frag()`
+    * CVE-2024-20329
+        * 基本信息
+            * 针对SSH的命令注入, 要求攻击者为认证用户. 暂无poc. 
 ## Viptela SD-WAN
 * 参考
     * [Cisco SD-WAN on EVE-NG](https://www.networkacademy.io/ccie-enterprise/sdwan/cisco-sd-wan-on-eve-ng)

@@ -29,6 +29,7 @@
             * `login class <类名>`: 创建登录类. 
                 * `allow-commands "request system reboot"`: 表示允许执行`"request system reboot"`这三条命令. 
         * `interfaces ge-0/0/0 unit 0 family inet address 192.168.9.103/24`: 配置`ge-0/0/0`端口的IP地址. 
+            * 注: 将`inet`后面部分改为`dhcp`, 即可动态获取地址. 
         * (ex交换机)配置vlan, 并将端口加入vlan中
             ```sh
                 # 新建vlan接口(ifconfig中显示为vlan.10)
@@ -40,6 +41,9 @@
                 set interfaces vlan unit 10 family inet address 192.168.1.1/24 # 给vlan.10接口设置网段
                 set vlans vlan l3-interface vlan.10         # vlan子端口和VLAN对应起来
             ```
+        * `security`
+            * `policies`: 设置安全策略
+                * `default-policy permit-all`: 放行所有流量
     * `edit ...`: 进入对某项(如账户, 登陆类)的配置, 参数同`set`. 提示字段会显示当前正在编辑的项(`[edit ...]`). `q`退出. 
     * `commit`: 提交配置
     * `show`: 显示配置, 参数同`set`. 

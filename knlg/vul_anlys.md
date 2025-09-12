@@ -3,12 +3,14 @@
 * 0day: 攻击者掌握的, 未被软件厂商修复的漏洞. 
 * 1day: 已被厂商发现并修复, 但用户还没打补丁的漏洞. 
 * POC代码: Proof of Concept, 证明漏洞的存在或利用漏洞的代码. 
-* 漏洞参考网站 
+* 漏洞参考/检索网站 
     * cve.mitre.org
     * cert.org
     * blogs.360.cn
     * https://www.anquanke.com/
     * freebuf.com
+    * https://securityvulnerability.io/
+    * https://vulmon.com/
 * cwe常见漏洞类型
     * 配置错误(CWE-16)(Configuration)
     * 代码问题(CWE-17)(Code)
