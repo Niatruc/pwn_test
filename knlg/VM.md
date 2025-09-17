@@ -67,6 +67,9 @@
             * 使用主机的所有内核功能. 
             * 使用主机上所有的文件系统. 
         * `--restart=always`: 重启docker时, 该容器同时重启. 
+        * `--rm`: 在任务完成后删除容器. 
+        * `-e MY_ENV_VAR=my_value`: 设置环境变量
+        * `--entrypoint <命令>`: 设置启动命令(可覆盖Dockerfile的ENTRYPOINT)
     * `docker start <容器名>`: 启动一个已经关闭的容器.
 * 打印容器日志: `docker logs -f <容器id>`
 * 停止容器: `docker stop <容器id>`
@@ -92,7 +95,7 @@
 ### 镜像
 * 列出镜像: `docker images`
 * 将运行中的容器保存为新镜像: `docker commit <容器id> <镜像名>`(镜像名可以是原名, 直接替换原镜像)
-* 查看镜像分层: `docker history <镜像名>`
+* 查看镜像分层(即查看镜像的Dockerfile): `docker history <镜像名>`
 * 删除镜像: `docker rmi <镜像id>`
 * 重命名: `docker tag <镜像id> <新名>`
 * Dockerfile构建镜像: 

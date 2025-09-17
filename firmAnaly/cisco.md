@@ -307,6 +307,7 @@
             webvpn
             enable outside
         ```
+    * 有时可能得降低安全级别(配置网卡时): `security-level 0`
 * 配置ikev1
     * 参考: [Configure IKEv1 IPsec Site-to-Site Tunnels with the ASDM or CLI on the ASAv](https://www.cisco.com/c/en/us/support/docs/security/asa-5500-x-series-next-generation-firewalls/119141-configure-asa-00.html#toc-hId-911794134)
 

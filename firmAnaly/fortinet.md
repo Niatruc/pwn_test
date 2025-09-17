@@ -12,6 +12,11 @@
     * `execute`
         * `ping`
     * `fnsysctl`: 在完成证书认证后可用. 可以使用linux命令, 如`ls`, `ps`, `mv`, `df`等. 
+    * `diagnose`
+        * `sys` 
+            * `process`
+                * `pidof <进程名>`: 查询进程id
+            * `top`: 查看系统进程信息   
 
 ## 仿真
 * arm版固件仿真
@@ -263,8 +268,22 @@
 * 参考: 
     * [FortiGate SSLVPN CVE-2024-21762漏洞利用分析](https://research.qianxin.com/archives/1854)
     * [CVE-2024-21762漏洞分析](https://blog.csdn.net/zgz67611/article/details/144616138)
+    * https://github.com/BishopFox/cve-2024-21762-check/blob/main/check-cve-2024-21762.py
     * [【隧道篇 / SSL】(6.0) ❀ 02. 通过 SSL 访问 IPsec (中) ❀ FortiGate 防火墙](https://blog.csdn.net/meigang2012/article/details/87903878)
         * 需要按该教程配置ssl vpn: 配置用户, 用户组, IP地址对象, ssl vpn, 防火墙策略. 
+        * 注: 如果web界面没有找到ssl vpn的入口, 则执行: 
+            ```sh
+                config system settings
+                    set gui-sslvpn enable
+                end
+            ```
+        * 注: 如果在ssl vpn设置页面中没法为其`port mappings`设置`web mode`, 可执行如下命令: 
+            ```sh
+                config system global
+                    set sslvpn-web-mode enable
+                end
+            ```
+    * [SSL VPN full tunnel for remote user](https://docs.fortinet.com/document/fortigate/7.4.1/administration-guide/559546/ssl-vpn-full-tunnel-for-remote-user): 官方文档, 设置ssl vpn
 * 基本信息
     * ssl vpn其他配置: 
         ```sh
@@ -274,6 +293,7 @@
             end
         ```
     * 目标进程: `sslvpnd`
+
 # CVE-2024-47575 (FortiJump)
 
 # FortiMail

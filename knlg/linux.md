@@ -1564,12 +1564,32 @@ typedef struct {
         * `tmpfs`即内存文件系统类型
         * `size=128M`表示分配128M内存空间
         * `/mnt/my_vfs`前的`tmpfs`表示tmpfs设备(对应`<设备路径>`). 
-* `losetup`: 设置及操作loop设备. 不加参数时列出当前所有非空闲loop设备的信息
-    * `-Pf <img文件>`: 自动将一个img文件挂载到关联一个空闲loop设备. 
 * `kpartx <设备文件>`: 从`partx`发展来的. 从指定设备中读取分区表, 并为所有检测到的分区创建映射的设备. 
     * `-a`: 添加分区映射. 
     * `-d`: 删除分区映射. 
-    * `-s`: 同步模式, 在成功创建分区前不要返回. 
+    * `-s`: 同步模式, 在成功创建分区前不要返回.
+* `losetup`: 设置及操作loop设备. 不加参数时列出当前所有非空闲loop设备的信息
+    * `-Pf <img文件>`: 自动将一个img文件挂载到关联一个空闲loop设备. 
+    * 增加loop设备数量: 
+        * 如果`loop`模块没有编译进内核: 
+            ```sh
+                # 在`/etc/modules.d`目录下新增`my_loop.conf`, 编辑文件, 添加: 
+                options loop max_loop=64
+
+                # 执行: 
+                rmmod loop
+                modprobe loop
+            ```
+ 
+            ```sh
+                # 编辑`/etc/default/grub`文件, 找到`GRUB_CMDLINE_LINUX`, 修改: 
+                GRUB_CMDLINE_LINUX="max_loop=64"
+
+                # 执行: 
+                update-grub
+                reboot
+            ```
+
 * 挂载一个镜像文件: 
     ```sh
         # 使用kpartx挂载镜像
@@ -1691,6 +1711,9 @@ typedef struct {
     * 问题
         * 远程登录时提示`no matching host key type found. Their offer: ssh-dss`
             * `ssh -oHostKeyAlgorithms=+ssh-dss -oPubkeyAcceptedKeyTypes=+ssh-rsa root@192.168.8.109`
+* `scp`: 传文件
+    * `scp <用户>@<IP地址>:<路径> <本地路径>`, 或者反之. 
+    * `sshpass -p <口令> <scp命令>`: 免口令输入. 
 * `tunctl`: 创建, 管理`TUN`/`TAP`接口(作为虚拟网络设备, `TAP`模拟数据链路层设备(有MAC地址, 更接近物理网卡), `TUN`模拟网络层设备). 
     * 安装: `sudo apt install uml-utilities`
     * `-u <user>`: 指定用户
