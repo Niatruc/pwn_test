@@ -1184,6 +1184,35 @@ typedef struct {
         b=my_var
         echo ${!b} # 123
     ```
+* `alias <别名>="<指令>"`: 为指令创建别名. 
+* `declare`: 用于声明 shell 变量. 
+    * `-f <函数名>`: 打印函数的定义
+    * `-p`: 打印变量的声明语句
+    * `-g`: 声明为全局变量
+    * `-r`: 声明为只读变量
+    * `-i`: 声明整数型变量
+    * `-a `: 声明数组
+        * `declare -a my_array=(1 2 3)`
+    * `-A`: 声明关联数组
+        * `declare -A my_assoc_array[a]=1 my_assoc_array[b]=2`
+    * `-x`: 声明变量为`export`
+    * `-n`: 声明引用变量
+        * `declare -n ref_var=var_name`: 则`$ref_var`和`$var_name`被捆绑, 一个的值发生改变, 另一个也一起变
+    * `-l`: 值转小写
+        * `declare -l lower_var="HELLO"`
+    * `-u`: 值转大写
+* `local <变量>`: 用于将函数内的变量声明为局部变量. 
+* `unset <变量>`: 取消变量定义. 
+* `source`: 导入其他sh文件. 可嵌套引入变量/函数定义等. 
+    * 注: `alias`定义的变量无法嵌套引入. 
+* 赋值
+    ```sh
+        a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
+        a=$a+1 # 结果是a被赋值为"1+1"
+
+        a=1
+        a=$[a+1] # 结果是a被赋值为2
+    ```
 * 字符串变量操作: 
     * `${#a}`: 获取字符串a的长度. 
     * `${str:0:2}`: 字符串分割, 0是下标, 2是长度. 
@@ -1198,36 +1227,55 @@ typedef struct {
     * `${str:=expr}`: 判空. 为空或未设置, 则设置值为"expr". 返回`$str`. 
     * `${str?expr}`: 判设置. 若未设置, 则打印"expr"到stderr. 返回`$str`. 
     * `${str:?expr}`: 判空. 为空或未设置, 则打印"expr"到stderr. 返回`$str`. 
-* `>`是直接覆盖文件, `>>`是追加到文件尾. 
-* `<<`: 表示传给命令的stdin的内容从这里开始是一个文档. 
-    ```sh
-        cat <<EOF
-        This is a document
-        EOF
-    ```
-* `<<<`: 表示传给命令的stdin的内容从这里开始是一个字符串, 如: `cat <<<"aaa"`, `grep -e "^123" <<< "1234"`. 
-* `cat < <(echo "12345")`: 意思是把echo命令的输出结果写入一个临时文件, 然后重定向给cat命令. 
-* 重定向: 
-    * `my_proc 2>&1`: 将标准错误输出重定向到标准输出. 
-    * `tee [OPTION]... [FILE]`: 将标准输入流输出到文件和标准输出流(可接收管道数据). 
-        * 例: `ls -l | tee /dev/tty | xargs echo`, 效果是在终端打印两次`ls -l`的结果(`echo`打印的数据在后)
-* 赋值
-    ```sh
-        a=1 # `=`两边不能有空格, 否则两边都会被认为是命令
-        a=$a+1 # 结果是a被赋值为"1+1"
-
-        a=1
-        a=$[a+1] # 结果是a被赋值为2
-    ```
-* `xargs`: 接收管道数据并执行命令. 基本用法: `cmd1 | xargs cmd2`, 将`cmd1`的执行结果传递给`cmd2`. 
-    * `-I <占位符>`: `cmd2`中出现占位符的地方都会替换成管道数据. 如, `cmd1 | xargs -I {} sh -c 'strings {}'`
-    * `-0`: 将`\0`作为定界符(而非空白符)
+* 数组
+    * `my_array=(A B "C" D)`
+    * `my_array+=(E)`: 向数组添加元素. 
+    * `${my_array[0]}`
+    * `${#my_array[@]}`: 获取数组长度. 
+    * `${my_array[@]:2}`: 获取从下标2开始之后的所有元素. 
+        * 注意: 如果将子数组赋予一个新变量, 写法是`new_ary=(${my_array[@]:2})`. **如果不加圆括号, 值会是一个字符串.** 
+    * `${my_array[@]:1:2}`: 获取从下标1开始之后的两个元素. 
+    * `${@:2}`: 获取函数参数数组从下标2开始之后的所有元素. 
+* 关联数组(类似字典): 
+    * 定义: `declare -A site=(["google"]="www.google.com" ["runoob"]="www.runoob.com" ["taobao"]="www.taobao.com")`
+    * `site["runoob"]="aaa.xyz"`
+    * `echo ${site["runoob"]}`
+    * `echo ${!site[@]}`: 获取关联数组的所有键
+        * `for key in ${!site[@]}; do echo $key, ${site[$key]}; done`
+* 数据流
+    * `>`是直接覆盖文件, `>>`是追加到文件尾. 
+    * `<<`: 表示传给命令的stdin的内容从这里开始是一个文档. 
+        ```sh
+            cat <<EOF
+            This is a document
+            EOF
+        ```
+    * `<<<`: 表示传给命令的stdin的内容从这里开始是一个字符串, 如: `cat <<<"aaa"`, `grep -e "^123" <<< "1234"`. 
+    * `cat < <(echo "12345")`: 意思是把echo命令的输出结果写入一个临时文件, 然后重定向给cat命令. 
+    * 重定向: 
+        * `my_proc 2>&1`: 将标准错误输出重定向到标准输出. 
+        * `tee [OPTION]... [FILE]`: 将标准输入流输出到文件和标准输出流(可接收管道数据). 
+            * 例: `ls -l | tee /dev/tty | xargs echo`, 效果是在终端打印两次`ls -l`的结果(`echo`打印的数据在后)
+    * `xargs`: 接收管道数据并执行命令. 基本用法: `cmd1 | xargs cmd2`, 将`cmd1`的执行结果传递给`cmd2`. 
+        * `-I <占位符>`: `cmd2`中出现占位符的地方都会替换成管道数据. 如, `cmd1 | xargs -I {} sh -c 'strings {}'`
+        * `-0`: 将`\0`作为定界符(而非空白符)
+    * `read v1`: 读取数据到变量v1
+        * `-a`: 读取到数组中
+            * `IFS=<切割字符>`: 指定切割字符, 如: `IFS=',' read -ra my_array <<< "$string"`
+        * `-d <结束字符>`: 指定结束字符. 没有指定的话这是读取到新空行时结束(即`\n`)
+        * `-n <数字>`: 指定读取的字符数
+        * `-t <数字>`: 指定等待输入字符的秒数
+        * `-p <提示信息>`: 指定输入数据前的提示信息
+        * `-r`: 防止将反斜杠视为转义字符
+        * `-s`: 静默, 输入的数据不要显示在终端上
+        * `-e`: 在输入的时候可以使用命令补全功能(tab补全)
 * `test <文件>`: 对文件进行测试
     * `-d`: 是否目录
     * `-f`: 是否文件
     * `-e`: 是否存在
     * `-x`: 是否可执行
 * `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
+    * `[ -v "$v1" ]`: 变量已设置则true. 
     * `[ -f "$file" ]`: 文件存在则true. 
     * `[ -d "$dir" ]`: 目录存在则true. 
     * `[ -z "$HOME" ]`: 字符串为空则true. 
@@ -1250,41 +1298,6 @@ typedef struct {
     * 注意: 
         * 圆括号包围的代码块是一个子shell, **其中的`return`语句并不能让代码块所在函数返回**. 
 * `eval`: 将其后的参数作为命令执行. 
-* `alias <别名>="<指令>"`: 为指令创建别名. 
-* `declare`: 用于声明 shell 变量. 
-    * `-f <函数名>`: 打印函数的定义
-    * `-p`: 打印变量的声明语句
-    * `-g`: 声明为全局变量
-    * `-r`: 声明为只读变量
-    * `-i`: 声明整数型变量
-    * `-a `: 声明数组
-        * `declare -a my_array=(1 2 3)`
-    * `-A`: 声明关联数组
-        * `declare -A my_assoc_array[a]=1 my_assoc_array[b]=2`
-    * `-x`: 声明变量为`export`
-    * `-n`: 声明引用变量
-        * `declare -n ref_var=var_name`: 则`$ref_var`和`$var_name`被捆绑, 一个的值发生改变, 另一个也一起变
-    * `-l`: 值转小写
-        * `declare -l lower_var="HELLO"`
-    * `-u`: 值转大写
-* `local <变量>`: 用于将函数内的变量声明为局部变量. 
-* `unset <变量>`: 取消变量定义. 
-* `source`: 导入其他sh文件. 可嵌套引入变量/函数定义等. 
-    * 注: `alias`定义的变量无法嵌套引入. 
-* 数组
-    * `my_array=(A B "C" D)`
-    * `${my_array[0]}`
-    * `${#my_array[@]}`: 获取数组长度. 
-    * `${my_array[@]:2}`: 获取从下标2开始之后的所有元素. 
-        * 注意: 如果将子数组赋予一个新变量, 写法是`new_ary=(${my_array[@]:2})`. **如果不加圆括号, 值会是一个字符串.** 
-    * `${my_array[@]:1:2}`: 获取从下标1开始之后的两个元素. 
-    * `${@:2}`: 获取函数参数数组从下标2开始之后的所有元素. 
-* 关联数组: 
-    * 定义: `declare -A site=(["google"]="www.google.com" ["runoob"]="www.runoob.com" ["taobao"]="www.taobao.com")`
-    * `site["runoob"]="aaa.xyz"`
-    * `echo ${site["runoob"]}`
-    * `echo ${!site[@]}`: 获取关联数组的所有键
-        * `for key in ${!site[@]}; do echo $key, ${site[$key]}; done`
 * 追踪和调试
     * `sh`
         * `-n`: 仅检查语法
@@ -1295,6 +1308,7 @@ typedef struct {
         * `-u`: 遇到不合适的变量的时候, 忽视此变量. 
         * `-e`: 发生错误就终止. 
         * `-eo pipefail`: 发生错误(包括用了管道的命令)就终止. 
+
 * 示例
     ```sh
         # 判断语句
@@ -1370,9 +1384,9 @@ typedef struct {
         echo $file_content
 
         # 逐行读文件
-        while read -r line; do
-            echo "$line"
-        done < $file_path
+        while read -r line || [[ -n ${line} ]]; do # -r防止反斜杠被解释为转义字符; -n防止最后一行没被获取
+            echo "读取到的行内容是：$line"
+        done < /home/test/test.txt
     ```
 
 ## 系统指令, 工具
@@ -1527,6 +1541,8 @@ typedef struct {
         * `@`: 符号链接
         * `=>`: 目录
         * `|`: 目录
+    * 统计文件数量
+        * 包含子目录下的文件: `ls -lR <目录> | grep "^-" | wc -l`
 * `lsof <文件路径>`: list opened files, 可以查看打开(占用)该文件的进程. 
     * 在查找`fork`产生的孤儿进程时有用. 
     * `-p <pid>`: 可以查看进程中打开的文件描述符的详细信息, 包括大小, 类型等. 
@@ -1542,20 +1558,6 @@ typedef struct {
 * `truncate`: 用于将文件缩小或扩展到指定的大小. 
     * 用来清除日志文件中的内容: `truncate -s 0 /var/log/yum.log`
     * 扩展文件: `truncate -s +200k file.txt`
-* `dd`: 转换, 拷贝文件
-    * `if=<输入文件>`
-    * `of=<输出文件>`
-    * `bs=bytes`: 同时设置读入/输出的块大小为`bytes`个字节. 
-    * `skip=blocks`: 从输入文件开头跳过blocks个块后再开始复制. 
-    * 例
-        * 连接两个文件为新文件: 
-            ```sh
-                # 步骤1：写入file1的前8KB
-                dd if=file1 of=output bs=8K count=1
-
-                # 步骤2：从output的8KB位置开始写入file2
-                dd if=file2 of=output bs=8K seek=1 conv=notrunc
-            ```
 * `mount <设备路径> <目标目录>`
     * `-o loop=/dev/<loop设备>`: 
         * 如果要访问img文件中的内容, 可使用该选项. 其将loop设备指向img文件, 然后mount该loop设备到目标目录
@@ -1659,6 +1661,45 @@ typedef struct {
         * `noerror`: 出错时不停止. 
         * `notrunc`: 不截短输出文件. 
         * `sync`: 将每个输入块填充到`ibs`个字节, 不足部分用空(`NUL`)字符补齐. 
+    * 例
+        * 连接两个文件为新文件: 
+            ```sh
+                # 步骤1：写入file1的前8KB
+                dd if=file1 of=output bs=8K count=1
+
+                # 步骤2：从output的8KB位置开始写入file2
+                dd if=file2 of=output bs=8K seek=1 conv=notrunc
+            ```
+* `nfs`: 网络文件系统
+    * 安装: 
+        ```sh
+            sudo apt install nfs-common
+
+            # Red Hat/CentOS/Rocky Linux
+            sudo dnf install nfs-utils
+        ```
+    * 挂载: `mount <地址>:<目标目录> <本地目录>`
+* `flock`: 文件锁
+    ```sh
+        (
+            flock 9 || exit 1 # 尝试获取描述符为9的文件锁
+            sleep 1
+        ) 9>/tmp/a.lock # 右括号之后的文件描述符会在子shell结束后自动释放
+
+        # 等效代码: 
+        # 打开文件描述符 9 指向锁文件
+        exec 9>/tmp/a.lock
+        
+        (
+            flock 9 || exit 1  # 尝试获取文件锁
+            sleep 1
+            sleep 2
+        )
+        
+        # 关闭文件描述符 9
+        exec 9>&-
+    ```
+    
 ### 网络 
 * 重启网络
     * `service network-manager restart`
