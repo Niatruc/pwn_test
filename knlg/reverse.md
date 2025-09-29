@@ -974,7 +974,7 @@
         * 搜索
             ```py
                 # 搜索特征串可以如下
-                pattern = "<16进制的特征串>"
+                pattern = "<16进制的特征串>" # 注意每个字节间要有空格
                 addr = idc.ida_ida.inf_get_min_ea()
                 while addr < idc.ida_ida.inf_get_max_ea(): 
                     addr = idc.find_binary(addr, SEARCH_DOWN, pattern)
@@ -982,7 +982,7 @@
                         print(hex(addr), idc.GetDisasm(addr))
             ```
 
-            * `find_binary(ea, flag, searchstr, radix=16, from_bc695=False)`
+            * `idc.find_binary(ea, flag, searchstr, radix=16, from_bc695=False)`(已废弃, 改用`ida_search.find_binary`)
                 * `flag`: 
                     * `SEARCH_UP`: 0, 向上搜索. 
                     * `SEARCH_DOWN`: 1, 向下搜索. 
@@ -994,6 +994,12 @@
                     * `SEARCH_UNICODE`: 64, 将所有搜索字符串视为Unicode
                     * `SEARCH_IDENT`: 128, 
                     * `SEARCH_BRK`: 256, 
+            * `ida_search`:
+                * `find_binary(start, end, searchstr, radiux, sflag)`
+                    * 例: `ida_search.find_binary(addr, idc.BADADDR, pattern, 16, ida_search.SEARCH_NEXT|ida_search.SEARCH_DOWN)`
+                * `find_text(ea, y, x, searchstr, sflag)`
+                    * 例: `find_text(cur_addr, 0, 0, "something", ida_search.SEARCH_DOWN)`
+                * `find_code(ea, flag)`: 用于查找标记为`code`的下一个地址
         * 处理节
             ```py
                 # 遍历节
