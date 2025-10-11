@@ -96,18 +96,47 @@
                 * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个`mpi`(multi precision integer)读入缓冲区`buf`中. 
                 * `MPI mpi_read_raw_data(const void *xbuffer, size_t nbytes)`: 从`xbuffer`中读取字节流为一个整数. `nbytes`是要读取的字节数. 
                 * `void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)`: 从`cachep`中分配一个对象. 
+            * 相关加密函数
+                * `sha256_init(SHA256_CTX *context);`
+                * `sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len);`: 将长度为`len`字节的数据`data`添加到`context`上下文
+                * `crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`: 用`ctx->key`, `iv`以及字符串常量"expand 32-byte k"初始化`state`
+                * `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`
+                    ```cpp
+                        static void chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)
+                        {
+                            u8 stream[CHACHA20_BLOCK_SIZE]; // CHACHA20_BLOCK_SIZE即64
+
+                            if (dst != src)
+                                memcpy(dst, src, bytes);
+
+                            while (bytes >= CHACHA20_BLOCK_SIZE) {
+                                chacha20_block(state, stream); // 生成流密码
+                                crypto_xor(dst, stream, CHACHA20_BLOCK_SIZE); // 一次加密一块数据(64字节, 即16个整型)
+                                bytes -= CHACHA20_BLOCK_SIZE;
+                                dst += CHACHA20_BLOCK_SIZE;
+                            }
+                            if (bytes) {
+                                chacha20_block(state, stream);
+                                crypto_xor(dst, stream, bytes);
+                            }
+                        }
+                    ```
+                * `rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`: 将缓冲区`key`中的BER编码的密钥转化为原始密钥, 存到`rsa_key`(之后需用mpi函数读取, 获取 RSA 所需的模数 n 和指数 e)
             * `7.4.1`
                 * `fgt_verify_initrd`
-                * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`, `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`进行解密. 
+                * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init`, `chacha20_docrypt`进行解密. 
                 * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
             * `7.4.4`
                 * 从这个版本开始没有`fgt_verify_decrypt`函数. 根据反编译结果来看, 其被作为inline函数编译到`fgt_verify_initrd`函数内部. (`fgt_verify_initrd`符号也被移除)
             * `7.6.1`
-                * 同`7.4.1`, 但是用chacha20对`.data`节中一块长为`0x10E`的区域进行解密运算, 得到一个key. 
-                * 用`rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`从上述`key`中提取rsa公钥, 存到`rsa_key`
+                * 等同于原来的`fgt_verifier_open`: 
+                    * 等同于原来的`fgt_verifier_pub_key`: 
+                        * 用chacha20对`.data`节中一块长为`0x10E`的区域进行解密运算(`crypto_chacha20_init`和`chacha20_docrypt`), 得到一个`key`. 
+                    * 用`rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`从上述`key`中提取rsa公钥, 存到`rsa_key`
                 * 用sha256生成了初始16字节密钥和向量
                 * 循环, 每回解密16个字节: 
-                    * `aes_enc_blk(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in)`
+                    * 用`aes_enc_blk(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in)`生成16各字节密钥
+                    * 用上述密钥进行异或解密. 
         * `gzip -d rootfs.gz`
         * `cpio -i 2> /dev/null < rootfs`: 提取文件系统到当前目录
         * 解压压缩包: 老版本需要用fortinet自带的`xz`和`ftar`, 新版本可直接用公共的`xz`和`tar`

