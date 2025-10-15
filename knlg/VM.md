@@ -157,6 +157,8 @@
             "registry-mirrors":["https://docker.1ms.run"]
         }
     ```
+## API
+* 参考: [Docker SDK for Python](https://docker-py.readthedocs.io/en/stable/index.html)
 ## 错误记录
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
     * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 

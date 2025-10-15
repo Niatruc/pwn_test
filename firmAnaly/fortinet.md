@@ -121,7 +121,8 @@
                             }
                         }
                     ```
-                * `rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`: 将缓冲区`key`中的BER编码的密钥转化为原始密钥, 存到`rsa_key`(之后需用mpi函数读取, 获取 RSA 所需的模数 n 和指数 e)
+                * `rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`: 其中调用`asn1_ber_decoder`函数(`asn1_ber_decoder(一个存放了数据的常量地址, rsa_key, key, key_len)`)将缓冲区`key`中的BER编码的密钥转化为原始密钥, 存到`rsa_key`(之后需用mpi函数读取, 获取 RSA 所需的模数 n 和指数 e)
+                * `asn1_ber_decoder(const struct asn1_decoder *decoder, void *context, const unsigned char *data, size_t datalen)`
             * `7.4.1`
                 * `fgt_verify_initrd`
                 * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init`, `chacha20_docrypt`进行解密. 

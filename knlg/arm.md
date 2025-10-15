@@ -51,7 +51,7 @@
         * `r11`(`FP`): `callee-save`寄存器,  帧指针`fp`(Flame Pointer)(相当于x86的`ebp`)
         * `r12`(`IP`(`intra-procedure scratch`)): 
         * `r13`: 堆栈指针`SP`, 指向栈顶
-        * `r14`: `LR`寄存器(linked register), 存返回地址
+        * `r14`: `LR`寄存器(linked register), 存**返回地址**
         * `r15`: 程序计数器`PC`
 * aarch64
     * `x0` ~ `x7`: 传递子程序的参数和返回值, 多余的参数用堆栈传递, 64位的返回结果保存在`x0`中. 

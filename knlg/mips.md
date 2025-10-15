@@ -40,7 +40,7 @@
     * `$29`(`$sp`): 栈指针(Stack Pointer)
     * `$30`(`$fp`): 帧指针(Frame Pointer)
         * 函数开头部分会有一条`move $fp, $sp`, 使`$fp`指向栈顶. 
-    * `$31`(`$ra`): 返回地址(return address)
+    * `$31`(`$ra`): **返回地址**(return address)
         * 例如调用程序把参数放到`$a0~$a3`, 然后`jal X`跳到X过程, 被调过程完成后把结果放到`$v0,$v1`,然后使用`jr $ra`返回. 
 * CP0寄存器
     * `SR`(12)(status register)(状态寄存器): 一个读写寄存器, 用于启用或禁用各种类型的中断

@@ -283,13 +283,15 @@
 ### chacha20
 * 参考
     * [chacha20 算法流程](https://blog.csdn.net/choumin/article/details/132804784)
+    * 参考实现: https://github.com/Ginurx/chacha20-c/blob/master/chacha20.c
 * 要点
     * 每个分组64字节. 
     * chacha20算法只生成流密钥. 
-    * 初始密钥矩阵: 
-        * 以一个DWORD为一个元素, 组成4*4矩阵. 
+    * 初始密钥矩阵(`state`): 
+        * 以一个DWORD为一个元素, 组成4*4矩阵. (共64字节)
         * 第一行(16个字节)为一个常量: 比如`"expand 32-byte k"`
-        * 第二三行(32个字节)
+        * 第二三行(32个字节): `key`
+        * 第四行(16个字节): 初始向量`iv`(通常其中第一个整型为计数器`counter`, 在每一轮生成密钥时加1; 后面12个字节为随机整数`nonce`)
     * 每次生成密钥的方法: 
         * 对矩阵进行列运算和对角线运算, 重复10遍. 
         * 运算规则: 
@@ -300,8 +302,137 @@
                 c += d; b ^= c; b <<<= 7;
             ```
             * 三个基本运算: 加, 异或, 循环移位. 
-            * abcd及矩阵列或对角线的4个元素. 运用上述规则对矩阵元素进行更新. 
+            * abcd即矩阵列或对角线的4个元素. 运用上述规则对矩阵元素进行更新. 
         * 更新后的矩阵与原矩阵相加, 得到新一组密钥. 
+* python实现
+    ```py
+    import struct
+    from typing import Tuple, List
+
+    def rotl32(x: int, n: int) -> int:
+        """32位循环左移操作"""
+        return ((x << n) & 0xFFFFFFFF) | (x >> (32 - n))
+
+    def quarter_round(a: int, b: int, c: int, d: int) -> Tuple[int, int, int, int]:
+        """ChaCha20的四分之一轮操作"""
+        a = (a + b) & 0xFFFFFFFF
+        d ^= a
+        d = rotl32(d, 16)
+        
+        c = (c + d) & 0xFFFFFFFF
+        b ^= c
+        b = rotl32(b, 12)
+        
+        a = (a + b) & 0xFFFFFFFF
+        d ^= a
+        d = rotl32(d, 8)
+        
+        c = (c + d) & 0xFFFFFFFF
+        b ^= c
+        b = rotl32(b, 7)
+        
+        return a, b, c, d
+
+    def chacha20_init(key: bytes, iv: bytes):
+        """
+        生成64字节的ChaCha20初始state
+        
+        :param key: 32字节密钥
+        :param iv: 16字节随机数
+        :return: 64字节state(4*4的整型数组)
+        """
+        # ChaCha20常量
+        constants = [b"expa", b"nd 3", b"2-by", b"te k"]
+        
+        # 将密钥拆分为8个32位小端字
+        key_words = [struct.unpack('<I', key[i:i+4])[0] for i in range(0, 32, 4)]
+        
+        # 将iv拆分为4个32位小端字
+        iv_words = [struct.unpack('<I', iv[i:i+4])[0] for i in range(0, 16, 4)]
+        
+        # 初始化状态矩阵 (4x4)
+        state = [
+            struct.unpack('<I', constants[0])[0],
+            struct.unpack('<I', constants[1])[0],
+            struct.unpack('<I', constants[2])[0],
+            struct.unpack('<I', constants[3])[0],
+            *key_words[:4],  # 密钥前16字节
+            *key_words[4:],  # 密钥后16字节
+            iv_words[0],
+            iv_words[1],
+            iv_words[2],
+            iv_words[3],
+        ]
+
+        return state
+
+
+    def chacha20_block(state: list[int]) -> bytes:
+        
+        
+        # 保存初始状态用于后续加法
+        initial_state = state.copy()
+        
+        # 执行20轮操作 (10次双轮)
+        for _ in range(10):
+            # 列轮操作
+            state[0], state[4], state[8], state[12] = quarter_round(state[0], state[4], state[8], state[12])
+            state[1], state[5], state[9], state[13] = quarter_round(state[1], state[5], state[9], state[13])
+            state[2], state[6], state[10], state[14] = quarter_round(state[2], state[6], state[10], state[14])
+            state[3], state[7], state[11], state[15] = quarter_round(state[3], state[7], state[11], state[15])
+            
+            # 对角线轮操作
+            state[0], state[5], state[10], state[15] = quarter_round(state[0], state[5], state[10], state[15])
+            state[1], state[6], state[11], state[12] = quarter_round(state[1], state[6], state[11], state[12])
+            state[2], state[7], state[8], state[13] = quarter_round(state[2], state[7], state[8], state[13])
+            state[3], state[4], state[9], state[14] = quarter_round(state[3], state[4], state[9], state[14])
+        
+        # 将最终状态与初始状态相加
+        for i in range(16):
+            state[i] = (state[i] + initial_state[i]) & 0xFFFFFFFF
+        
+        # 序列化为64字节输出
+        return b''.join(struct.pack('<I', word) for word in state)
+
+    def chacha20_encrypt(key: bytes, iv: bytes, plaintext: bytes) -> bytes:
+        """
+        ChaCha20加密/解密函数
+        
+        :param key: 32字节密钥
+        :param iv: 16字节随机数
+        :param plaintext: 明文数据
+        :return: 密文数据
+        """
+        if len(key) != 32:
+            raise ValueError("密钥必须是32字节")
+        if len(iv) != 16:
+            raise ValueError("随机数必须是16字节")
+        
+        ciphertext = bytearray()
+
+        state = chacha20_init(key, iv)
+
+        # 分块处理输入数据
+        for i in range(0, len(plaintext), 64):
+            # 生成密钥流块
+            key_stream = chacha20_block(state)
+            
+            # 处理当前块
+            block = plaintext[i:i+64]
+
+            # 将密钥流与明文异或
+            for j in range(len(block)):
+                ciphertext.append(block[j] ^ key_stream[j])
+        
+        return bytes(ciphertext)
+
+    # 测试
+    key = bytes.fromhex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
+    iv = bytes.fromhex("00000000000000090000004a00000000")
+    plaintext = b"Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it."
+    ciphertext = chacha20_encrypt(key, iv, plaintext)
+    plaintext = chacha20_encrypt(key, iv, ciphertext)
+    ```
 
 # 非对称加密
 ## RSA
@@ -389,7 +520,20 @@
 
 ## ECC(椭圆曲线加密算法)
 
-# TLS协议
+# 标准和协议
+## 密钥格式
+* 参考
+    * [密码学基础3：常见密钥格式完全解析](https://juejin.cn/post/6844903924021854216)
+* `ASN.1`(Abstract Syntax Notation One): 是一个标准的接口描述语言(IDL), 只定义了抽象语法, 并没有限定编码规则. 
+* `BER`(Basic Encoding Rules): ITU-T X.690给出的传输ASN.1数据结构的一套基础编码规则
+    * `TLV`(Type-Length-Value): BER/CER/DER编码都是典型的TLV格式. 且允许多层嵌套(Value可以为一个或多个TLV组成)
+* `DER`(Distinguished Encoding Rules): BER的子集. 
+* `CER`(Canonical Encoding Rules): BER的子集. 
+    * DER的length长度必须是明确的, 而CER可以通过`end-of-contents octets`来表明Value结束
+* `PKCS`(Public Key Cryptography Standards): 公钥密码学标准
+* `PKIX`(Public-Key Infrastructure X.509): 公钥基础设施 
+## TLS协议
 * 参考
     * [图解SSL/TLS 协议](https://neotan.github.io/ssl-tls/)
     * [图解SSL/TLS协议](https://www.ruanyifeng.com/blog/2014/09/illustration-ssl.html)
+
