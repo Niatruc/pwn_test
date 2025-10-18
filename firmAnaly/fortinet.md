@@ -1,4 +1,6 @@
-* 固件下载: https://fortiweb.ru/en/download/
+* 固件下载: 
+    * https://fortiweb.ru/en/download/
+    * https://www.partian.co/download
 * 工具
     * https://github.com/rrrrrrri/fgt-gadgets
 * 参考
@@ -47,14 +49,22 @@
     * qemu启动时指定网卡: `-nic tap,id=net0,ifname=tap_fgt,script=no`
     * fortigate中配置网卡: 
 
-    ```
-        config system interface
-        edit port1
-        set mode static
-        set ip 192.168.1.2 255.255.255.0
-        set allowaccess http ping https ssh telnet
-        end
-    ```
+        ```
+            config system interface
+            edit port1
+            set mode static
+            set ip 192.168.1.2 255.255.255.0
+            set allowaccess http ping https ssh telnet
+            end
+        ```
+    * (在上面的edit模式下)重启网卡: 
+        ```
+            set status down
+            next 
+            edit port1
+            set status up
+            end
+        ```
     * 对于dhcp的网卡, 获取网卡ip地址: `get system interface physical port1`
     * 注意: 如果使用virt-manager仿真, 则指定IP为和宿主机的`virbr0`相同的网段. 
     * 配置完后, 访问`http://192.168.1.2`, 可登录web服务. 之后会要求上传证书. 
