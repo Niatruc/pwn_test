@@ -102,6 +102,7 @@
         * 对于较老的版本(比如`7.0.0`), 可直接进入后面的步骤; 对于新版本, 需分析flatkc中对rootfs的加解密过程: 
             * 使用ida加载flatkc文件(先用`vmlinux-to-elf`加上符号)
             * 相关linux函数: 
+                * `ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)`
                 * `int mpi_powm(MPI res, MPI base, MPI exp, MPI mod)`: RES = BASE ^ EXP mod MOD
                 * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个`mpi`(multi precision integer)读入缓冲区`buf`中. 
                 * `MPI mpi_read_raw_data(const void *xbuffer, size_t nbytes)`: 从`xbuffer`中读取字节流为一个整数. `nbytes`是要读取的字节数. 
@@ -109,6 +110,7 @@
             * 相关加密函数
                 * `sha256_init(SHA256_CTX *context);`
                 * `sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len);`: 将长度为`len`字节的数据`data`添加到`context`上下文
+                * `sha256_final(unsigned char *md, SHA256_CTX *c)`
                 * `crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`: 用`ctx->key`, `iv`以及字符串常量"expand 32-byte k"初始化`state`
                 * `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`
                     ```cpp
