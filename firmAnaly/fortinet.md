@@ -110,7 +110,7 @@
             * 相关加密函数
                 * `sha256_init(SHA256_CTX *context);`
                 * `sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len);`: 将长度为`len`字节的数据`data`添加到`context`上下文
-                * `sha256_final(unsigned char *md, SHA256_CTX *c)`
+                * `sha256_final(unsigned char *md, SHA256_CTX *c)`: 最终的摘要信息会放在`md`处. (在fortigate内核中, 似乎是用二参放最终的哈希)
                 * `crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`: 用`ctx->key`, `iv`以及字符串常量"expand 32-byte k"初始化`state`
                 * `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`
                     ```cpp
@@ -304,6 +304,7 @@
     |固件版本|Linux内核版本|
     |-|-|
     |7.0.0|3.2.16|
+    |7.2.2|3.2.16|
     |7.4.1|4.19.13|
 
 
