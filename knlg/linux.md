@@ -1757,7 +1757,9 @@ typedef struct {
             * 在宿主机中执行`ssh -p 22222 user@myhost`, 访问自己的22222端口(`user`为虚拟机中的账号), 实际即访问虚拟机的22端口. 
     * 问题
         * 远程登录时提示`no matching host key type found. Their offer: ssh-dss`
-            * `ssh -oHostKeyAlgorithms=+ssh-dss -oPubkeyAcceptedKeyTypes=+ssh-rsa root@192.168.8.109`
+            * `ssh -oHostKeyAlgorithms=+ssh-dss root@192.168.8.109`
+        * `no matching key exchange method found. Their offer: diffie-hellman-group1-sha1`
+            * 加上参数: `-oKexAlgorithms=+diffie-hellman-group1-sha1`
 * `scp`: 传文件
     * `scp <用户>@<IP地址>:<路径> <本地路径>`, 或者反之. 
     * `sshpass -p <口令> <scp命令>`: 免口令输入. 

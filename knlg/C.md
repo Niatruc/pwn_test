@@ -334,6 +334,10 @@
     |`__TIME__`|	这会包含一个形式为 hour:minute:second 的字符串, 它表示程序被编译的时间. |
     |`__builtin_return_address(LEVEL)`|	gcc支持, `LEVEL`为0时获取当前函数的返回地址. |
 
+* 调试打印: 
+    ```c
+        #define debug_print(fmt, ...) printf("DEBUG: %s:%d %s(): " fmt "\n", __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+    ```
 
 ## 执行程序
 * Console程序: 最先执行的是`mainCRTStartup`函数, 然后`main`. `mainCRTStartup`会用`CRTInit`完成C库, C的初始化函数, C++库, C++的初始化函数的初始化工作.
