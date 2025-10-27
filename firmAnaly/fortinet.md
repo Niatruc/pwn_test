@@ -111,7 +111,7 @@
                 * `sha256_init(SHA256_CTX *context);`
                 * `sha256_update(SHA256_CTX *context, const uint8_t *data, size_t len);`: 将长度为`len`字节的数据`data`添加到`context`上下文
                 * `sha256_final(unsigned char *md, SHA256_CTX *c)`: 最终的摘要信息会放在`md`处. (在fortigate内核中, 似乎是用二参放最终的哈希)
-                * `crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`: 用`ctx->key`, `iv`以及字符串常量"expand 32-byte k"初始化`state`
+                * `crypto_chacha20_init(u32 *state, struct chacha20_ctx *ctx, u8 *iv)`: 用`ctx->key`, `iv`以及字符串常量"expand 32-byte k"初始化`state`(64个字节)
                 * `chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)`
                     ```cpp
                         static void chacha20_docrypt(u32 *state, u8 *dst, const u8 *src, unsigned int bytes)
@@ -135,6 +135,8 @@
                     ```
                 * `rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`: 其中调用`asn1_ber_decoder`函数(`asn1_ber_decoder(一个存放了数据的常量地址, rsa_key, key, key_len)`)将缓冲区`key`中的BER编码的密钥转化为原始密钥, 存到`rsa_key`(之后需用mpi函数读取, 获取 RSA 所需的模数 n 和指数 e)
                 * `asn1_ber_decoder(const struct asn1_decoder *decoder, void *context, const unsigned char *data, size_t datalen)`
+                * `crypto_aes_expand_key(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len)`: 扩展密钥. `key_len`是`in_key`的长度(16, 24或32). `ctx`用于保存最终计算生成的密钥. 
+                * `aes_enc_blk(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in)`
             * `7.4.1`
                 * `fgt_verify_initrd`
                 * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init`, `chacha20_docrypt`进行解密. 

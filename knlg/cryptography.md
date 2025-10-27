@@ -179,19 +179,20 @@
     * 列混淆(MixColumns): 属于扩散层
     * 轮密钥加(AddRoundKey): 
     
-    ```cpp
-    // 字节代换
-    PlainArray[i] = S_Table[PlainArray[i] >> 4][PlainArray[i] & 0x0F];
+        ```cpp
+            // 字节代换
+            PlainArray[i] = S_Table[PlainArray[i] >> 4][PlainArray[i] & 0x0F];
 
-    // 逆字节代换
-    CipherArray[i] = ReS_Table[CipherArray[i] >> 4][CipherArray[i] & 0x0F];
+            // 逆字节代换
+            CipherArray[i] = ReS_Table[CipherArray[i] >> 4][CipherArray[i] & 0x0F];
 
-    // 行位移
-    CipherArray[0] = CipherArray[0];
-    CipherArray[1] = (CipherArray[1] << 8) | (CipherArray[1] >> 24); //第二行 右移8Bit
-    CipherArray[2] = (CipherArray[2] << 16) | (CipherArray[2] >> 16); //第三行 右移16Bit
-    CipherArray[3] = (CipherArray[3] << 24) | (CipherArray[3] >> 8); //第四行 右移24Bit
-    ```
+            // 行位移
+            CipherArray[0] = CipherArray[0];
+            CipherArray[1] = (CipherArray[1] << 8) | (CipherArray[1] >> 24); //第二行 右移8Bit
+            CipherArray[2] = (CipherArray[2] << 16) | (CipherArray[2] >> 16); //第三行 右移16Bit
+            CipherArray[3] = (CipherArray[3] << 24) | (CipherArray[3] >> 8); //第四行 右移24Bit
+        ```
+        
 ### 分组密码工作模式
 * 前言
     * 分组密码不能隐蔽数据模式(相同明文组对应相同密文组)
@@ -368,31 +369,31 @@
 
 
     def chacha20_block(state: list[int]) -> bytes:
-        
-        
-        # 保存初始状态用于后续加法
-        initial_state = state.copy()
+    
+        state2 = state.copy() # 初始状态除了计数器以外都不能变动, 所以拷贝一份
         
         # 执行20轮操作 (10次双轮)
         for _ in range(10):
             # 列轮操作
-            state[0], state[4], state[8], state[12] = quarter_round(state[0], state[4], state[8], state[12])
-            state[1], state[5], state[9], state[13] = quarter_round(state[1], state[5], state[9], state[13])
-            state[2], state[6], state[10], state[14] = quarter_round(state[2], state[6], state[10], state[14])
-            state[3], state[7], state[11], state[15] = quarter_round(state[3], state[7], state[11], state[15])
+            state2[0], state2[4], state2[8], state2[12] = quarter_round(state2[0], state2[4], state2[8], state2[12])
+            state2[1], state2[5], state2[9], state2[13] = quarter_round(state2[1], state2[5], state2[9], state2[13])
+            state2[2], state2[6], state2[10], state2[14] = quarter_round(state2[2], state2[6], state2[10], state2[14])
+            state2[3], state2[7], state2[11], state2[15] = quarter_round(state2[3], state2[7], state2[11], state2[15])
             
             # 对角线轮操作
-            state[0], state[5], state[10], state[15] = quarter_round(state[0], state[5], state[10], state[15])
-            state[1], state[6], state[11], state[12] = quarter_round(state[1], state[6], state[11], state[12])
-            state[2], state[7], state[8], state[13] = quarter_round(state[2], state[7], state[8], state[13])
-            state[3], state[4], state[9], state[14] = quarter_round(state[3], state[4], state[9], state[14])
+            state2[0], state2[5], state2[10], state2[15] = quarter_round(state2[0], state2[5], state2[10], state2[15])
+            state2[1], state2[6], state2[11], state2[12] = quarter_round(state2[1], state2[6], state2[11], state2[12])
+            state2[2], state2[7], state2[8], state2[13] = quarter_round(state2[2], state2[7], state2[8], state2[13])
+            state2[3], state2[4], state2[9], state2[14] = quarter_round(state2[3], state2[4], state2[9], state2[14])
         
         # 将最终状态与初始状态相加
         for i in range(16):
-            state[i] = (state[i] + initial_state[i]) & 0xFFFFFFFF
+            state2[i] = (state2[i] + state[i]) & 0xFFFFFFFF
+
+        state[12] += 1 # 计数器加1
         
         # 序列化为64字节输出
-        return b''.join(struct.pack('<I', word) for word in state)
+        return b''.join(struct.pack('<I', word) for word in state2)
 
     def chacha20_encrypt(key: bytes, iv: bytes, plaintext: bytes) -> bytes:
         """
