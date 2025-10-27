@@ -192,7 +192,12 @@
             2. 
                 * 接着会`fork`并在一个函数中对`.fgtsum`作校验. 可直接在该函数的开头返回(设置`mov eax, 1`以返回1)
     * `7.0.0`
-        * 同`6.4.13`, 需要绕过`.fgtsum`校验. 同样可直接在该函数的开头返回1. 
+        * 同`6.4.13`, 需要在`init`中绕过`.fgtsum`校验. 同样可直接在该函数的开头返回1. 
+    * `7.2.2`
+        * 分析: 
+            * `rootfs.gz`没有加密. 
+            * 修改`rootfs.gz`后, 启动时报错`Kernel panic - not syncing: No init found. ...`. 定位`No init found`引用位置, 在报错代码签名看到`fgt_verify`函数的调用. 
+            * `fgt_verify`函数通过rsa算法校验文件完整性(分别比对了`/sbin/init.chk`, `bin.tar.xz.chk`, `usr.tar.xz.chk`). 
     * `7.4.1`
         * 绕过`do_halt`调用: 
             * 搜索字符串`do_halt`, 引用它的函数即为关机函数`do_halt`. 
