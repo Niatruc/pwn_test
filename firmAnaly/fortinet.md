@@ -104,7 +104,7 @@
             * 相关linux函数: 
                 * `ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)`
                 * `int mpi_powm(MPI res, MPI base, MPI exp, MPI mod)`: RES = BASE ^ EXP mod MOD
-                * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个`mpi`(multi precision integer)读入缓冲区`buf`中. 
+                * `int mpi_read_buffer(MPI a, uint8_t *buf, unsigned buf_len, unsigned *nbytes, int *sign)`: 将一个`mpi`(multi precision integer)读入缓冲区`buf`中. (返回0表示成功)
                 * `MPI mpi_read_raw_data(const void *xbuffer, size_t nbytes)`: 从`xbuffer`中读取字节流为一个整数. `nbytes`是要读取的字节数. 
                 * `void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)`: 从`cachep`中分配一个对象. 
             * 相关加密函数
