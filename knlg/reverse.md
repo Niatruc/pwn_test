@@ -1407,6 +1407,10 @@
     * `t`: 转化, 管理, 打印C数据类型
     * `v`: 平板模式(panel)
         * `m`: 打开菜单
+        * `tab`: 切换窗口焦点
+        * `p`: 切换主窗口
+        * `u`: 往回导航(后退)
+
     * `V`: 可视模式(visual)
     * `d`: 调试(debug)
         * `b`: 断点(breakpoint)
@@ -1446,6 +1450,12 @@
                 * 注: 在`libr`库的使用中有问题. 
         * `/x 68656c6c6f`: 按十六进制格式搜索. 
         * `/R <指令>`: 搜索ROP gadgets, 用`;`分隔. 
+* ESIL(Evaluable Strings Intermediate Language)
+    * 参考
+        * [ESIL中间语言：Radare2的仿真与分析引擎](https://blog.csdn.net/gitblog_00205/article/details/148362413)
+    * 要点
+        * Radare2框架中用于描述指令行为的中间语言
+        * 采用逆波兰表示法(RPN), 所有操作都以逗号分隔的字符串形式表示
 * python编程
     * `r2pipe`
         * 安装: `pip install r2pipe`
