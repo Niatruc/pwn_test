@@ -159,6 +159,51 @@
     ```
 ## API
 * 参考: [Docker SDK for Python](https://docker-py.readthedocs.io/en/stable/index.html)
+* 
+    ```py
+        import docker
+        client = docker.from_env()
+
+        # 列出容器
+        client.containers.list(all=True, filters={
+            "name": "test_-*"
+        })
+
+        # 创建容器
+        container = client.containers.create(
+            image="myImage:latest",
+            # command="python -c 'import time; time.sleep(30)'",
+            # entrypoint="/bin/bash",
+            name=f"container_test",
+            environment={
+                "MY_ENV1": "1",
+            },
+            volumes=[
+                "<容器外的目录>:<容器内的目录>",
+                "/dev:/dev",
+            ],
+            # {
+                # 容器外的目录: {'bind': '容器内的目录', 'mode': 'rw'},
+            # },
+            privileged=True,
+            auto_remove=True, # 运行结束后自动移除容器
+            my_vars={
+                "test": True,
+            }, # 可通过`container.my_vars`获取
+        )
+        
+        container.unpause() # 启动容器
+
+        print(container.logs().decode())
+
+        container.remove() # 移除容器
+        
+        # 监听docker服务器所有事件(包括容器, 镜像等). 参考: https://docs.docker.com/reference/cli/docker/system/events/
+        for event in client.events(decode=True, filters={'event': 'die'}):
+            # 获取事件对应的容器
+            container_id = event["id"]
+            container = client.containers.get(container_id)
+    ```
 ## 错误记录
 * 在容器中使用systemctls时报错: `System has not been booted with systemd as init system`
     * 需要加上`--privileged=true`, 让容器内的root真正拥有root权限, 此外进入容器时运行的程序改为`/sbin/init`: 
@@ -186,7 +231,13 @@
 
 * 移除\<none\>镜像: 
     * `docker rmi $(docker images -f "dangling=true" -q)`
-
+* portainer: 
+    * 参考: https://docs.portainer.io/start/install-ce/server/docker/linux
+    * 安装: `docker pull portainer/portainer-ce`
+    * 创建一个卷, 给portainer的服务器放数据库: `docker volume create portainer_data`
+    * 运行: `docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce`
+    * 访问: `https://localhost:9443`
+    
 # libvirt
 * 启动及启用`libvirtd`服务
     > `systemctl start libvirtd`

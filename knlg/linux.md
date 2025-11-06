@@ -1175,6 +1175,9 @@ typedef struct {
     * `$!`: 后台运行的最后一个进程的id号. 
     * `shift n`: 将参数列表左移n个. 相当于移除`$@`列表中前n个参数, 而`$#`的大小也会减去n. 
         * **可基于此法获取除去前几个参数后的所有剩余参数.**
+* 其他变量: 
+    * `${BASH_SOURCE[0]}`: 当前文件名
+        * `$(dirname $(realpath ${BASH_SOURCE[0]}))`: 获取当前文件所在目录
 * `$(cmd)`: 表示执行`cmd`后输出的字符串. 
 * `$[a+1]`: 获取算术运算结果. 也可以写成`$((a+1))`
     * 可以计算布尔值: `$[b+1==c]`
@@ -1277,7 +1280,7 @@ typedef struct {
     * `-e`: 是否存在
     * `-x`: 是否可执行
 * `[]`: 判断符号, 同`test`. 注意中括号内侧要有空格. 
-    * `[ -v "$v1" ]`: 变量已设置则true. 
+    * `[ -v v1 ]`: 变量v1已设置则true. 
     * `[ -f "$file" ]`: 文件存在则true. 
     * `[ -d "$dir" ]`: 目录存在则true. 
     * `[ -z "$HOME" ]`: 字符串为空则true. 
@@ -1930,7 +1933,11 @@ typedef struct {
     * 例: 
         * `patch -p0 < f.patch`: 会给老文件打补丁
         * `patch -p0 f_old f.patch`: 同上
-
+* `jq`: 处理json文件
+    * 基本用法: `jq "过滤规则" <json文件>`
+    * 过滤规则示例
+        * `.configurations[].key1`: 打印configurations列表中每个字典的key1键的值
+        * `select(.name == test_1-1).checksum`
 ### ELF工具
 * `strings`: 搜索字符串
     * `-a`: 搜索整个文件, 而非只搜数据段
@@ -1976,7 +1983,8 @@ typedef struct {
 * `nm xx.so`: 列出object文件的符号
     * `-c`: 查看导出函数表
     * `-D`: 查看动态库的符号
-
+* `hte`: 可执行程序编辑器
+    * 
 ### 加解密
 * `openssl`
     * 功能: 
