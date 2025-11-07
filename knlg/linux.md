@@ -1398,7 +1398,22 @@ typedef struct {
             echo "读取到的行内容是：$line"
         done < /home/test/test.txt
     ```
+* 问题
+    * 当循环体在管道右侧时, 它会作为一个子shell运行, **循环体中的变量在循环体外部无效**. 解决方法是用进程替换, 利用命名管道. 
+        ```sh
+            echo -e "Line 1\nLine 2\nLine 3" | while IFS= read -r line; do
+                echo "循环内: count = $count, line = '$line'"
+                count=$((count + 1))
+            done
+            echo $count # 值为空
 
+            ##############################################################
+            while IFS= read -r line; do
+                echo "循环内: count = $count, line = '$line'"
+                count=$((count + 1))
+            done < <(echo -e "Line 1\nLine 2\nLine 3") # 进程替换
+            echo $count
+        ```
 ## 系统指令, 工具
 * 快捷键
     * 移动光标: 

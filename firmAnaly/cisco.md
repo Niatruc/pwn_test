@@ -1,6 +1,8 @@
 * 参考链接
     * https://github.com/hegdepavankumar/Cisco-Images-for-GNS3-and-EVE-NG?tab=readme-ov-file : 下载思科固件镜像
-
+* 固件下载
+    * https://d.idc.ir/Cisco/IOS/ASA/
+    * ftp://ftp.radio-portal.su/Cisco/!cisco_ios/
 # 思科路由器固件
 * 路由器用的两种镜像
     * 系统镜像(system image)
