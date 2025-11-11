@@ -76,7 +76,7 @@
     * 挂载qcow2后, 编辑`extlinux.conf`文件, 在启动行参数(`flatkc`那行)添加`loglevel=8`; 仿真时打开串口输出监视窗, 可以看到更多调试信息. 
 
 # 逆向
-## 提取固件
+## 提取文件系统
 * 实体设备
     * (这里)[https://bishopfox.com/blog/a-look-at-fortijump-cve-2024-47575]提到`flatkc`大概率也被混淆了. 
 * 从`.out`文件中提取文件系统: 
@@ -86,7 +86,7 @@
             * https://github.com/BishopFox/forticrack (使用python实现)
                 * forticrack原理: https://bishopfox.com/blog/breaking-fortinet-firmware-encryption
         * 解密后: 
-            * 可以`binwalk -Mer`提取文件系统. 
+            * 可以`binwalk -Mer`提取文件系统(非最终rootfs). 
             * 也可以挂载: 
                 * 先通过`binwalk`找到Linux EXT文件系统的偏移. 
                 * `mount -o ro,loop,offset=<偏移> <.out的解密文件> <挂载的目录>`: 挂载到目录. 

@@ -1210,7 +1210,7 @@
             * 首先自己装一个python3.8(可用虚拟环境, 如conda). 
             * `pip install ipyida`
             * 将虚拟环境的`lib/site-packages`目录下相关的包拷贝到`ida`任一个保存库文件的路径(可在idapython中通过`print(sys.path)`获知)
-        * 快捷键`shift+.`调出窗口, 或`ipython console --existing`在ida外打开.
+        * 快捷键`shift+.`调出窗口, 或`jupyter console --existing`在ida外打开.
         * 用法同jupyter, 比如可用`%matplotlib inline`(需安装`matplotlib`)
 
             <img alt="ipyida.jpg" src="./pic/ipyida.jpg" width="50%" height="50%">
