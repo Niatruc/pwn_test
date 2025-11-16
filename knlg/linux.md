@@ -1247,6 +1247,8 @@ typedef struct {
     * `echo ${site["runoob"]}`
     * `echo ${!site[@]}`: 获取关联数组的所有键
         * `for key in ${!site[@]}; do echo $key, ${site[$key]}; done`
+    * `unset site["google"]`: 移除指定的键
+    * **关联数组无法储存数组类型的值.**
 * 数据流
     * `>`是直接覆盖文件, `>>`是追加到文件尾. 
     * `<<`: 表示传给命令的stdin的内容从这里开始是一个文档. 
@@ -1397,6 +1399,68 @@ typedef struct {
         while read -r line || [[ -n ${line} ]]; do # -r防止反斜杠被解释为转义字符; -n防止最后一行没被获取
             echo "读取到的行内容是：$line"
         done < /home/test/test.txt
+
+        # 处理命令行参数
+        # 注意getopts不支持长参数
+        while getopts "vf:h" opt; do # 冒号表示该选项需要一个参数
+            case "$opt" in
+                v)
+                    VERBOSE=1
+                    ;;
+                f)
+                    OUTPUT_FILE="$OPTARG"
+                    ;;
+                h)
+                    echo "用法: $0 [-v] [-f <file>] <arg1> [<arg2>...]"
+                    exit 0
+                    ;;
+                \?) # 处理未知选项
+                    echo "错误: 未知选项 -$OPTARG" >&2
+                    exit 1
+                    ;;
+            esac
+        done
+        shift $((OPTIND-1)) # 会将位置参数列表移动到第一个非选项参数
+
+        # 处理长参数要用getopt(参考: https://www.cnblogs.com/klb561/p/9211222.html)
+        ARGS=`getopt -o ab:c:: --long apple,banana:,cat:: -n 'example.sh' -- "$@"`
+
+        #将规范化后的命令行参数分配至位置参数（$1,$2,...)
+        eval set -- "${ARGS}"
+
+        while true
+        do
+            case "$1" in
+                -a|--apple) 
+                    echo "Option a";
+                    shift
+                    ;;
+                -b|--banana)
+                    echo "Option b, argument $2";
+                    shift 2
+                    ;;
+                -c|--cat)
+                    case "$2" in
+                        "")
+                            echo "Option c, no argument";
+                            shift 2  
+                            ;;
+                        *)
+                            echo "Option c, argument $2";
+                            shift 2;
+                            ;;
+                    esac
+                    ;;
+                --)
+                    shift
+                    break
+                    ;;
+                *)
+                    echo "Internal error!"
+                    exit 1
+                    ;;
+            esac
+        done
     ```
 * 问题
     * 当循环体在管道右侧时, 它会作为一个子shell运行, **循环体中的变量在循环体外部无效**. 解决方法是用进程替换, 利用命名管道. 
