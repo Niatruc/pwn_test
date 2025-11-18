@@ -98,7 +98,7 @@
     * 挂载磁盘分区: `sudo guestmount -a fortios.qcow2 -m /dev/sda1 ./fortios`
         * 默认使用`-w`(写权限)打开, 会挂载失败(`mount: /sysroot: can't read superblock on /dev/sda1`). 要使用`-r`. 
     * 卸载磁盘分区: `sudo guestunmount ./fortios`
-    * 提取文件系统: 
+    * 提取文件系统`rootfs`: 
         * 对于较老的版本(比如`7.0.0`), 可直接进入后面的步骤; 对于新版本, 需分析flatkc中对rootfs的加解密过程: 
             * 使用ida加载flatkc文件(先用`vmlinux-to-elf`加上符号)
             * 相关linux函数: 
@@ -137,13 +137,15 @@
                 * `asn1_ber_decoder(const struct asn1_decoder *decoder, void *context, const unsigned char *data, size_t datalen)`
                 * `crypto_aes_expand_key(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len)`: 扩展密钥. `key_len`是`in_key`的长度(16, 24或32). `ctx`用于保存最终计算生成的密钥. 
                 * `aes_enc_blk(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in)`
-            * `7.4.1`
+            * `7.4.0`: 未加密
+            * `7.4.1` ~ `7.4.3`
                 * `fgt_verify_initrd`
                 * 找到`fgt_verify_decrypt`函数, 其中使用`fgt_verifier_key_iv`初始化密钥和初始向量, 之后调用`crypto_chacha20_init`, `chacha20_docrypt`进行解密. 
                 * `fgt_verifier_key_iv(u_int8 *key, u_int8 *iv)`: 读取`.init.data`节中的常量, 使用sha256算法生成key和iv(各用`32`字节常量(`28+4`和`27+5`))
-            * `7.4.4`
+            * `7.4.4`以上
                 * 从这个版本开始没有`fgt_verify_decrypt`函数. 根据反编译结果来看, 其被作为inline函数编译到`fgt_verify_initrd`函数内部. (`fgt_verify_initrd`符号也被移除)
-            * `7.6.1`
+                * 加解密算法与`7.6.0`以上版本一致
+            * `7.6.0`以上
                 * 等同于原来的`fgt_verifier_open`: 
                     * 等同于原来的`fgt_verifier_pub_key`: 
                         * 用chacha20对`.data`节中一块长为`0x10E`的区域进行解密运算(`crypto_chacha20_init`和`chacha20_docrypt`), 得到一个`key`. 
