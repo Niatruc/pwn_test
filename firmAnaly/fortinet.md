@@ -8,6 +8,7 @@
     * [Further Adventures in Fortinet Decryption](https://bishopfox.com/blog/further-adventures-in-fortinet-decryption): 新版本固件提取rootfs
     * [搭建 FortiGate 调试环境 (一)](https://wzt.ac.cn/2023/03/02/fortigate_debug_env1/)
     * [软件签名增强](https://handbook.fortinet.com.cn/%E7%B3%BB%E7%BB%9F%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E4%B8%8E%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/%E5%9B%BA%E4%BB%B6%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/software_signature_enhance.html)
+    * https://handbook.fortinet.com.cn/product_intro.html
 
 # 使用
 * 命令

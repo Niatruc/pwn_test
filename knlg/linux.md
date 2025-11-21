@@ -1548,7 +1548,7 @@ typedef struct {
     4. 把有`pam_unix.so`那一行改成: `password [success=1 default=ignore] pam_unix.so minlen=1 sha512`, 表示最短口令长度为1
 * `chroot <新的根目录> <启动的程序>`
     * 在 linux 系统中, 系统默认的目录结构都是以/, 即是以根 (root) 开始的. 而在使用 chroot 之后, 系统的目录结构将以指定的位置作为/位置
-    * 例: `chroot /home/test //home/test/busybox`
+    * 例: `chroot /home/test /home/test/busybox`
     * 在chroot前先执行mount操作, 确保运行时不会缺失文件: 
         ```sh
             mount -t proc /proc proc/
@@ -1705,6 +1705,7 @@ typedef struct {
     ```
 * `fdisk < /dev 目录下的设备文件 | 镜像文件>`: 磁盘分区工具
     * `-l`: 查看分区表详细信息
+* 注: 要查看一个qcow2或其他格式的镜像文件的分区表, 需先用`qemu-nbd`之类的工具将其连接到一个dev设备, 然后再用`fdisk`读取该设备的分区表. 
 * `parted`: 用于创建, 查看, 删除和修改磁盘分区. 它是一个磁盘分区和分区大小调整工具. 这个命令算是对`fdisk`命令的一个补充, 因为如果磁盘大小大于2TB就无法使用fdisk命令进行分区操作了. 
     * `-a`: 为新创建的分区设置对齐方式
     * `-h`: 显示帮助信息
