@@ -1140,12 +1140,15 @@
                             if not idaapi.GraphViewer.Show(self): # 显示图
                                 return False
 
-                            self.cmd_refresh = self.AddCommand("Refresh", "Ctrl+R") # 添加命令
+                            self.cmd_refresh = self.AddCommand("Refresh", "Ctrl+R") # 添加命令(ida9中测试快捷键无效)
                             return True
                     
                     mg = MyGraphViewer()
                     mg.show()
                 ```
+
+                * 注
+                    * 使用过某标题作为某个`GraphViewer`实例的标题后, 之后用改标题打开的节点图都会继承之前用过该标题的节点图的渲染数据. 
         * `ida_kernwin`
             * 参考
                 * API: https://nvwo.github.io/idapython_docs/ida_kernwin-module.html
