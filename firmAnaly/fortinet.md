@@ -147,8 +147,9 @@
                 * 从这个版本开始没有`fgt_verify_decrypt`函数. 根据反编译结果来看, 其被作为inline函数编译到`fgt_verify_initrd`函数内部. (`fgt_verify_initrd`符号也被移除)
                 * 加解密算法与`7.6.0`以上版本一致
             * `7.6.0`以上
-                * 等同于原来的`fgt_verifier_open`: 
-                    * 等同于原来的`fgt_verifier_pub_key`: 
+                * 可通过`rsa_parse_pub_key`的交叉引用, 找到rootfs解密函数. 
+                * (等同于原来的)`fgt_verifier_open`: 
+                    * (等同于原来的)`fgt_verifier_pub_key`: 
                         * 用chacha20对`.data`节中一块长为`0x10E`的区域进行解密运算(`crypto_chacha20_init`和`chacha20_docrypt`), 得到一个`key`. 
                     * 用`rsa_parse_pub_key(struct rsa_key *rsa_key, const void *key, unsigned int key_len)`从上述`key`中提取rsa公钥, 存到`rsa_key`
                 * 用sha256生成了初始16字节密钥和向量
