@@ -341,6 +341,8 @@
     * `-fda file`, `-fdb file`: 使用指定文件(file)作为软盘镜像, file为`/dev/fd0`表示使用物理软驱
     * `-hda file`, `-hdb file`, `-hdc file`, `-hdd file`: 使用指定file作为硬盘镜像. 
     * `-cdrom file`: 使用指定`file`作为`CD-ROM`镜像, 需要注意的是`-cdrom`和`-hdc`不能同时使用; 将`file`指定为`/dev/cdrom`可以直接使用物理光驱. 
+    * `-device`
+        *  `loader,file=my_file.bin,addr=0x80000000`: 可将文件内容加载到指定内存地址处
 * 宿主机与虚拟机传文件
     * 方法1: 共享文件夹
         * 宿主机新建用于共享的目录(如`/mnt/shared`)
