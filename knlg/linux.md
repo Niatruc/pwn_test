@@ -1868,11 +1868,12 @@ typedef struct {
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
 * `brctl`: 管理以太网网桥. (安装: `apt-get install bridge-utils`)
     * `addbr <bridge_name>`: 添加网桥
-    * `addif <bridge_name> <interface_name>`: 将一个物理接口添加到网桥中
+    * `addif <bridge_name> <interface_name>`: 将一个物理接口添加到网桥中(让这些接口成为一个逻辑上的“大”网段，实现二层转发，使接口上的设备能相互通信)
     * `delif <bridge_name> <interface_name>`: 将物理接口从网桥中移除
     * `stp <bridge_name> on`: 开启stp(Spanning Tree Protocol (生成树协议, 用于防止在桥接网络中出现环路))
     * `showmacs <bridge_name>`: 显示网桥的学习到的MAC地址表
 * `ip`:
+    * `-d`: 显示更多细节信息. 
     * `tuntap`:
         ```sh
             ip tuntap add dev tap0 mod tap # 创建tap网卡
