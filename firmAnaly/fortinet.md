@@ -20,6 +20,9 @@
             * `process`
                 * `pidof <进程名>`: 查询进程id
             * `top`: 查看系统进程信息   
+        * `debug`
+            * `enable`: 开启调试信息打印
+            * `application httpsd -1`: 打印httpsd的信息
 
 ## 仿真
 * arm版固件仿真
