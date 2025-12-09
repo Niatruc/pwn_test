@@ -553,7 +553,7 @@
             |信号常量|信号含义|
             |-|-|
             |SIGABRT|	(Signal Abort) 程序异常终止. (执行`abort`函数; 执行`assert`函数); 多次`free`; |
-            |SIGFPE|	(Signal Floating-Point Exception) 算术运算出错, 如除数为 0 或溢出（不一定是浮点运算）. |
+            |SIGFPE|	(Signal Floating-Point Exception) 算术运算出错, 如除数为 0 或溢出(不一定是浮点运算). |
             |SIGILL|	(Signal Illegal Instruction) 非法函数映象, 如非法指令, 通常是由于代码中的某个变体或者尝试执行数据导致的. |
             |SIGINT|	(Signal Interrupt) 中断信号, 如 ctrl-C, 通常由用户生成. |
             |SIGSEGV|	(Signal Segmentation Violation) 非法访问存储器, 如访问不存在的内存单元. |
@@ -1397,7 +1397,7 @@ typedef struct {
 
         # 逐行读文件
         while read -r line || [[ -n ${line} ]]; do # -r防止反斜杠被解释为转义字符; -n防止最后一行没被获取
-            echo "读取到的行内容是：$line"
+            echo "读取到的行内容是: $line"
         done < /home/test/test.txt
 
         # 处理命令行参数
@@ -1425,7 +1425,7 @@ typedef struct {
         # 处理长参数要用getopt(参考: https://www.cnblogs.com/klb561/p/9211222.html)
         ARGS=`getopt -o ab:c:: --long apple,banana:,cat:: -n 'example.sh' -- "$@"`
 
-        #将规范化后的命令行参数分配至位置参数（$1,$2,...)
+        #将规范化后的命令行参数分配至位置参数($1,$2,...)
         eval set -- "${ARGS}"
 
         while true
@@ -1760,10 +1760,10 @@ typedef struct {
     * 例
         * 连接两个文件为新文件: 
             ```sh
-                # 步骤1：写入file1的前8KB
+                # 步骤1: 写入file1的前8KB
                 dd if=file1 of=output bs=8K count=1
 
-                # 步骤2：从output的8KB位置开始写入file2
+                # 步骤2: 从output的8KB位置开始写入file2
                 dd if=file2 of=output bs=8K seek=1 conv=notrunc
             ```
 * `nfs`: 网络文件系统
@@ -1825,8 +1825,8 @@ typedef struct {
         * 每次请求连接建立后都会关闭(单次连接). 
     * 开shell
         ```sh
-            mkfifo /tmp/f;                # 步骤1：创建命名管道
-            cat /tmp/f | /bin/sh -i 2>&1 | nc -l 127.0.0.1 1234 > /tmp/f  # 步骤2：建立反向Shell
+            mkfifo /tmp/f;                # 步骤1: 创建命名管道
+            cat /tmp/f | /bin/sh -i 2>&1 | nc -l 127.0.0.1 1234 > /tmp/f  # 步骤2: 建立反向Shell
         ```
 * `socat`: netcat加强版, 可称为`nc++`. 
     * `socat tcp-l:<本地端口>,reuseaddr,fork tcp:<目的地址>:<目的端口>`: 端口转发
@@ -1868,15 +1868,26 @@ typedef struct {
         * `route add -host 192.168.0.1 dev tap0`: 添加路由
 * `brctl`: 管理以太网网桥. (安装: `apt-get install bridge-utils`)
     * `addbr <bridge_name>`: 添加网桥
-    * `addif <bridge_name> <interface_name>`: 将一个物理接口添加到网桥中(让这些接口成为一个逻辑上的“大”网段，实现二层转发，使接口上的设备能相互通信)
+    * `addif <bridge_name> <interface_name>`: 将一个物理接口添加到网桥中(让这些接口成为一个逻辑上的“大”网段, 实现二层转发, 使接口上的设备能相互通信)
     * `delif <bridge_name> <interface_name>`: 将物理接口从网桥中移除
     * `stp <bridge_name> on`: 开启stp(Spanning Tree Protocol (生成树协议, 用于防止在桥接网络中出现环路))
     * `showmacs <bridge_name>`: 显示网桥的学习到的MAC地址表
+* `ethtool`
+    * `-K <dev>`: 改变指定网卡的卸载(offload)参数或其它属性. 
+        * `tx <on|off>`: 开启/关闭发送方向的校验和(checksumming)
+        * `rx <on|off>`: 开启/关闭接收方向的校验和(checksumming)
+        * `tso <on|off>`: 开启/关闭tcp分段卸载(TCP Segmentation Offload). 这个功能将大块 TCP 数据分段的工作交给网卡处理. 
+        * `ufo <on|off>`: 开启/关闭udp分片卸载(UDP Fragmentation Offload). 这个功能将大块 TCP 数据分段的工作交给网卡处理. 
+        * `gro <on|off>`: 开启/关闭通用接收卸载(Generic Receive Offload)
+        * `gso <on|off>`: 开启/关闭通用分段卸载(Generic Segmentation Offload)
+        * (注)网络卸载功能: 现代网卡通过硬件加速技术(如 TSO, GSO)将部分网络协议处理任务从 CPU 转移到网卡硬件. 
+        * 这个命令可用于解决虚拟机使用虚拟网卡/网桥时的丢包问题, 比如将网卡的gro/gso/tx关闭, 等. 
+
 * `ip`:
     * `-d`: 显示更多细节信息. 
     * `tuntap`:
         ```sh
-            ip tuntap add dev tap0 mod tap # 创建tap网卡
+            ip tuntap add dev tap0 mod tap # 创建tap网卡, 相当于"tunctl -t tap0"
             ip tuntap add dev tun0 mod tun # 创建tun网卡
             # 除了`add`, 还有`del`, `show`, `list`
 
@@ -1903,13 +1914,36 @@ typedef struct {
         * `add`: 添加网卡
             * `<INTNAME>`: 指定新增网卡的名称
             * `link <DEVICE>`: 链接到已有的网卡
-        * `set <DEVICE>`
+        * `set <参数> dev <DEVICE>`
             * `up`: 开启网卡. 
             * `down`: 关闭网卡. 
+            * `master <主设备>`: 设置设备的主设备. 比如`master br0`, 将设备桥接到br0 
     * `neigh`, `n`: 操作ARP表. 
         * `add 192.168.1.1 lladdr 1:2:3:4:5:6 dev ens33`: 在`ens33`的ARP表中新增记录, 指定IP地址和对应的MAC地址. `lladdr`意思是链路层地址. 
         * `del 192.168.1.1 dev ens33`: 删除条目. 
-
+* `iptables`
+    * 参考
+        * https://liu2lin600.github.io/2016/07/23/iptables%E7%AE%80%E4%BB%8B%E5%8F%8A%E5%91%BD%E4%BB%A4%E7%94%A8%E6%B3%95/
+    * 四表五链
+        * 四表
+            * `raw`: 用于配置数据包, raw 中的数据包不会被系统跟踪
+            * `mangle`: 用于对特定数据包的修改
+            * `nat`: 用于网络地址转换, 如`SNAT`, `DNAT`, `MASQUERADE`, `REDIRECT`
+            * `filter`: 过滤, 定义是否允许通过防火墙
+        * 五链
+            * `INPUT`: 当接收到防火墙本机地址的数据包(入站)时, 应用此链中的规则
+            * `OUTPUT`: 当防火墙本机向外发送数据包(出站)时, 应用此链中的规则
+            * `FORWARD`: 当接收到需要通过防火墙发送给其他地址的数据包(转发)时, 应用此链中的规则
+            * `PREROUTING`: 在对数据包作路由选择之前, 应用此链中的规则
+            * `POSTROUTING`: 在对数据包作路由选择之后, 应用此链中的规则
+    * 参数
+        * `-L [<链>]`: 列出链中的规则. 可加`-t`指定表, 默认是`filter`表. 加上`-n`可显示具体规则(且可阻止反向DNS查找). 
+        * `-I <链> [位置(数字)] <规则>`: 在链中插入规则. 
+        * `-A <链> <规则>`: 追加规则
+        * `-D <链> <位置|规则>`: 删除规则
+        * `-F [<链>]`: 清空链中的规则
+        * ``: 
+        * ``: 
 ### 系统信息
 * `uname`
     * `-r`: 查看内核版本. 

@@ -94,6 +94,8 @@
     * 启动参数`--network`: 
         * `host`: 指定使用host模式, 和宿主机共享网络命名空间. 
         * `bridge`: 指定使用桥接模式(默认). 在容器内部可看到一张`eth0`网卡. 
+            > 创建容器时, docker创建一个对虚拟接口(veth pair), 其中一端默认桥接到宿主机的`docker0`(宿主机通过`ifconfig`可看到, 名为`vethXxx`的接口), 另一端放在容器中, 即`eth0`
+            > `ethtool -S vethXxx`, 看到输出结果中的`peer_ifindex`项的数字, 其与容器中`ip a`看到的`eth0@<数字>`中的数字对应. 
         * `none`: 使用独立的网络命名空间. 
         * `container:<容器名或ID>`: 与另一个容器共享网络命名空间. 
 
