@@ -1690,7 +1690,7 @@ typedef struct {
 * 挂载一个镜像文件: 
     ```sh
         # 使用kpartx挂载镜像
-        losetup -f # 查看空闲的loop设备
+        sudo losetup -f # 查看空闲的loop设备
         sudo losetup /dev/loop0 xxx.img # 将loop0设备和一个img文件关联
         sudo kpartx -av /dev/loop0 # 会在`/dev/mapper`目录下出现`loop0p1`等文件, 代表img文件中的文件系统分区
         mkdir /vmdisk1 
