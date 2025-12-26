@@ -41,6 +41,9 @@
     2. 有的会开启大量进程, 导致出现大量procmemory-regions节(能占到100万行); behavior的generic和processes节中项也很多(都能占到10万行)
 
 # docker
+* 安装参考: https://docs.docker.com/engine/install/ubuntu/
+    * 需要配置apt docker源, 才能安装buildx等工具. 
+
 ## 知识点
 * 文件默认在`/var/lib/docker`下
 * 镜像可看成不包含系统内核(Linux内核)的操作系统. 
@@ -70,6 +73,7 @@
         * `--rm`: 在任务完成后删除容器. 
         * `-e MY_ENV_VAR=my_value`: 设置环境变量
         * `--entrypoint <命令>`: 设置启动命令(可覆盖Dockerfile的ENTRYPOINT)
+        * `--platform <OS/ARCH>`: 设置目标架构, 比如`linux/arm64`
     * `docker start <容器名>`: 启动一个已经关闭的容器.
 * 打印容器日志: `docker logs -f <容器id>`
 * 停止容器: `docker stop <容器id>`
@@ -123,6 +127,9 @@
             EXPOSE <端口1> [<端口2>...] # `docker run -P`时, 会自动随机映射这些端口
         ```
     * 之后运行`docker build . -t <镜像名> .`
+    * 使用buildx构建跨架构镜像: 
+        * Dockerfiled的第一行加上架构信息: `FROM --platform=linux/arm64 ubuntu:22.04`
+        * `docker buildx build --platform linux/arm64 .`
     * 注
         * **只有最后那行`CMD`会被执行**
         * `RUN`和`CMD`的区别: `RUN`指令在镜像构建过程中执行, `CMD`指令在容器启动时执行. 
@@ -283,7 +290,7 @@
     * 参考: https://linux.cn/article-15834-1.html
     * 需确保开启了虚拟化: `LC_ALL=C lscpu | grep Virtualization`, 输出`Virtualization: AMD-V`或`Virtualization: VT-x`
     * `sudo apt install qemu qemu-kvm virt-manager bridge-utils`
-    
+* `binfmt-support`: 安装该包后, 系统将 QEMU 注册到内核的 binfmt_misc, 让 Linux 自动用 QEMU 来执行非本机架构的二进制. 
 * 手动编译qemu
     * `configure`: 运行后生成`config-host.mak`文件. 
         * `--enable-debug`: 加入调试符号
