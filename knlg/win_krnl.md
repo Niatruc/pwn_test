@@ -338,7 +338,10 @@
             ```
 
 # Windbg
-* 屏蔽无用的调试信息: `ed nt!Kd_SXS_Mask 0`, `ed nt!Kd_FUSION_Mask 0`
+* 屏蔽无用的调试信息: 
+    * `ed nt!Kd_SXS_Mask 0`
+    * `ed nt!Kd_FUSION_Mask 0`
+    * `.ofilter /! *stormi*`
 * 进程
     * `!process`
         * `/m <名称加通配符>`
@@ -638,9 +641,9 @@
 * 手动下载pdb符号文件
     * 方法一: `symchk.exe <PE文件路径> /s <PDB文件路径>`
     * 方法二: 
-        * 使用PEStudio(或者dumpbin, 但其只支持32位程序)打开目标PE文件. 
-        * 找到`debug`数据目录, 查看guid和age值. 
-        * 拼接下载路径: `https://msdl.microsoft.com/download/symbols/<PDB文件名>/<GUID><Age>/<PDB文件名>`
+        * 使用`PEStudio`打开目标PE文件. 找到`debug`数据目录, 查看guid和age值. 
+        * 或者用vs的工具dumpbin: `dumpbin /headers yourfile.exe | findstr "Format: RSDS"`, 显示的结果中` Format: RSDS,`后面就是guid和age值. 
+        * 拼接下载路径: `https://msdl.microsoft.com/download/symbols/<PDB文件名>/<GUID><Age>/<PDB文件名>` (注意须把guid中的横杠去掉)
         * 下载: `curl -L -O <下载路径>`
         * 可用`pdbripper.exe`查看pdb文件是否为可用的数据. 
 
@@ -2349,7 +2352,7 @@
 
             <img alt="" src="./pic/vt_progress.png" width="50%" height="50%">
 
-    * guset/host
+    * guest/host
         * vt出现之前, vmware用的是进程虚拟机, 以软件模拟硬件
         
     * vt处理器额外指令集(VMX)

