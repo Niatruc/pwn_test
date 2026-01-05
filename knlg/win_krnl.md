@@ -140,7 +140,10 @@
                 * `FILE_ANY_ACCESS`: 表明用户拥有所有的权限
                 * `FILE_READ_DATA`: 表明权限为只读
                 * `FILE_WRITE_DATA`: 表明权限为可写
-            
+* 驱动程序分类
+    * 软件驱动程序: 不与任何硬件设备关联
+    * 函数驱动程序: 直接与设备通信的驱动程序
+    * 筛选器驱动程序: 执行辅助处理的驱动程序
 * 驱动函数分类<a id="Kernel_Func"></a>
     * `ExXxx`: Executive, 管理层
     * `KeXxx`: Kernel
@@ -265,7 +268,7 @@
         * 参考: https://www.osr.com/nt-insider/2017-issue2/handling-cleanup-close-cancel-wdf-driver/
         * 应用调用`CloseHandle`关闭驱动句柄, 驱动调用`EvtFileCleanup`回调, 并对还在WDFQUEUE中的request发起取消操作. 
             * 一般不应该自己实现`EvtFileCleanup`. 
-        * 当文件对象的引用计数减到零时(**意味着已经没有pending的io操作了**), windows会产生close请求, WDF会在`EvtFileCleanup`之后调用`EvtFileClose`函数. 
+        * 当文件对象的引用计数减到零时(**意味着已经没有pending的io操作了**), Windows会产生close请求, WDF会在`EvtFileCleanup`之后调用`EvtFileClose`函数. 
         * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
         * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
         * 如果要对已经标记为`cancelable`的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
@@ -471,9 +474,12 @@
     * `lm`: 列出加载的模块
         * `lm m sth*`: 按名称列出加载的模块
         * 参数v: verbose模式, 列出模块更多信息
-    * `.reload`: 加载符号表. `/user`则只加载用户层的符号. `f`可以强制加载(而非延迟加载).
+    * `.reload`: 加载符号表.  
         * `.reload <可执行文件名>`: 直接加载可执行文件对应的符号文件. 注意要加'.exe'等文件后缀. 
-        * `.reload /i:` 忽略pdb文件和sys文件时间戳的不同, 强制加载符号文件
+        * `/user`: 只加载用户层的符号.
+        * `/i:` 忽略pdb文件和sys文件时间戳的不同, 强制加载符号文件
+        * `/f`: 强制加载(而非延迟加载).
+        * `/u`: 卸载. 
     * `x nt!kes*des*table`: ssdt表
     * 查看shadowSsdt表: 先切换到进程上下文, 然后`x nt!kes*des*table`, 拿第一行的地址, 对其用`dd`, 打印出来的第二行的前4个字节即是该表地址.
     * `u <addr1> <addr2>`: 查看`<addr1>`到`<addr2>`的汇编. 如果只有`u`, 则显示当前汇编. 

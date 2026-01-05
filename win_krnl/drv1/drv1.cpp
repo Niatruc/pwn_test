@@ -107,9 +107,9 @@ NTSTATUS DispatchIoControl(PDEVICE_OBJECT pDevObj, PIRP pIrp) {
 
     pInputBuf = pOutputBuf = pIrp->AssociatedIrp.SystemBuffer;
     pStack = IoGetCurrentIrpStackLocation(pIrp);
-    uInputlen = pStack->Parameters.DeviceIoControl.InputBufferLength;
-    uOutputlen = pStack->Parameters.DeviceIoControl.OutputBufferLength;
-    uIoCtrlCode = pStack->Parameters.DeviceIoControl.IoControlCode;
+    uInputlen = pStack->Parameters.DeviceIoControl.InputBufferLength; // 获取输入缓冲区长度
+    uOutputlen = pStack->Parameters.DeviceIoControl.OutputBufferLength; // 获取输出缓冲区长度
+    uIoCtrlCode = pStack->Parameters.DeviceIoControl.IoControlCode; // 获取ioctl控制码
 
     switch (uIoCtrlCode) {
         case CTL_HELLO:
@@ -172,7 +172,7 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDrvObj, PUNICODE_STRING32 pRegPa
         pDrvObj,
         0, 
         &uDevName,
-        FILE_DEVICE_UNKNOWN,
+        FILE_DEVICE_UNKNOWN, // 不与任何硬件设备关联, 即软件驱动程序
         0,
         FALSE,
         &pDevObj
@@ -187,7 +187,7 @@ extern "C" NTSTATUS DriverEntry(PDRIVER_OBJECT pDrvObj, PUNICODE_STRING32 pRegPa
     // 通信方式
     pDevObj->Flags |= DO_BUFFERED_IO;
 
-    // 创建符号链接
+    // 为设备创建符号链接, 以便用户层访问
     ntStatus = IoCreateSymbolicLink(&uLinkName, &uDevName);
 
     // 判断创建成功与否
