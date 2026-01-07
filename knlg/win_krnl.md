@@ -272,6 +272,12 @@
         * `EvtFileClose`在passive级别, 同时是在随机的进程/线程上下文中被调用. 
         * 对于人工io队列, 当应用层调用`CancelIo`时, 若队列设置了`EvtIoCanceledOnQueue`回调, 其会被调用. 
         * 如果要对已经标记为`cancelable`的请求执行`WdfRequestComplete`, 需要先调用`WdfRequestUnmarkCancelable`. 
+    * 安装: 
+        * 需要三个文件: `MyDriver.inf`, `MyDriver.cat`(签名), `MyDriver.sys`
+        * `devcon install MyDriver.inf Root\MyDriver`: 添加设备节点, 然后安装或更新驱动. 将在设备管理器中看到`Samples`下有`MyDriver Device`. `Root\MyDriver`是硬件id(可在inf文件的`Standard.NTamd64`节中看到). `devcon`程序是vs配套的工具. 
+        * `pnputil /add-driver MyDriver.inf /install`: 相当于右键点击inf文件并安装. 
+    * 卸载: 
+        * `pnputil /delete-driver MyDriver.inf /uninstall`
     * API
         * `WDFREQUEST`
             ```cpp

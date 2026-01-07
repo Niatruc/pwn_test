@@ -1614,8 +1614,12 @@
 * 分析
     * 观察到frida注入到目标进程的模块有: `frida-agent.dll` (新增模块: `advapi32.dll`, `combase.dll`, `crypt32.dll`, `dnsapi.dll`, `ole32.dll`, `psapi.dll`, `sechost.dll`, `shell32.dll`, `shlwapi.dll`, `winmm.dll`)
 * 数据类型
+    * `Int64`
+        * 新建: `new Int64(v)`
+        * `toString([radix = 10])`: 转字符串
+    * `UInt64`
     * `NativePointer`: 指针
-        * 新建指针: `new NativePointer(s)`或`ptr(s)`, 其中`s`是
+        * 新建指针: `new NativePointer(s)`或`ptr(s)`, 其中`s`是字符串(可以是hex格式)
 ## api monitor
 
 ## dnspy
