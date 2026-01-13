@@ -927,6 +927,19 @@
             > 文件和事件句柄只有在创建句柄的进程上下文中才合法. 为了避免安全问题, 驱动应在系统进程而非驱动所在进程上下文中创建要传给`ZwWriteFile`函数的文件或事件句柄. 
             
     * `ZwReadFile`
+        ```cpp
+        NTSYSAPI NTSTATUS ZwReadFile(
+            [in]           HANDLE           FileHandle,
+            [in, optional] HANDLE           Event, // 完成读操作后将此事件设为signaled. 对于设备以及中间驱动程序, 应设其为NULL. 
+            [in, optional] PIO_APC_ROUTINE  ApcRoutine, // 保留. 设为NULL
+            [in, optional] PVOID            ApcContext, // 保留. 设为NULL
+            [out]          PIO_STATUS_BLOCK IoStatusBlock, // 用于接收完成状态. 其Information成员存放接收的字节数. 
+            [out]          PVOID            Buffer,
+            [in]           ULONG            Length, // Buffer的大小
+            [in, optional] PLARGE_INTEGER   ByteOffset, // 指定文件读取的起始偏移
+            [in, optional] PULONG           Key // 设为NULL
+        );
+        ```
     * `ZwQueryInformationFile`读取文件属性, `ZwSetInformationFile`: 可用于删文件
         * 第五参
             * `FileBasicInformation`
@@ -1103,6 +1116,20 @@
                 IN PKSTART_ROUTINE  StartRoutine,//新线程的运行地址
                 IN PVOID  StartContext //新线程接收的参数
             );
+
+            // 示例
+            CLIENT_ID cid = { 0 };
+            HANDLE hThread;
+            status = PsCreateSystemThread(
+                &hThread,
+                0,
+                NULL,
+                NULL,
+                &cid,
+                (PKSTART_ROUTINE)MyFunc,
+                device);
+            ObReferenceObjectByHandle(hThread, THREAD_ALL_ACCESS, NULL, KernelMode, (PVOID*)&g_pMyFuncThread, NULL); // 获取线程对象指针，以便卸载时等待它结束
+	        ZwClose(hThread); // 不需要句柄了，只需要对象指针
             ```
         * 同步(A告诉B发生了什么事)
             * `KEVENT`: 用于线程同步
