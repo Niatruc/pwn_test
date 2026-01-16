@@ -146,7 +146,7 @@
     * 筛选器驱动程序: 执行辅助处理的驱动程序
 * 驱动函数分类<a id="Kernel_Func"></a>
     * `ExXxx`: Executive, 管理层
-    * `KeXxx`: Kernel
+    * `KeXxx`: Kernel, 内核原语, 比Zw/Nt函数更底层, 多数可在更高的irql(DPC)运行. (Zw/Nt函数只能在passive级)
     * `HALXxx`: Hardware Abstraction Layer, 硬件抽象层
     * `IoXxx`: IO
     * `MmXxx`: Memory
@@ -713,7 +713,7 @@
     * `IRQL_NOT_LESS_OR_EQUAL`
         * 因为在高irql(如dispatch级)中访问了分页内存
             * 在wfp框架的callout的classifyfn回调中, irql是dispatch级. 这时有一些函数不能用, 或不能访问分页内存: 
-                * `KeWaitForSingleObject` 内部在访问 FastMutex时是会把IRQL提升到DPC的
+                * `KeWaitForSingleObject` 内部在访问`FastMutex`时是会把IRQL提升到DPC的
         * 某些函数
             * `ExAcquireResourceExclusiveLite`等操作`ERESOURCE`锁的函数, 要求在 <=APC_LEVEL 下运行
         * 调用`ExAllocatePoolWithTag`时传了错误的缓冲区大小参数, 后续其他地方调用`ExAllocatePoolWithTag`时可能引起该bsod. 推测是因为破坏了堆栈. 
@@ -890,13 +890,15 @@
                 // FILE_OVERWRITE_IF: 新建或覆盖. 如果要打开的文件已存在, 则打开它, 并覆盖其内存. 如果不存在, 则简单的新建新文件. 
                 // FILE_SUPERSEDE: 新建或取代. 如果要打开的文件已存在. 则生成一个新文件替代之. 如果不存在, 则简单的生成新文件. 
             _In_      ULONG CreateDisposition, // 
-
+            
+            // 为0是异步IO. 
             // FILE_DIRECTORY_FILE: 打开目录文件
             // FILE_RANDOM_ACCESS: 意味着文件能随机读取(因此系统不会执行线性预读(sequential read-ahead))
                 // 线性预读: 以extend为单位的. 通过判断当前的extend中的数据是否是连续访问的, 并以此来预测是否有必要把下一个extend提前从磁盘文件中读取出来, 加载到buffer pool中
                 // 随机预读: 针对的是当前extend, 通过判断当前extend中的page被读取的次数, 来预测是否有必要把当前extend的数据加载到buffer pool中
-            // FILE_SYNCHRONOUS_IO_NONALERT: 对该文件的所有操作都是同步执行的(意味着不会出现pending状态). 要求DesiredAccess必须有SYNCHRONIZE
-            _In_      ULONG CreateOptions, // 
+            // FILE_SYNCHRONOUS_IO_NONALERT: 对该文件的所有操作都是同步执行的(意味着不会出现pending状态). 要求DesiredAccess必须有SYNCHRONIZE. 同步IO会导致文件读写未完成时直接阻塞. 
+            _In_      ULONG CreateOptions, //
+
             _In_opt_  PVOID EaBuffer, // 设备驱动中必须设为NULL
             _In_      ULONG EaLength // 须设为0
         );
@@ -947,7 +949,7 @@
             * `FileRenameInformation`: 重命名文件时用
             * `FileDispositionInformation`: 删文件时用
     * `ZwQueryFullAttributesFile`: (irp_mj_set_information). 可删除和重命名文件
-    * `ZwClose`
+    * `ZwClose`: 关闭句柄
     * `ZwQueryDirectoryFile`: 遍历文件夹
     * `RtlVolumnDeviceToDosName(fileObject->DeviceObject, &DosDeviceName)`: 得到文件所属设备的名称(如`C:`)
     * `IoQueryFullDriverPath(drvObj, &fullPath)`: 获取驱动程序文件完整路径. 
@@ -1170,10 +1172,32 @@
                     ```
             * `KeWaitForSingleObject`, `KeWaitForMultiObjects`
                 * `KeWaitForSingleObject`:
-                    * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中 **. 
+                    * **如果timeout参数是NULL或不为0, 则调用者的IRQL要小于等于APC级别, 且在非任意线程上下文中**. 
                 * 可等待的对象: `KEVENT`, `KMUTEX/KMUTANT`, `KPROCESS`, `KQUEUE`, `KSEMAPHORE`, `KTHREAD`, `KTIMER`(它们都带dispatcher header). 
                 * 不可等待: `fileobject`/`driverobject`
-                    * 微软不建议对一个文件句柄调用`XxWaitForSingleObject`, 因为当该文件上有很多`pending`的IO操作时, 任何一个操作的完成都会让文件对象变成`signaled`状态. (参考 https://stackoverflow.com/questions/775014/waitforsingleobject-on-a-file-handle) . 
+                    * 微软不建议对一个文件句柄调用`XxWaitForSingleObject`, 因为当该文件上有很多`pending`的IO操作时, 任何一个操作的完成都会让文件对象变成`signaled`状态. (参考 https://stackoverflow.com/questions/775014/waitforsingleobject-on-a-file-handle). 
+                ```cpp
+                    NTSTATUS
+                    KeWaitForSingleObject (
+                        PVOID Object,
+                        KWAIT_REASON WaitReason, // 在驱动中通常设为Executive. 如果是在用户线程上下文中为用户工作, 则设为UserRequest
+                        KPROCESSOR_MODE WaitMode, // 低层和中间驱动设为KernelMode; 对象是mutex时也设为KernelMode
+                        BOOLEAN Alertable,
+                        PLARGE_INTEGER Timeout // 单位是100纳秒. 若为正数, 表示相对于1601-01-01的时间; 若为负数, 表示相对于当前时间. 若为NULL, 则无限等待, 知道有信号. 
+                    );
+
+                    NTSTATUS
+                    KeWaitForMultipleObjects (
+                        ULONG Count, // 对象数量
+                        PVOID Object[], // 对象指针数组
+                        WaitType, // WaitAll(所有对象都有信号)/WaitAny(只需其中一个有信号)
+                        KWAIT_REASON WaitReason, // Executive/UserRequest
+                        KPROCESSOR_MODE WaitMode, // KernelMode/UserMode
+                        BOOLEAN Alertable,
+                        PLARGE_INTEGER Timeout,
+                        PKWAIT_BLOCK WaitBlockArray
+                        );
+                ```
             * R0到R3同步通信
                 * 内核层
                     * 创建Event: `IoCreateNotificationEvent`, `L"\\BaseNamedObjects\\ProcEvent"`
@@ -1478,7 +1502,7 @@
     * 记法: 分页对应物理内存, 非分页对应虚拟内存. 
     * 驱动程序的全局变量放在`.data`节, 在测试中发现这些全局变量可能处于分页内存中(因为多次在dpc级别中出现访问这些全局变量而引起的蓝屏, bsod错误码为`IRQL_NOT_LESS_OR_EQUAL`)
 
-* api
+* API
     * `ExAllocatePoolWithTag(PoolType,NumberOfBytes,Tag)`: `Tag`是四个字节的数据(形如'TSET'), 用来防止溢出(溢出时其会被覆盖).
     * `ExAllocatePoolZero`: 同`ExAllocatePoolWithTag`, 但会初始化为全零. 
     * `RtlCopyMemory`: 同`memcpy`. 
@@ -1598,6 +1622,11 @@
 
 
 # 其他API
+* `MmGetSystemRoutineAddress(_In_ PUNICODE_STRING SystemRoutineName)`: **可用于获取未导出的函数.**
+    ```cpp
+        UNICODE_STRING funcname_NtCancelIoFile = RTL_CONSTANT_STRING(L"NtCancelIoFile");
+        NtCancelIoFile = MmGetSystemRoutineAddress(&funcname_NtCancelIoFile);
+    ```
 * 运行时API(`RtlXxx`)
     * `RtlLookupFunctionEntry([in] PcValue, [out] BaseOfImage)`: 获取所给地址`PcValue`所在的模块的基址, 放到`BaseOfImage`, 并返回该基址. 
 * 时间
@@ -1617,12 +1646,49 @@
         NowFields.Second));
     ```
 * object: 
-    * `ObOpenObjectByPointer`: 获取所给对象的句柄
+    * `ObOpenObjectByPointer`: 获取所给对象的句柄. (用完后需`ZwClose`)
     * `ObReferenceObject(pObj)`: 对象的引用计数加一. (引用计数为0时, 内核组件可以将对象移出系统)
+    * `ObReferenceObjectByHandle`: 可以用来在内核空间根据句柄获取一个**对象的指针**(进程对象, 线程对象, 文件对象等). 
+        ```cpp
+        NTSTATUS
+        ObReferenceObjectByHandle(
+            _In_ HANDLE Handle,
+            _In_ ACCESS_MASK DesiredAccess,
+            _In_opt_ POBJECT_TYPE ObjectType, // 为NULL时, 该函数会根据句柄自动判断对象类型; 否则, 指定要获取的对象的类型. 
+            _In_ KPROCESSOR_MODE AccessMode, // 用户模式/内核模式
+            _Out_ PVOID *Object, // 获取的对象指针(注意是指针!)
+            _Out_opt_ POBJECT_HANDLE_INFORMATION HandleInformation
+        );
+
+        // 例
+        PKEVENT pIoEvent; // 注意是指针!
+        HANDLE hIoEvent;
+        status = ZwCreateEvent(&hIoEvent, GENERIC_ALL, NULL, SynchronizationEvent, FALSE);
+        status = ObReferenceObjectByHandle(hIoEvent,
+            THREAD_ALL_ACCESS,
+            NULL,
+            KernelMode,
+            (PVOID*)&pIoEvent,
+            NULL);
+        ```
     * `ObDereferenceObject(pObj)`: 对象的引用计数减一. 
 
 * 事件
-    * `ZwCreateEvent`, `KeInitializeEvent`: 前者只能在passive级别调用. 后者则可在任意irql中使用. 
+    * `ZwCreateEvent`, `KeInitializeEvent`, `IoCreateNotificationEvent`/`IoCreateSynchronizationEvent`: 
+        * `ZwCreateEvent`
+            * 需要头文件`ntifs.h`
+            * 是创建事件对象并返回其句柄(不会返回对象, 想拿到则需用`ObReferenceObjectByHandle`). 其真正创建一个内核对象, **由对象管理器管理, 因此由引用计数, 安全描述符, 且可命名, 可被句柄引用, 可跨进程, 可传给用户态.**
+            * 只能在passive级别调用
+        * `KeInitializeEvent`
+            * 是对一个事件对象的类型和初始状态进行设置. 
+            * 不创建对象, 只是初始化一个`KEVENT`结构体; 不能跨进程, 不能给用户态使用. 
+            * 后者则可在任意irql中使用. 
+        * `IoCreateNotificationEvent`/`IoCreateSynchronizationEvent`
+            * 类似`ZwCreateEvent`, 也创建了对象并由对象管理器管理, 也获得句柄, 但同时返回`KEVENT`对象. 释放事件需用`ZwClose`(传入句柄). 
+            * 创建的事件对象就是Signaled状态的, 需要`KeClearEvent`清除信号. 
+            * 常用于R0/R3之间的同步: 
+                * R3创建的事件可以句柄的形式通过ioctl传给R0. R0须在创建该事件的进程的上下文中处理该事件, 且需调用`ObReferenceObjectByHandle`.
+                * R0创建的事件位于全局对象目录`\BaseNamedObjects`下. 应用层若要使用该命名的内核事件, 则使用`Global\\<事件名>`. (**由于`\BaseNamedObjects`目录是在Win32子系统完成初始化后才创建的, 所以在引导时就加载的驱动无法创建该目录下的对象**)
         ```cpp
         NTSYSAPI NTSTATUS ZwCreateEvent(
             OUT          PHANDLE            EventHandle, // 用于保存返回的事件句柄
@@ -1637,11 +1703,30 @@
             IN           EVENT_TYPE         EventType, // SynchronizationEvent或NotificationEvent.
             IN           BOOLEAN            InitialState // 事件的初始状态
         );
+
+        VOID KeInitializeEvent(
+            [out] PRKEVENT   Event,
+
+            // NotificationEvent:  每次触发后都需要调用KeResetEvent或KeClearEvent来清除信号. 
+            // SynchronizationEvent: 每次触发后, 会自动清除信号. 
+            [in]  EVENT_TYPE Type,
+            [in]  BOOLEAN    State
+        );
         
+        PKEVENT IoCreateSynchronizationEvent(
+            [in]  PUNICODE_STRING EventName,
+            [out] PHANDLE         EventHandle
+        );
         ```
-    * `ZwWaitForSingleObject`, `KeWaitForSingleObject`: 
-        * 前者只能在passive级别调用. 
-        * 后者: 运行的`IRQL` <= `DPC`; 若timeout指针为NULL或timeout值不为0, 运行的IRQL <= APC
+    * `ZwWaitForSingleObject`和`KeWaitForSingleObject`: 
+        * `ZwWaitForSingleObject`: 
+            * 是系统服务
+            * 对句柄进行操作
+            * 只能在passive级别调用. 
+        * `KeWaitForSingleObject`: 
+            * 是内核调度原语
+            * 直接对内核对象进行操作
+            * 运行的`IRQL` <= `DPC`; 若timeout指针为NULL或timeout值不为0, 则运行的IRQL <= APC, 且须运行在一个非随机的线程上下文中. 
         ```cpp
         NTSTATUS
         KeWaitForSingleObject (
@@ -1650,6 +1735,17 @@
             KPROCESSOR_MODE WaitMode, // KernelMode或UserMode. 低层和中间层驱动设为KernelMode. 若给定对象是mutex, 则也是设为KernelMode
             BOOLEAN Alertable,
             PLARGE_INTEGER Timeout // 以100纳秒为单位, 负数表示相对于当前时间, 正数则相对于1601/01/01,  0则不等待, 若提供了NULL指针, 则无限等待. 
+        );
+
+        // 例
+        LARGE_INTEGER timeout;
+        timeout.QuadPart = (10 * 1000 * 1000) * -10; // 超时设为10秒
+        status = KeWaitForSingleObject(
+            &ioEvent,
+            Executive,
+            KernelMode,
+            FALSE,
+            &timeout
         );
         ```
 * 驱动
