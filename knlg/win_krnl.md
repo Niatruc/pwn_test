@@ -702,9 +702,9 @@
 
     ```cpp
         UNICODE_STRING uStr = {0};
-        uStr.Buffer = ExAllocatePoolWithTag(PagedPool, wcslen(L"Nice to meet u")+sizeof(WCHAR), 'POCU');
+        uStr.Buffer = ExAllocatePoolWithTag(PagedPool, wcslen(L"Nice to meet u")*2+sizeof(WCHAR), 'POCU');
         if (uStr.Buffer == NULL) return;
-        RtlZeroMemory(uStr.Buffer, wcslen(L"Nice to meet u")+sizeof(WCHAR));
+        RtlZeroMemory(uStr.Buffer, wcslen(L"Nice to meet u")*2+sizeof(WCHAR));
         RtlInitUnicodeString(&uStr, L"Nice to meet u"); // 会直接将L"Nice to meet u"的地址赋给uStr.Buffer, 而该地址在静态常量区
         DbgPrint("%wZ\n", &uStr);
         ExFreePool(uStr.Buffer); // 导致蓝屏
@@ -807,12 +807,13 @@
 
     // 常用API
     RtlInitUnicodeString(&uStr1, str1); // 会根据字符串str1, 设置uStr1的Length属性为其长度, MaximumLength属性为其长度加2
-    RtlCopyUnicodeString(&uStr1, &uStr2);
+    RtlCopyUnicodeString(&uDst, &uSrc); // 拷贝字符串. 拷贝的字节数为uSrc的Length和uDst的MaximumLength间的较小者. 不会改变uDst的`MaximumLength`和`Buffer`
+    RtlCreateUnicodeString(&uDst, &pwSrc); // 为uDst从分页内存中分配缓存, 并将pwSrc字符串(注意类型为PCWSTR)拷贝过去. 后续需调用`RtlFreeUnicodeString`释放. 
     RtlAppendUnicodeToString(&uStr1, str2);
     RtlAppendUnicodeStringToString(&uStr1, &uStr2);
     RtlCompareUnicodeString(&uStr1, &uStr2, TRUE/FALSE); // 三参表示是否忽略大小写
-    RtlAnsiStringToUnicodeString(&uStr1, &aStr1, TRUE/FALSE); // 三参TRUE则由系统分配内存.有溢出风险.
-    RtlFreeUnicodeString(&uStr1); // 三参TRUE则由系统分配内存
+    RtlAnsiStringToUnicodeString(&uStr1, &aStr1, TRUE/FALSE); // 将ANSI字符串aStr1转为unicode字符串, 存到uStr1. 三参TRUE则由系统为uStr1分配新的内存. 有溢出风险.
+    RtlFreeUnicodeString(&uStr1); // 释放uStr1的Buffer
 
     // 安全函数, 能检测溢出
     #include <ntstrsafe.h>
@@ -835,6 +836,7 @@
     * 使用了`wcscmp, wccscpy`等函数操作
 
 # 文件
+* Windows支持的四个主要文件系统: NTFS, exFAT, UDF 和 FAT32 
 * 文件的表示
     * 文件
         * 应用层: `"c:\\doc\\a.txt"`
@@ -2187,12 +2189,17 @@
                 * `IoRegisterFsRegistrationChange( DriverObject, SfFsNotification );` 文件系统设备绑定
                 * `DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = SfFsControl;` 卷设备绑定. `IRP_MJ_FILE_SYSTEM_CONTROL`对应mount irp请求
     * `Minifilter` 
+        * 参考: 
+            * [驱动开发：文件微过滤驱动入门](https://www.lyshark.com/post/6f58192d.html)
         * 特性
             * 可卸载(不用重启电脑)
             * 不怕patch guard
         * 安装和启动
-            * inf文件
-            * `net start <服务名>`
+            * inf文件: 右键, 安装
+                * 参考: [为文件系统驱动程序创建 INF 文件](https://learn.microsoft.com/zh-cn/windows-hardware/drivers/ifs/creating-an-inf-file-for-a-file-system-driver)
+                * 安装后可看到注册表项`\HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Services\<服务名>`
+            * 启动: `net start <服务名>`
+            * 停止: `net stop <服务名>`
         * altitude标识符(高度值)(20000~429999)
             * 定义一个minifilter驱动加载时在I/O栈中相对其它minifilter驱动的位置
             * 值越小, 栈中位置越低
@@ -2200,6 +2207,9 @@
             * 加解密: 140000~149999, 在文件i/o期间加解密数据的过滤驱动
         * minifilter架构
         ```cpp
+        CONST FLT_OPERATION_REGISTRATION MiniMonitorCallbacks[] = {
+            { IRP_MJ_CREATE, 0, PreCreate, PostCreate },
+        };
         const FLT_REGISTRATION MiniMonitorRegistration = {
             sizeof( FLT_REGISTRATION ),         //  Size
             FLT_REGISTRATION_VERSION,           //  Version
@@ -2215,11 +2225,64 @@
             NULL,                               //  GenerateDestinationFileName
             NULL                                //  NormalizeNameComponent
         };
+
+        PFLT_FILTER gFilterHandle;
+
+        NTSTATUS DriverEntry (
+            _In_ PDRIVER_OBJECT DriverObject,
+            _In_ PUNICODE_STRING RegistryPath
+        ) {
+            NTSTATUS status;
+            status = FltRegisterFilter(DriverObject,
+                    &MiniMonitorRegistration,
+                    &gFilterHandle); // gFilterHandle为获取到的filter指针(此结构体细节未公开)
+            
+            if (NT_SUCCESS(status)) {
+                status = FltStartFiltering(gFilterHandle); // 开始过滤
+                if (!NT_SUCCESS(status)) {
+                    FltUnregisterFilter(gFilterHandle); // 驱动结束时也要调用此函数以注销过滤器
+                }
+            }
+        }
+
+        FLT_PREOP_CALLBACK_STATUS MonFilePreOperation (
+            _Inout_ PFLT_CALLBACK_DATA pData,
+            _In_ PCFLT_RELATED_OBJECTS pFltObjects,
+            _Flt_CompletionContext_Outptr_ PVOID *pCompletionContext
+        ) {
+            ULONG nProcessId = FltGetRequestorProcessId(pData); // 获取进程id
+
+            status = FltGetFileNameInformation(pData, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &lpNameInfo);
+            if (NT_SUCCESS(status)) {
+                // 解析文件名 (这一步通常是必须的, 否则 Name 字段可能为空或不完整)
+                status = FltParseFileNameInformation(lpNameInfo);
+
+                if (NT_SUCCESS(status)) {
+                    DbgPrint("CreateFile: name: %wZ", &lpNameInfo->Name);
+                }
+
+                // 手动释放文件名信息结构
+                FltReleaseFileNameInformation(lpNameInfo);
+
+            }
+
+
+            UCHAR MajorFunction = Data->Iopb->MajorFunction; // 如IRP_MJ_CREATE
+        }
+
+        FLT_POSTOP_CALLBACK_STATUS FLTAPI MonDrvPostCreate(
+            __inout PFLT_CALLBACK_DATA pData,
+            __in PCFLT_RELATED_OBJECTS pFltObjects,
+            __in_opt PVOID pCompletionContext,
+            __in FLT_POST_OPERATION_FLAGS Flags
+        ) {
+            return FLT_POSTOP_FINISHED_PROCESSING;
+        }
         ```
         * 返回状态
             * 在PreXxx函数中的返回值:
                 * `FLT_PREOP_SUCCESS_WITH_CALLBACK`: 后续要调用PostXxx函数 
-                * `FLT_PREOP_SUCCESS_NO_CALLBACK`: 
+                * `FLT_PREOP_SUCCESS_NO_CALLBACK`: 后续不再调用PostXxx函数
                 * `FLT_PREOP_COMPLETE`: 完成后不下发
                 * `FLT_PREOP_PENDING`: 挂起
                 * `FLT_PREOP_DISALLOW_FASTIO`: 禁用fastio
@@ -2264,6 +2327,12 @@
                 1
             );
             ```
+        * `fltmc`: 用于实时查看和控制系统中加载的MiniFilter状态
+            * `fltmc`: 列出所有已注册的MiniFilter及其Altitude
+            * `fltmc instances -f <FilterName>`: 显示指定过滤器在各卷上的实例
+            * `fltmc unload <FilterName>`: 卸载指定过滤器(需无活动I/O)
+            `fltmc attach <FilterName> <Volume>`: 手动附加到某个卷(如: C:\)
+            * `fltmc detach <FilterName> <Volume>`: 解除卷绑定
         * 沙盒
             * `Sandboxie`
             * 目录
@@ -2815,7 +2884,7 @@
 
 * windbg不能在源文件设置断点
 
-    > 先`lm`看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用`.reloa`d载入符号文件. (在驱动已载入(即已存在于image list)后, 可 `.reload Xxx.sys` 来载入驱动的符号(前提是符号路径已经正确设置)). 可以运行 `!sym noisy` 打印详细信息, 看看reload时寻找的路径是否正确. <br><br>
+    > 先`lm`看看对应的模块的pdb载入了没有(要确保文件已在虚拟机中打开运行, 比如驱动程序, 要已经在虚拟机中安装和运行). 要确保已经用`.reload`载入符号文件. (在驱动已载入(即已存在于image list)后, 可 `.reload Xxx.sys` 来载入驱动的符号(前提是符号路径已经正确设置)). 可以运行 `!sym noisy` 打印详细信息, 看看reload时寻找的路径是否正确. <br><br>
     > 对于用户层文件, 要先把程序跑起来, 然后中断, 在windbg通过 `.process /p` 进入进程上下文, 再执行 `.reload /f /user` 来把用户层程序的pdb加载进来.
 
 * windbg内核模式下, 能在用户层设断点, 但进去不
