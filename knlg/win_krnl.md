@@ -809,6 +809,7 @@
     RtlInitUnicodeString(&uStr1, str1); // 会根据字符串str1, 设置uStr1的Length属性为其长度, MaximumLength属性为其长度加2
     RtlCopyUnicodeString(&uDst, &uSrc); // 拷贝字符串. 拷贝的字节数为uSrc的Length和uDst的MaximumLength间的较小者. 不会改变uDst的`MaximumLength`和`Buffer`
     RtlCreateUnicodeString(&uDst, &pwSrc); // 为uDst从分页内存中分配缓存, 并将pwSrc字符串(注意类型为PCWSTR)拷贝过去. 后续需调用`RtlFreeUnicodeString`释放. 
+    RtlInitEmptyUnicodeString(&uStr1, buf, bufSize); // 如果只有缓冲区而没有初始字符串, 可用此法初始化. Length会被设为0, MaximumLength会被设为bufSize值. 
     RtlAppendUnicodeToString(&uStr1, str2);
     RtlAppendUnicodeStringToString(&uStr1, &uStr2);
     RtlCompareUnicodeString(&uStr1, &uStr2, TRUE/FALSE); // 三参表示是否忽略大小写
@@ -1294,9 +1295,12 @@
                     * 互斥: `ERESOURCE`/`FAST_MUTEX`
                     * 同步: `KEVENT`/`KSEMAPHORE`
                 * R3和R0同步通信: `KEVENT`
-                * 整数增减: `InterlockedExchanged`, `Interlockedincrement(&i)`可对整数i进行原子性加
+                * 整数增减: 
+                    * `Interlockedincrement(&i)`: 对整数i进行原子性加
+                    * `InterlockedDecrement(&i)`: 对整数i进行原子性减
+                * `InterlockedExchanged(LONG volatile *Target, LONG Value)`: 原子性操作, 为`Target`设置`Value`值. 无需自旋锁, 可用于分页内存. 
                 
-            * `critical_section`(临界区)(2:50)
+            * `critical_section`(临界区)
             ```cpp
             typedef struct _RTL_CRITICAL_SECTION {
                 PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
@@ -1383,11 +1387,32 @@
         * `TlsSetValue(dwIndex, lpvData)`: 设置变量`lpvData`
         * `lpvData = TlsGetValue(dwIndex)`: 获取变量`lpvData`
 
-* 系统工作者线程`workitem`(system worker threads)
-    * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 驱动将工作项入队, 系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池, 其中每个线程一次执行一个工作项. 
+* `workitem`和系统工作者线程
+    * 参考: [System Worker Threads](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/system-worker-threads)
+    * 要点
+        * 若驱动有需要延迟执行的程序(delayed processing), 则可以使用工作项(work item, 其中有一个指向回调例程的指针). 
+        * workitem运行于系统线程上下文. 
+        * 驱动将工作项入队, 系统工作者线程则会从队列中取出工作项并执行. 系统维护了一个存放系统工作者线程的池, 其中**每个线程一次执行一个工作项**. 
+        * 因为系统线程是有限资源, 所以workitem应仅用于短时操作. 若需要长时间操作, 则应调用`PsCreateSystemThread`创建自己的系统线程. 
+        * workitem运行于passive级, 因此可在其中执行阻塞操作. 
+        * 相关函数都可以在DPC级别下执行. 
     * workitem写法
         ```cpp
+        void MyFunc(PDEVICE_OBJECT pDevObj, PVOID pContext) {
+            ...
+            IoFreeWorkItem(pData->pWorkItem); // 在本回调函数的最后需调用此函数释放workitem
+            ExFreePoolWithTag(pContext, 'XTNC');
+        }
 
+        PIO_WORKITEM pWorkItem = IoAllocateWorkItem(pDevObj); // DeviceObject pDevObj;
+        if (pWorkItem) {
+            IoQueueWorkItem(
+                pWorkItem,
+                MyFunc, // 例程函数
+                DelayedWorkQueue, // 驱动程序用这个属性
+                pContext // 作为参数传给例程(需要手动分配其内存(非分页))
+            );
+        }
         ```
 
 * 线程相关API
@@ -1411,7 +1436,7 @@
         * `PLIST_ENTRY`: 头结点
         * `InitializeHeadList`: 初始化链表
         * `InsertHeadList(listHead, entry)`: 结点头插入(操作的是`PLIST_ENTRY`型变量), 将`entry`插入到`listHead`前面. 
-        * `InsertTailList`: 结点尾插入
+        * `InsertTailList(listHead, entry)`: 结点尾插入
         * `RemoveHeadList(PLIST_ENTRY listHead)`: 移除`listHead->Flink`, 并将其返回. 
         * `RemoveEntryList(PLIST_ENTRY listEntry)`: 移除`listEntry`, 返回True则表示删除entry后列表为空. 
         * `RemoveTailList(PLIST_ENTRY listTail)`: 移除`listTail->Blink`, 并将其返回. 
@@ -1437,12 +1462,29 @@
     * `ExInitializeNPagedLookasideList`: 
         ```cpp
         void ExInitializeNPagedLookasideList(
-            IN PNPAGED_LOOKASIDE_LIST Lookaside,
-            IN PALLOCATE_FUNCTION Allocate,
+            OUT PNPAGED_LOOKASIDE_LIST Lookaside, // 指向 NPAGED_LOOKASIDE_LIST结构体的指针
+
+            // 不为NULL, 则是一个回调函数, 用于处理在请求分配新节点时列表为空的状况
+            // 为NULL, 则ExAllocateFromNPagedLookasideList时, 会在列表为空时自动分配新的entry
+            IN PALLOCATE_FUNCTION Allocate,  
+
+            // 不为NULL, 则是一个回调函数, 用于处理在请求分配新节点时列表为空的状况
+            // 为NULL, 则ExFreeToNPagedLookasideList时, 若列表已满, 则自动将entry放回NonPaged内存中. 
             IN PFREE_FUNCTION Free,
+
+            // POOL_RAISE_IF_ALLOCATION_FAILURE: 分配失败时抛出异常
+            // POOL_NX_ALLOCATION: 分配不可执行的内存
+            // 在Win8以前的系统中应设为0. 
             IN ULONG Flags,
+
+            // 每次分配的entry的大小
+            // 不能小于LOOKASIDE_MINIMUM_BLOCK_SIZE
             IN SIZE_T Size,
+
+            // 同ExAllocatePoolWithTag的Tag参数. 
             IN ULONG Tag,
+
+            // 保留, 设为0
             IN USHORT Depth
         );
         ```
@@ -2248,13 +2290,13 @@
         FLT_PREOP_CALLBACK_STATUS MonFilePreOperation (
             _Inout_ PFLT_CALLBACK_DATA pData,
             _In_ PCFLT_RELATED_OBJECTS pFltObjects,
-            _Flt_CompletionContext_Outptr_ PVOID *pCompletionContext
+            _Flt_CompletionContext_Outptr_ PVOID *pCompletionContext // 当本函数的返回值为 FLT_PREOP_SUCCESS_WITH_CALLBACK或FLT_PREOP_SYNCHRONIZE时, 赋予该参数的值可被PostOperation回调函数使用. 
         ) {
             ULONG nProcessId = FltGetRequestorProcessId(pData); // 获取进程id
 
             status = FltGetFileNameInformation(pData, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &lpNameInfo);
             if (NT_SUCCESS(status)) {
-                // 解析文件名 (这一步通常是必须的, 否则 Name 字段可能为空或不完整)
+                // 解析文件名
                 status = FltParseFileNameInformation(lpNameInfo);
 
                 if (NT_SUCCESS(status)) {
@@ -2295,11 +2337,11 @@
             * `FLT_IS_FASTIO_OPERATION`: 
             * `FLT_IS_FS_FILTER_OPERATION`: 
         * API
-            * FltXxx: 如FltCreateFile
+            * FltXxx: 如`FltCreateFile`
             * `FltGetFileNameInformation`: 获取文件或目录的名称信息
-            * `FltParseFileNameInformation`: 引用计数加一
+            * `FltParseFileNameInformation(FileNameInformation)`: 解析`FileNameInformation`的`Name`成员的值, 将结果填入`Volume`, `Share`, `Extension`, `Stream`, `FinalComponent`, `ParentDir`, `NamesParsed`.  
             * `FltReleaseFileNameInformation`: 引用计数减一
-            * ``: 
+            * `FltAttachVolume`: 创建一个minifilter驱动实例, 并将其附加到指定卷. 
         * 回调函数的IRQL
             * pre操作的回调函数在passive或apc级. (通常为前者)
             * 若pre操作的回调函数返回`FLT_PREOP_SYNCHRNIZE`, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
@@ -2313,25 +2355,58 @@
                 * `Instance Context`(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
                 * `Volume Context`(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用`Instance Context` 代替 `Volume Context`
                 * (文件上下文): 
+        * 调试: 
+            * `!fltkd.filters`: 列出所有过滤器
+            * `!fltkd.instance <instance地址>`
         * 通信
-            * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
-            ```cpp
-            FltCreateCommunicationPort( 
-                gp_Filter,
-                &g_pServerPort,
-                &oa,
-                NULL,
-                HandleConnectFromClient,
-                HandleDisconnectFromClient,
-                HandleMessageFromClient, // 处理从R3来的消息
-                1
-            );
-            ```
+            * R0
+                ```cpp
+                PSECURITY_DESCRIPTOR sd;
+                OBJECT_ATTRIBUTES oa;
+                UNICODE_STRING uniString;
+
+                status  = FltBuildDefaultSecurityDescriptor( &sd,FLT_PORT_ALL_ACCESS ); // 新建一个安全描述符
+                RtlInitUnicodeString( &uniString, L"\\MiniSpyPort" );
+                InitializeObjectAttributes(
+                    &oa,
+                    &uniString,
+                    OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE,
+                    NULL,
+                    sd );
+
+                FltCreateCommunicationPort( 
+                    gp_Filter, // minifilter实例句柄
+                    &g_pServerPort, // 接收PFLT_PORT指针
+                    &oa,
+                    NULL,
+                    HandleConnectFromClient, // 当应用层连到服务端口时(即调用FilterConnectCommunicationPort时)的回调函数
+                    HandleDisconnectFromClient, // 连接断开时的回调函数(在这里调用FltCloseClientPort)
+                    HandleMessageFromClient, // 处理从R3来的消息
+                    1 // 最大连接数
+                );
+                ```
+            * R3
+                * `FilterSendMessage`, `FilterGetMessage`, `FilterReplyMessage`
+                ```cpp
+                HANDLE port = INVALID_HANDLE_VALUE;
+                HRESULT hResult = S_OK;
+                
+                // 打开通信端口
+                hResult = FilterConnectCommunicationPort( 
+                    L"\\MiniSpyPort",
+                    0, // 连接选项. 若为FLT_PORT_FLAG_SYNC_HANDLE则表示使用同步I/O
+                    NULL,
+                    0,
+                    NULL,
+                    &port 
+                );
+                ```
+        * ECP(xtra Create Parameters): 用作文件创建时的额外参数. 
         * `fltmc`: 用于实时查看和控制系统中加载的MiniFilter状态
             * `fltmc`: 列出所有已注册的MiniFilter及其Altitude
             * `fltmc instances -f <FilterName>`: 显示指定过滤器在各卷上的实例
             * `fltmc unload <FilterName>`: 卸载指定过滤器(需无活动I/O)
-            `fltmc attach <FilterName> <Volume>`: 手动附加到某个卷(如: C:\)
+            `fltmc attach <FilterName> <Volume>`: 手动附加到某个卷(如: `C:`)
             * `fltmc detach <FilterName> <Volume>`: 解除卷绑定
         * 沙盒
             * `Sandboxie`
@@ -2342,6 +2417,23 @@
                 * 文件删除标记: `\device\harddiskvolume1\sandbox\harddiskvolume2\doc\hi.txt.del`
             * 判断自己是否被沙盒
                 * 用长名, 让沙盒重定向后的路径超过`MAX_PATH`, 便会创建失败
+        * 应用层函数
+        ```cpp
+        // 将minifilter实例附加到指定卷
+        HRESULT FilterAttach(
+            [in]            LPCWSTR lpFilterName, // minifilter驱动的名称
+
+            // 卷名
+            // "D:\"
+            // 挂载点路径: "C:\mnt\edrive\"
+            // 卷的标识符(卷的GUID名字): "\??\Volume{7603f260-142a-11d4-ac67-806d6172696f}\"
+            [in]            LPCWSTR lpVolumeName,
+
+            [in, optional]  LPCWSTR lpInstanceName, // 可为NULL
+            [in, optional]  DWORD   dwCreatedInstanceNameLength, // 可为0
+            [out, optional] LPWSTR  lpCreatedInstanceName // 接收实例名
+        );
+        ```
     * `Filespy`
 
 # 防火墙

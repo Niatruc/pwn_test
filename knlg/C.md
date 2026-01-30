@@ -1048,15 +1048,21 @@
 * 代码
 
     ```cpp
+    #include <functional>
+    
+    void f(std::function<int(char)> do_func); // lambda表达式作为参数
+
+    f([](char c) {
+        return 0;
+    })
+    
     int a = 0;
-    auto f = [&] (string s) {
+    auto f2 = [&] (string s) {
         cout << "Hello " << s << '\n';
         a++;
     };
-    f();
+    f2();
 
-    // lambda表达式作为参数
-    void f(std::function<int<void>>& do_func);
 
     ```
 * 注
