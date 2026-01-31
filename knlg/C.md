@@ -820,13 +820,19 @@
 ## 异常处理
 
 ```cpp
+    #include <exception>
     try {
         // 保护代码
         ...
 
         throw "Division by zero condition!"; // 抛出异常
+    } catch ( const char* msg ) {
+        // catch 块
+        std::cout << msg << std::endl;
     } catch ( ExceptionName e1 ) {
         // catch 块
+    } catch(std::exception& e) {
+    //其他的错误
     }
 
     struct MyException : public exception {

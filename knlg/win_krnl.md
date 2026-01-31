@@ -480,6 +480,8 @@
     * `lm`: 列出加载的模块
         * `lm m sth*`: 按名称列出加载的模块
         * 参数v: verbose模式, 列出模块更多信息
+    * `.sympath`: 设置符号文件路径
+        * `.sympath srv*C:\MySymbols*https://msdl.microsoft.com/download/symbols`
     * `.reload`: 加载符号表.  
         * `.reload <可执行文件名>`: 直接加载可执行文件对应的符号文件. 注意要加'.exe'等文件后缀. 
         * `/user`: 只加载用户层的符号.

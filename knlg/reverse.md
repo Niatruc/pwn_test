@@ -648,7 +648,7 @@
 
 ## pandare
 * 参考: 
-    * [Package pandare](https://docs.panda.re/)
+    * [Package pandare](https://docs.panda.re/): PyPanda参考文档. 
     * [Time-Travel Debugging in PANDA](https://raywang.tech/2018/11/14/Time-Travel-Debugging-in-PANDA/)
 * 基本信息
     * 使用流程
@@ -719,12 +719,25 @@
         * 安装`libosi`: `https://github.com/panda-re/libosi/releases/download/v0.1.7/libosi_22.04.deb`
         * 问题: 
             * 无法解析`index.crates.io`域名(rust包的来源)
-    * 联网编译安装(运行`install_ubuntu.sh`脚本)
+    * 联网编译安装
+        * 运行`install_ubuntu.sh`脚本: 生成的二进制文件在项目的`build`目录下, 比如`./build/aarch64-softmmu/panda-system-aarch64`
+        * 切换到`build`目录, 运行`make install`. 将安装到`build/install`. 之后可手动将该目录下各文件夹拷贝到`/usr/local`
         * 问题: 
             * `can't find crate for inline_python_macros`
                 * 改python 3.8后无此问题. 
+            * `make install`时报错: `Makefile:687: *** new RPATH too long - cannot adjust .so files for installation. Stop.`
+                * 参考: https://github.com/panda-re/panda/issues/922
+                * 修改`Makefile.target`文件的232行: `$(PANDA_PROG): LDFLAGS+=-shared -Wl,-rpath '-Wl,$$ORIGIN:$$ORIGIN/../lib'`
+            * 使用pypanda时报错: `Couldn't find libpanda-x86_64.so`
+                * 安装的时候没有将相关lib库拷贝到系统目录下. 
+                * 可以先切换到`panda/python/core`目录再运行python. (在`utils.py`的`_find_build_dir`函数中会寻找panda的二进制文件)
     * 可直接安装deb包(在release页面下载)
         * 安装后, 会在`/usr/local/bin/`目录下有`libpanda-<arch>.so`动态库, 而`panda-system-<arch>`使用了这些动态库. 
+* 用法
+    * 示例: 
+        ```sh
+            panda-system-i386 -m 2G -hda guest.img -monitor stdio
+        ```
 * 插件
     * 用法
         * 命令行基本用法: `-panda 'stringsearch;callstack_instr;llvm_trace:base=/tmp,foo=6'`
@@ -836,7 +849,8 @@
         * `process options` -> `connection string`, 填`com:port=\\.\pipe\my_pipe,baud=115200,pipe`
         * `debugger options` -> `set specific options`, 选中`kernel mode debugging`
     * [Using IDA's GDB debugger with QEMU emulator](https://hex-rays.com/hubfs/freefile/debugging_gdb_qemu.pdf)
-
+    * Tracing
+        * 用法: 打个断点; 启动调试; 命中断点; 
 ### IDAPython
 * 从7.4开始使用的是python3.
 * 参考资料
@@ -1564,6 +1578,7 @@
         frida lsass.exe
         
         frida -p <进程id>
+        frida -f <程序路径> # 启动程序 
 
         # 加载脚本
         frida lsass.exe -l <xx.js>
@@ -1581,11 +1596,12 @@
         const k32 = Process.getModuleByName('kernel32.dll');
         const RtlCompareMemory = k32.getExportByName('RtlCompareMemory')
 
-        // 方式二
-        const RtlCompareMemory = Module.getExportByName('kernel32.dll', 'RtlCompareMemory'); 
+        // 方式二(新版已用不了)
+        // const RtlCompareMemory = Module.getExportByName('kernel32.dll', 'RtlCompareMemory'); 
 
         Interceptor.attach(RtlCompareMemory, {
-            onEnter: function (args) { // `args`是参数列表
+            onEnter: function (args) { // `args`是参数列表(各寄存器以及栈上的数值, 与cpu架构有关)
+                // 注意args不能直接解构(形如`const [a, b] = args;`)
             },
             onLeave: function (retval) {
                 retval.replace(16); // 表示将返回值修改为16
@@ -1620,6 +1636,14 @@
     * `UInt64`
     * `NativePointer`: 指针
         * 新建指针: `new NativePointer(s)`或`ptr(s)`, 其中`s`是字符串(可以是hex格式)
+* `Thread`
+    * 调用栈
+        ```js
+            // 在回调函数中: 
+            var backtrace = Thread.backtrace(this.context, Backtracer.FUZZY); // 二参默认是Backtracer.ACCURATE. 如果是FUZZY, 则frida根据栈上的数据来推断调用函数. 
+            var resolved = backtrace.map(DebugSymbol.fromAddress).join('\n\t');
+                console.log("Call Stack:\n\t" + resolved);
+        ```
 ## api monitor
 
 ## dnspy
