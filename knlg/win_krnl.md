@@ -2261,7 +2261,7 @@
             MiniMonitorContext,					//  ContextRegistration, 上下文
             MiniMonitorCallbacks,               //  Operation callbacks, 结构体数组, 存回调函数
             MiniMonUnload,						//  FilterUnload, 卸载时调用
-            MiniMonInstanceSetup,				//  InstanceSetup, 实例绑定到卷设备对象上时使用, 可在其中将卷设备的一些属性存到一个缓存(上下文)中
+            MiniMonInstanceSetup,				//  InstanceSetup, 实例绑定到卷设备对象上时使用, 可在其中将卷设备的一些属性存到一个缓存(上下文)中 (也就是`fltmc attach <驱动> C:`时会执行该函数)
             NULL,								//  InstanceQueryTeardown
             MiniMonInstanceTeardownStart,       //  InstanceTeardownStart
             NULL,                               //  InstanceTeardownComplete

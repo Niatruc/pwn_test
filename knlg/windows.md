@@ -848,6 +848,9 @@
         * `/RTCu`: 未初始化变量检查. 会调用`_RTC_UninitUse`函数. 
         * `/RTCs`: 堆栈帧检查. 会调用`_RTC_CheckStackVars`函数. 
         * `/RTCsu`或`/RTC1`: 以上两者都有. 
+* 问题
+    * 函数声明跳转错乱. 
+        * VS2019函数声明跳转(F12)失效或定位不准，通常因IntelliSense数据库错乱引起。核心解决方法是重构数据库：依次点击`工具`->`选项`->`C++`->`高级`->`浏览/导航`，将`重新创建数据库`设置为`True`，并重启VS2019
 ## VSCode
 * 配置vscode以开发windows程序
     * 参考: https://code.visualstudio.com/docs/cpp/config-msvc
