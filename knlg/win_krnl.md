@@ -1436,7 +1436,7 @@
     * 使用方法
         * `LIST_ENTRY`结构体: 其中有`Flink`(指向下一个节点)`Blink`(指向上一个节点)
         * `PLIST_ENTRY`: 头结点
-        * `InitializeHeadList`: 初始化链表
+        * `InitializeListHead`: 初始化链表
         * `InsertHeadList(listHead, entry)`: 结点头插入(操作的是`PLIST_ENTRY`型变量), 将`entry`插入到`listHead`前面. 
         * `InsertTailList(listHead, entry)`: 结点尾插入
         * `RemoveHeadList(PLIST_ENTRY listHead)`: 移除`listHead->Flink`, 并将其返回. 
@@ -1444,6 +1444,7 @@
         * `RemoveTailList(PLIST_ENTRY listTail)`: 移除`listTail->Blink`, 并将其返回. 
         * `IsListEmpty`: 判空
         * 可用确保线程安全的函数: 在remove, insert等函数前加前缀`ExInterlocked`, 并添加一个自定义的自旋锁`&sLock`作为三参. 
+            * `ExInterlockedInsertHeadList(listHead, entry, &sLock)`
 
     <img alt="" src="./pic/list_entry.jpg" width="80%" height="80%">
 
