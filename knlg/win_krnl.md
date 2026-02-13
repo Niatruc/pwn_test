@@ -751,7 +751,8 @@
         * 调用`KeEnterCriticalRegion`后没有调用`KeLeaveCriticalRegion`, 会出现此bsod. 
     * `INVALID_PROCESS_DETACH_ATTEMPT`
         * 调用`ZwClose`时出现. 调试发现在并发环境下, 当同一文件被多次打开并写入内容时, 出现此bsod. 去掉了`ZwCreateFile`中的共享写参数后未再出现该bsod. 
-
+    * `SYSTEM_SCAN_AT_RAISED_IRQL_CAUGHT_IMPROPER_DRIVER_UNLOAD`
+        * 驱动卸载时, 未对lookaside调用`ExDeleteNPagedLookasideList`. 
 # 字符串
 * Unicode字符串数据类型(https://blog.csdn.net/aishuirenjia/article/details/88996228). L表示long, P表示指针,C表示constant, T表示指针指向的字符占的字节数取决于Unicode是否定义, W表示wide, STR就是string的意思. 
     * `LPSTR`: 32bit指针 指向一个字符串, 每个字符占1字节. 相当于　`char * `
@@ -830,6 +831,24 @@
         [in]  size_t           cbDest,
         [in]  NTSTRSAFE_PCWSTR pszFormat,
         ...              
+    );
+
+    // 安全版`sprintf`
+    NTSTRSAFEDDI RtlStringCbPrintfA(
+        [out] NTSTRSAFE_PSTR  pszDest,
+        [in]  size_t          cbDest,
+        [in]  NTSTRSAFE_PCSTR pszFormat,
+                ...             
+    );
+
+    NTSTRSAFEDDI RtlStringCbPrintfExA(
+        [out, optional] NTSTRSAFE_PSTR  pszDest,
+        [in]            size_t          cbDest, // 缓冲区大小(字节数)
+        [out, optional] NTSTRSAFE_PSTR  *ppszDestEnd, // 将得到缓冲区剩余未使用空间的起始地址
+        [out, optional] size_t          *pcbRemaining, // 将得到缓冲区剩余字节数
+        [in]            DWORD           dwFlags,
+        [in, optional]  NTSTRSAFE_PCSTR pszFormat,
+                        ...             
     );
     ```
 
@@ -1298,9 +1317,9 @@
                     * 同步: `KEVENT`/`KSEMAPHORE`
                 * R3和R0同步通信: `KEVENT`
                 * 整数增减: 
-                    * `Interlockedincrement(&i)`: 对整数i进行原子性加
-                    * `InterlockedDecrement(&i)`: 对整数i进行原子性减
-                * `InterlockedExchanged(LONG volatile *Target, LONG Value)`: 原子性操作, 为`Target`设置`Value`值. 无需自旋锁, 可用于分页内存. 
+                    * `Interlockedincrement(&i)`: 对整数i进行原子性加(返回结果值)
+                    * `InterlockedDecrement(&i)`: 对整数i进行原子性减(返回结果值)
+                * `InterlockedExchanged(LONG volatile *Target, LONG Value)`: 原子性操作, 为`Target`设置`Value`值. 无需自旋锁, 可用于分页内存. 函数返回`Target`原来的值. 
                 
             * `critical_section`(临界区)
             ```cpp
@@ -1433,6 +1452,7 @@
         ```
 
         * 例子: `CONTAINING_RECORD(p, MY_STRUCT, listNode)`, 即已知某个`MY_STRUCT`类型结构体变量中成员`listNode`的地址为`p`, 通过该宏可计算出该结构体的首地址. 
+    * `FIELD_OFFSET(type, field)`: 返回域在结构体中的偏移量(字节数)
     * 使用方法
         * `LIST_ENTRY`结构体: 其中有`Flink`(指向下一个节点)`Blink`(指向上一个节点)
         * `PLIST_ENTRY`: 头结点
@@ -1458,7 +1478,7 @@
     * `RTL_AVL_TABLE`
     * `RtlInitializeGenericTableAvl`
 
-* `LookAside`结构: 用于在频繁申请相同大小的情形中, 防止内存碎片化的机制
+* `LookAside`结构: 用于在**频繁**申请**相同大小**内存块的情形中, 防止内存碎片化的机制
     * 类别
         * `PAGED_LOOKASIDE_LIST`
         * `NPAGED_LOOKASIDE_LIST`
@@ -1721,6 +1741,8 @@
     * `ObDereferenceObject(pObj)`: 对象的引用计数减一. 
 
 * 事件
+    * 参考文章: 
+        * [驱动读写超时处理](https://www.cnblogs.com/magicdmer/p/10994140.html)
     * `ZwCreateEvent`, `KeInitializeEvent`, `IoCreateNotificationEvent`/`IoCreateSynchronizationEvent`: 
         * `ZwCreateEvent`
             * 需要头文件`ntifs.h`
@@ -1768,11 +1790,11 @@
     * `ZwWaitForSingleObject`和`KeWaitForSingleObject`: 
         * `ZwWaitForSingleObject`: 
             * 是系统服务
-            * 对句柄进行操作
+            * 对句柄进行操作(**即等待的参数是句柄**)
             * 只能在passive级别调用. 
         * `KeWaitForSingleObject`: 
             * 是内核调度原语
-            * 直接对内核对象进行操作
+            * 直接对内核对象进行操作(**即等待的参数是对象指针**)
             * 运行的`IRQL` <= `DPC`; 若timeout指针为NULL或timeout值不为0, 则运行的IRQL <= APC, 且须运行在一个非随机的线程上下文中. 
         ```cpp
         NTSTATUS
@@ -2290,6 +2312,11 @@
             }
         }
 
+        // 不要显式调用此函数. 它会在停止服务时自动被fltmgr服务调用
+        NTSTATUS MiniMonUnload (_In_ FLT_FILTER_UNLOAD_FLAGS Flags) {
+            FltUnregisterFilter(gFilterHandle);
+        }
+
         FLT_PREOP_CALLBACK_STATUS MonFilePreOperation (
             _Inout_ PFLT_CALLBACK_DATA pData,
             _In_ PCFLT_RELATED_OBJECTS pFltObjects,
@@ -2405,6 +2432,7 @@
                 );
                 ```
         * ECP(xtra Create Parameters): 用作文件创建时的额外参数. 
+            * 
         * `fltmc`: 用于实时查看和控制系统中加载的MiniFilter状态
             * `fltmc`: 列出所有已注册的MiniFilter及其Altitude
             * `fltmc instances -f <FilterName>`: 显示指定过滤器在各卷上的实例
