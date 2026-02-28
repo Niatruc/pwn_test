@@ -4,14 +4,18 @@
     ```bat
         bcdedit  /dbgsettings serial baudrate:115200 debugport:1
 
-        <!-- 产生新引导项DebugEntry, 执行后会打印新的guid -->
+        rem 产生新引导项DebugEntry, 执行后会打印新的guid
         bcdedit  /copy {current} /d DebugEntry
 
         bcdedit  /displayorder {current} {<新guid>}
         bcdedit  /debug {<新guid>} ON
 
-        <!-- 如果要用网络调试, 则:  -->
-        bcdedit /dbgsettings net hostip:<调试机的IP> port:50000 key:1.2.3.4
+        rem 如果要用网络调试, 则: 
+        bcdedit /dbgsettings net hostip:<调试机的IP> port:50000
+
+        rem 上面的命令会生成一串key
+        rem 在调试机中, 通过命令行运行windbg: 
+        windbg -k net:target=x.x.x.x,port=50000,key=密钥
     ```
     * 可通过`Windows+R`运行`msconfig`看到引导设置.
     * 若是用串口通信, 则虚拟机需要添加串口, 选com1口, 并添加管道文件路径.
@@ -2340,6 +2344,10 @@
 
 
             UCHAR MajorFunction = Data->Iopb->MajorFunction; // 如IRP_MJ_CREATE
+
+            // 获取读缓冲区的内容及长度(比如可在IRP_MJ_READ的回调中操作)
+            PVOID buffer = Data->Iopb->Parameters.Read.ReadBuffer;
+            ULONG length = (ULONG)Data->Iopb->Parameters.Read.Length;
         }
 
         FLT_POSTOP_CALLBACK_STATUS FLTAPI MonDrvPostCreate(
