@@ -468,9 +468,8 @@
         * `sxi <e>`: 忽略该事件
         * `sx- -c <cmd> <e>`: 将某个命令与事件相关联. 如`sx- -c "k" ld`, 在每一次加载模块的时候打印栈
 * 驱动和设备相关命令
-    * `!drvobj <驱动名称, 如\Driver\AFD>`: 打印驱动对象的详情
-    * `!devobj`: 
-    * ``: 
+    * `!drvobj <驱动名称, 如\Driver\AFD>`: 打印驱动对象的详情. 将列出其下的所有设备对象, 可点击查看相应设备. 
+    * `!devobj <设备名, 如\Device\Serial>`: 
 * 其他命令
     * `.ofilter /! <通配符表达式>`: 在windbg控制台中隐藏不想输出的内容
     * `.expr`: 查看使用的表达式求值语法(MASM还是C++)
@@ -2394,6 +2393,8 @@
                 * `Volume Context`(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用`Instance Context` 代替 `Volume Context`
                 * (文件上下文): 
         * 调试: 
+            * `!fltkd.help`: 查看`!fltkd`的所有可用命令. 
+            * `!fltkd.volumes`: 列出所有卷(同时可看到卷下的过滤器实例)
             * `!fltkd.filters`: 列出所有过滤器
             * `!fltkd.instance <instance地址>`
         * 通信

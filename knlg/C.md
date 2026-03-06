@@ -1075,6 +1075,30 @@
     * 调试发现, 对非对象变量(如int变量), 要以值传递的形式捕获. 
     * 要将lambda转为C语言的函数指针, 则不能捕获表达式外变量. 
 
+## 线程同步和互斥
+* 需要互斥量和条件变量配合使用. (如果只用互斥量, 则会有一个线程永远拿不到锁)
+```cpp
+    #include <mutex>
+    #include <condition_variable>
+
+    std::mutex mtx; // 互斥量
+    std::condition_variable cv; // 条件变量
+    bool ready = false;
+
+    void workerThread() {
+        std::unique_lock<std::mutex> lk(mtx); // unique_lock类似lock_guard, 但可手动加锁或解锁. 
+        cv.wait(lk, []{ return ready; }); // 等待条件变量满足(其它线程notify时)(回调函数是可选的. 如果ready变为true, 回调函数也会返回true, 则wait会返回, 否则继续阻塞)
+        
+    }
+
+    void mainThread() {
+        {
+            std::lock_guard<std::mutex> lk(mtx); // 轻量级锁
+            ready = true; // 准备数据
+        } // 离开作用域时, lock_guard变量的析构函数被调用, 将进行解锁
+        cv.notify_one(); // 通知一个等待的线程(notify可致使wait的回调函数执行)
+    }
+```
 ## 问题
 * 编译时报错: 
     * `multiple definition of ...`, 即多重定义问题. 
