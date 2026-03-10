@@ -1087,7 +1087,7 @@
 
     void workerThread() {
         std::unique_lock<std::mutex> lk(mtx); // unique_lock类似lock_guard, 但可手动加锁或解锁. 
-        cv.wait(lk, []{ return ready; }); // 等待条件变量满足(其它线程notify时)(回调函数是可选的. 如果ready变为true, 回调函数也会返回true, 则wait会返回, 否则继续阻塞)
+        cv.wait(lk, []{ return ready; }); // 等待条件变量满足(其它线程notify时)(回调函数是可选的. 接收通知后, 如果ready为true, 回调函数也会返回true, 则wait会返回, 否则继续阻塞)
         
     }
 

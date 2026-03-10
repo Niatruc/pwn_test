@@ -1715,6 +1715,12 @@
         NowFields.Minute,
         NowFields.Second));
     ```
+    * 睡眠: 
+    ```cpp
+    LARGE_INTEGER delay;
+    delay.QuadPart = -10 * 1000 * 3000; // 3000ms
+    KeDelayExecutionThread(KernelMode, FALSE, &delay);
+    ```
 * object: 
     * `ObOpenObjectByPointer`: 获取所给对象的句柄. (用完后需`ZwClose`)
     * `ObReferenceObject(pObj)`: 对象的引用计数加一. (引用计数为0时, 内核组件可以将对象移出系统)
