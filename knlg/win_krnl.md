@@ -1530,8 +1530,9 @@
 
 ## 进程相关API
 * `PsGetCurrentProcessId`: 获取当前线程所属进程的pid. 在DispatchIoControl函数中实际是获得向驱动发出请求的进程的id.
-* `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的EPROCESS结构的指针.
-* `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取指向进程EPROCESS结构的指针. 
+* `PsGetCurrentProcess`宏: 即`IoGetCurrentProcess`函数, 返回当前进程的`EPROCESS`结构的指针.
+* `PsLookupProcessByProcessId(pid, &pEProcess)`: 根据pid获取指向进程`EPROCESS`结构的指针. 
+* `UCHAR* PsGetProcessImageFileName(PEPROCESS EProcess)`: 获取进程名称(最长15个字符). (使用前需声明此函数)
 * `KeStackAttachProcess(pEProcess, &ApcState)`: 将当前线程附加到目标进程的地址空间. 对应函数`KeUnstackDetachProcess(&ApcState)`. `ApcState`直接初始化为`{0}`, 或者`PKAPC_STATE pApcState = (PKAPC_STATE)ExAllocatePool(NonPagedPool, sizeof(PKAPC_STATE)); ApcState = *pApcState;`. `KeAttachProcess(pEProcess)`是旧方法.
 * `ZwQueryInformationProcess(<进程句柄>, ProcessImageFileName, lpBuffer, nSize, &nSize)`: 得到进程路径(`\device\harddiskvolumn1\Xxx`). 可先将三四参设为NULL调用一次, 得到`nSize`, 并分配`lpBuffer`. `lpBuffer`接收`UNICODE_STRING`结构的进程路径. 注意, 这个函数现在可以通过包含头文件`winternl.h`来调用. 
 * `NtCurrentProcess()`宏: 返回表示当前进程的特殊句柄值
@@ -2391,7 +2392,7 @@
             * 若post操作的回调函数处理fast io, 则其在passive级, 与pre操作处于同一线程上下文.
             * post-create的回调函数是在passive级, 和初始化`IRP_MJ_CREATE`的线程处于同一上下文.
         * Minifilter上下文
-            * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`
+            * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`(上下文的引用计数减一)
             * 类型
                 * `Stream Context`(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
                 * `Stream Handle Context`(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
