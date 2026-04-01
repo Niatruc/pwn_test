@@ -1693,6 +1693,7 @@
 
 
 # 其他API
+* `DbgBreakPoint()`: 断点函数
 * `MmGetSystemRoutineAddress(_In_ PUNICODE_STRING SystemRoutineName)`: **可用于获取未导出的函数.**
     ```cpp
         UNICODE_STRING funcname_NtCancelIoFile = RTL_CONSTANT_STRING(L"NtCancelIoFile");
@@ -2280,6 +2281,7 @@
         * altitude标识符(高度值)(20000~429999)
             * 定义一个minifilter驱动加载时在I/O栈中相对其它minifilter驱动的位置
             * 值越小, 栈中位置越低
+            * Pre-operation 回调根据高度值从高到低依次调用，Post-operation 回调则反向执行
             * 反病毒: 320000~329999, 在文件i/o期间探测并杀毒的过滤驱动
             * 加解密: 140000~149999, 在文件i/o期间加解密数据的过滤驱动
         * minifilter架构
