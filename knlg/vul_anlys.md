@@ -1512,3 +1512,10 @@
 * aflnet
     * 参考
         * [AFLNET架构图解释及运行流程](https://blog.csdn.net/qq_45861878/article/details/133245853)
+
+## ROP工具
+* ROPGadget
+* ropper
+* rp++
+    * 基本信息
+        * 支持PE/ELF/Mach-O文件格式, x86/x64/ARM/ARM64架构
