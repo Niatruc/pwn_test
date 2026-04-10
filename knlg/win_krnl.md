@@ -2356,6 +2356,19 @@
             // 获取读缓冲区的内容及长度(比如可在IRP_MJ_READ的回调中操作)
             PVOID buffer = Data->Iopb->Parameters.Read.ReadBuffer;
             ULONG length = (ULONG)Data->Iopb->Parameters.Read.Length;
+
+            Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+            Data->IoStatus.Information = 0;
+            return FLT_PREOP_COMPLETE;
+
+            // 返回值
+            // FLT_PREOP_SUCCESS_WITH_CALLBACK: 之后会调用post回调. 
+            // FLT_PREOP_SUCCESS_NO_CALLBACK: 之后不会调用post回调. 
+            // FLT_PREOP_PENDING: 
+            // FLT_PREOP_DISALLOW_FASTIO: 之后只调用post回调, 不再下发到其它minifilter驱动及文件系统(须使用`FLT_IS_FASTIO_OPERATION(Data)`判断本次IO是否为FastIO)(不用设置Data->IoStatus.Status, FltMgr会将其设置为STATUS_FLT_DISALLOW_FAST_IO). 
+            // FLT_PREOP_COMPLETE: 本次IO请求不会下发到其它minifilter驱动. (须将Data->IoStatus.Status赋值为此次IO的最终status). 
+            // FLT_PREOP_SYNCHRONIZE: 
+            // FLT_PREOP_DISALLOW_FSFILTER_IO: 
         }
 
         FLT_POSTOP_CALLBACK_STATUS FLTAPI MonDrvPostCreate(
@@ -2397,7 +2410,9 @@
             * 附着在某个对象上的一段内存, 缓存相关数据. `FltAllocateContext`, `FltReleaseContext`(上下文的引用计数减一)
             * 类型
                 * `Stream Context`(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
+                    * 不能在precreate中创建, 此时文件对象（FILE_OBJECT）和文件流（Stream）尚未建立. 
                 * `Stream Handle Context`(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
+                    * 关于流上下文和流句柄上下文的区别参考: https://community.osr.com/t/difference-between-a-stream-context-and-a-stream-handle-context/57292
                 * `Instance Context`(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
                 * `Volume Context`(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用`Instance Context` 代替 `Volume Context`
                 * (文件上下文): 
