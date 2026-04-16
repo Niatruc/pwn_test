@@ -2395,12 +2395,18 @@
             * `FLT_IS_IRP_OPERATION`: 
             * `FLT_IS_FASTIO_OPERATION`: 
             * `FLT_IS_FS_FILTER_OPERATION`: 
+        * 部分元数据
+            * `Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess`: 即DesiredAccess, `FILE_WRITE_DATA`等值. 
+            * `(Data->Iopb->Parameters.Create.Options >> 24) & 0xFF`: 即Disposition, 为`FILE_SUPERSEDE`等值. 
         * API
             * FltXxx: 如`FltCreateFile`
+            * `FltCreateFile`: 打开文件. 
+                * 二参instance表示当前驱动实例. 请求只会传给该instance下层的驱动实例. 如果该参数为NULL, 则请求会被传给顶层驱动实例(即可能造成递归)
             * `FltGetFileNameInformation`: 获取文件或目录的名称信息
             * `FltParseFileNameInformation(FileNameInformation)`: 解析`FileNameInformation`的`Name`成员的值, 将结果填入`Volume`, `Share`, `Extension`, `Stream`, `FinalComponent`, `ParentDir`, `NamesParsed`.  
             * `FltReleaseFileNameInformation`: 引用计数减一
             * `FltAttachVolume`: 创建一个minifilter驱动实例, 并将其附加到指定卷. 
+            * `FltQueryInformationFile`: 获取文件大小等信息
         * 回调函数的IRQL
             * pre操作的回调函数在passive或apc级. (通常为前者)
             * 若pre操作的回调函数返回`FLT_PREOP_SYNCHRNIZE`, 则相应的post操作的回调函数在<=apc级, 与pre操作处于同一线程上下文.
@@ -2411,8 +2417,11 @@
             * 类型
                 * `Stream Context`(流上下文): `FltGetStreamContext`, `FltSetStreamContext`
                     * 不能在precreate中创建, 此时文件对象（FILE_OBJECT）和文件流（Stream）尚未建立. 
+                    * 可以利用回调precreate函数的`CompletionContext`参数. 先分配内存, 将数据存入其中, 并将内存地址赋予该参数. 在postcreate函数中, 从该参数读取数据. 
                 * `Stream Handle Context`(流句柄上下文): File Object的上下文, 一个文件可对应多个FO
                     * 关于流上下文和流句柄上下文的区别参考: https://community.osr.com/t/difference-between-a-stream-context-and-a-stream-handle-context/57292
+                * `File Context`(文件上下文): `FltGetFileContext`, `FltSetFileContext`
+                    * 不能在precreate中创建, 原因同上. 
                 * `Instance Context`(实例上下文): 过滤驱动在文件系统的设备栈上创建的一个过滤器实例. `FltGetInstanceContext`, `FltSetInstanceContext`
                 * `Volume Context`(卷上下文): 一般情况下一个卷对应一个过滤器实例对象, 实际应用中常用`Instance Context` 代替 `Volume Context`
                 * (文件上下文): 
@@ -2421,6 +2430,8 @@
             * `!fltkd.volumes`: 列出所有卷(同时可看到卷下的过滤器实例)
             * `!fltkd.filters`: 列出所有过滤器
             * `!fltkd.instance <instance地址>`
+        * 注意: 
+            * 当disposition为`FILE_SUPERSEDE`, `FILE_OVERWRITE`, `FILE_OVERWRITE_IF`时, 在postcreate回调中获得的文件大小为0, 因此时文件已被截断. 要获取原始文件大小, 需在precreate回调中通过`FltCreateFileEx`打开文件再获取信息(因为precreate中文件的FileObject未完成创建). (在应用层可看到以`w`而非`a`模式打开文件时, 即使没有写数据, 也可看到文件内容已被清空)
         * 通信
             * R0
                 ```cpp
