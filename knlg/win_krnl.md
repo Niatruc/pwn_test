@@ -1539,7 +1539,8 @@
 * `ZwOpenProcess(&hProcess, PROCESS_ALL_ACCESS, &objAttr, &cliendId)`: 根据进程id获取进程句柄. 
     * `objAttr`: 可设为`{0}`. 
     * `clientId`: `CLIENT_ID`结构体变量. 其中`UniqueProcess`设为进程id, `UniqueThread`可设为0. 
-* ``: 
+* `PsSetCreateProcessNotifyEx`: 设置进程启动和退出的监控回调
+    * 注: 需要在项目的 `属性` -> `链接器` -> `命令行` 加上`/INTEGRITYCHECK`选项, 否则该函数会返回`STATUS_ACCESS_DENIED`
 
 # 内存
 * [官方文档](https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/managing-memory-for-drivers)

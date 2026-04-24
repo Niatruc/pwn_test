@@ -524,6 +524,7 @@
     * `sysinfo`: 系统信息, 其中包括系统版本号. (?)
     * `wmic`: Windows Management Instrumentation, 可用于获取系统信息, 安装软件, 启动服务, 管理进程等操作. 
         * `os get name,version,buildnumber,caption`: 获取操作系统的名称, 版本号, 构建号, 标题. 
+        * `os where Primary='true' call reboot`: 重启系统
         * `memorychip get devicelocator,capacity,speed`: 获取内存条的设备定位器、容量、速度等信息。
         * `cpu get name, maxclockspeed, numberofcores, numberoflogicalprocessors`: 获取CPU的型号、最大时钟速度、核心数、逻辑处理器数量等信息
         * `diskdrive get index, model, size, interfacetype`: 获取硬盘的索引号、型号、大小和接口类型等信息
