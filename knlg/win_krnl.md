@@ -1518,7 +1518,8 @@
         2. 将`Lookaside->L.ListEntry`插入到全局的 look aside 表`ExNPagedLookasideListHead`中. 
     * `ExAllocateFromNPagedLookasideList(PNPAGED_LOOKASIDE_LIST Lookaside)`: 分配内存. 其会在`Lookaside`中找一个空闲节点, 如果找不到, 则使用`Lookaside->L.Allocate`指定的分配函数分配一块内存. 
     * `ExFreeToNPagedLookasideList(IN PNPAGED_LOOKASIDE_LIST Lookaside, IN PVOID Entry)`: 释放内存, 放到`Lookaside`
-
+* 一些宏: 
+    * `RTL_NUMBER_OF(buf)`: 相当于`sizeof(buf)/sizeof(buf[0])`, 可用于计算WCHAR数组的字符数. 
 # 进程
 ## 强杀进程
 * `NtTerminateProcess` -> `PsTerminateProcess`(系统未导出) -> `PspTerminateProcess`  ->`PspTerminateThreadByPointer` -> `PspExitThread` 
