@@ -3059,7 +3059,7 @@
 * windbg内核模式下, 能在用户层设断点, 但进去不
 
     > 经过反复尝试, 需严格执行以下每个步骤: <br>
-    > 1. `!prcess <pid> 0`, (进程id可用process hacker查看, 比较方便. 记得转成 16进制) 列出要调试的进程的信息, 得到其eprocess的地址. <br>
+    > 1. `!process <pid> 0`, (进程id可用process hacker查看, 比较方便. 记得转成 16进制) 列出要调试的进程的信息, 得到其eprocess的地址. <br>
     > 2. `.process /p /i <eprocess地址>`, 切换进程上下文. 记得执行`g`命令完成切换. <br>
     > 3. 设置好应用层程序的符号路径, 然后 `.reload /f /user` 或者 `.reload <要调试的模块名称, 如mytest.dll>` <br>
     > 4. 用`lm`命令看应用层程序符号加载了没有 <br>
