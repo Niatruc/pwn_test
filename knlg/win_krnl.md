@@ -2244,7 +2244,7 @@
             IoSkipCurrentIrpStackLocation( Irp ); // 这个宏相当于 (Irp)->CurrentLocation++;
             IoCallDriver( ((PSFILTER_DEVICE_EXTENSION) DeviceObject->DeviceExtension)->NLExtHeader.AttachedToDeviceObject, Irp ); // 会将(Irp)->CurrentLocation减1
             ```
-        * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 完成例程
+        * 另一种下发方式: 如果需要知道irp的结果, 则`IoCopyCurrentIrpStackLocationToNext(pIrp)` + 设置完成例程(`IoSetCompletionRoutine`)
         * 注意
             * 过滤设备对象的通信方式要和目标设备一致
             * 用`ClearFlag`清除初始化标志
